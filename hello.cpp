@@ -1,11 +1,10 @@
-// License: Apache 2.0. See LICENSE file in root directory.
-// Copyright(c) 2019 Intel Corporation. All Rights Reserved.
+#include "NvVideoEncoder.h"
 
-#include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
-#include <iostream>             // for cout
+#include <librealsense2/rs.hpp> 
+#include <iostream>             
+#include <linux/videodev2.h>
 
-// Hello RealSense example demonstrates the basics of connecting to a RealSense device
-// and taking advantage of depth data
+// Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
 int main(int argc, char * argv[]) try
 {
     rs2::context ctx;
@@ -23,6 +22,17 @@ int main(int argc, char * argv[]) try
 
     std::cout << "Device Name: " << device.get_info(RS2_CAMERA_INFO_NAME ) << std::endl;
 
+    // Create a NVidia encoder
+    NvVideoEncoder *enc = NvVideoEncoder::createVideoEncoder("enc0");
+
+    if (!enc)
+    {
+        std::cout << "Failed to create NvVideoEncoder\n";
+        return EXIT_FAILURE;
+    }
+
+
+    // Enable the Realsense and start the pipeline
     rs2::config cfg;
     cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_BGR8, 30);
 
@@ -31,8 +41,10 @@ int main(int argc, char * argv[]) try
 
     while (true) {
         rs2::frameset frames = pipe.wait_for_frames();
+        rs2::video_frame color_frame = frames.get_color_frame();
 
-        std::cout << "Frameset size: " << frames.size() << std::endl;
+        std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
+        std::cout << color_frame.get_data_size() << std::endl;
     }
 
 
