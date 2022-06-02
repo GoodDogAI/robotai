@@ -1,0 +1,1 @@
+Program("hello.cpp", LIBS=["realsense2"], LIBPATH = ['/usr/lib', '/usr/local/lib'])
