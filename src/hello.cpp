@@ -1,5 +1,6 @@
 #include "NvVideoEncoder.h"
 
+#include <assert.h>
 #include <librealsense2/rs.hpp> 
 #include <iostream>             
 #include <linux/videodev2.h>
@@ -167,6 +168,8 @@ int main(int argc, char * argv[]) try
         rs2::frameset frames = pipe.wait_for_frames();
         rs2::video_frame color_frame = frames.get_color_frame();
 
+        uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
+
         std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
         std::cout << color_frame.get_data_size() << std::endl;
 
@@ -179,18 +182,31 @@ int main(int argc, char * argv[]) try
         memset(&v4l2_buf, 0, sizeof(v4l2_buf));
         memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
 
-        // TODO Change once you want to encode more than one frame
         v4l2_buf.index = i;
         v4l2_buf.m.planes = planes;
 
-        for (uint32_t p = 0; p < buffer->n_planes; p++)
-        {
-            NvBuffer::NvBufferPlane &plane = buffer->planes[p];
-            std::streamsize bytes_to_read = plane.fmt.bytesperpixel * plane.fmt.width;
-            plane.bytesused = plane.fmt.stride * plane.fmt.height;
+        // We are going to dump just some shitty Y data, and leave chroma zero for testing
+        // TODO Later copy the actual chroma data too
+        assert(buffer->n_planes == 3);
+        assert(buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height == 640 * 480);
+        assert(buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height == 640 * 480 / 4);
+        assert(buffer->planes[2].fmt.stride * buffer->planes[2].fmt.height == 640 * 480 / 4);
 
-            std::cout << "plane " << p << ": " << plane.bytesused << std::endl;
+        buffer->planes[0].bytesused = buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height;
+        buffer->planes[1].bytesused = buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height;
+        buffer->planes[1].bytesused = buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height;
+    
+        // Copy the YUYV rows into the Y plane
+
+        for(uint32_t row = 0; row < color_frame.get_height(); row++) {
+            for (uint32_t col = 0; col < color_frame.get_width(); col++) {
+                buffer->planes[0].data[row * buffer->planes[0].fmt.stride + col] = yuyv_data[row * color_frame.get_stride_in_bytes() + col * 2];
+            }
         }
+
+        // No chroma data for testing
+        memset(buffer->planes[1].data, 0, buffer->planes[1].bytesused);
+        memset(buffer->planes[2].data, 0, buffer->planes[2].bytesused);
 
         std::cout << "Queued buffer at output plane\n";
 
@@ -224,7 +240,7 @@ int main(int argc, char * argv[]) try
                 std::cerr << "ERROR while DQing buffer at capture plane" << std::endl;
             }
 
-            std::cout << "DQed capture buffer " << capplane_buffer->planes[0].bytesused << " bytes used" << std::endl;
+            std::cout << "DQed capture buffer " << capplane_buffer->planes[0].bytesused << " bytes used " << capplane_buffer->n_planes << " planes " << std::endl;
             /* Invoke encoder capture-plane deque buffer callback */
             // capture_dq_continue = encoder_capture_plane_dq_callback(&v4l2_capture_buf, capplane_buffer, NULL,
             //         &ctx);
