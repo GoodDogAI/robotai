@@ -117,6 +117,44 @@ int main(int argc, char * argv[]) try
         return EXIT_FAILURE;
     }
 
+    /* set encoder output plane STREAMON */
+    ret = enc->output_plane.setStreamStatus(true);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set output plane stream status\n";
+        return EXIT_FAILURE;
+    }
+
+    /* set encoder capture plane STREAMON */
+    ret = enc->capture_plane.setStreamStatus(true);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set capture plane stream status\n";
+        return EXIT_FAILURE;
+    }
+
+    /* Enqueue all the empty capture plane buffers. */
+    for (uint32_t i = 0; i < enc->capture_plane.getNumBuffers(); i++)
+    {
+        struct v4l2_buffer v4l2_buf;
+        struct v4l2_plane planes[MAX_PLANES];
+
+        memset(&v4l2_buf, 0, sizeof(v4l2_buf));
+        memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
+
+        v4l2_buf.index = i;
+        v4l2_buf.m.planes = planes;
+
+        ret = enc->capture_plane.qBuffer(v4l2_buf, NULL);
+        if (ret < 0)
+        {
+            std::cout << "Error while queueing buffer at capture plane\n";
+            return EXIT_FAILURE;
+        }
+    }
+
     // Enable the Realsense and start the pipeline
     rs2::config cfg;
     cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_YUYV, 30);
