@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <librealsense2/rs.hpp> 
 #include <iostream>             
+#include <fstream>
 #include <linux/videodev2.h>
 
 // Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
@@ -185,8 +186,6 @@ int main(int argc, char * argv[]) try
         v4l2_buf.index = i;
         v4l2_buf.m.planes = planes;
 
-        // We are going to dump just some shitty Y data, and leave chroma zero for testing
-        // TODO Later copy the actual chroma data too
         assert(buffer->n_planes == 3);
         assert(buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height == 640 * 480);
         assert(buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height == 640 * 480 / 4);
@@ -204,9 +203,16 @@ int main(int argc, char * argv[]) try
             }
         }
 
+        for(uint32_t row = 0; row < color_frame.get_height() / 2; row++) {
+            for (uint32_t col = 0; col < color_frame.get_width() / 2; col++) {
+                buffer->planes[1].data[row * buffer->planes[1].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 1];
+                buffer->planes[2].data[row * buffer->planes[2].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 3];
+            }
+        }
+
         // No chroma data for testing
-        memset(buffer->planes[1].data, 0, buffer->planes[1].bytesused);
-        memset(buffer->planes[2].data, 0, buffer->planes[2].bytesused);
+        // memset(buffer->planes[1].data, 0, buffer->planes[1].bytesused);
+        // memset(buffer->planes[2].data, 0, buffer->planes[2].bytesused);
 
         std::cout << "Queued buffer at output plane\n";
 
@@ -217,6 +223,10 @@ int main(int argc, char * argv[]) try
             return EXIT_FAILURE;
         }
     }
+
+    // Open an output file for writing the encoded data
+    std::ofstream outfile("output.h264", std::ios::out | std::ios::binary);
+
 
     while (1)
         {
@@ -241,6 +251,10 @@ int main(int argc, char * argv[]) try
             }
 
             std::cout << "DQed capture buffer " << capplane_buffer->planes[0].bytesused << " bytes used " << capplane_buffer->n_planes << " planes " << std::endl;
+
+            // Write buffer to output file
+            outfile.write((char *)capplane_buffer->planes[0].data, capplane_buffer->planes[0].bytesused);
+
             /* Invoke encoder capture-plane deque buffer callback */
             // capture_dq_continue = encoder_capture_plane_dq_callback(&v4l2_capture_buf, capplane_buffer, NULL,
             //         &ctx);

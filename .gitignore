@@ -40,3 +40,6 @@ config.log
 *.out
 *.app
 
+*.h264
+*.h265
+*.mkv
