@@ -7,6 +7,9 @@
 // Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
 int main(int argc, char * argv[]) try
 {
+    int ret;
+    int num_output_buffers = 10;
+
     rs2::context ctx;
     rs2::device_list devices_list = ctx.query_devices();
     size_t device_count = devices_list.size();
@@ -31,10 +34,92 @@ int main(int argc, char * argv[]) try
         return EXIT_FAILURE;
     }
 
+    // Set the capture plane format
+    ret =
+        enc->setCapturePlaneFormat(V4L2_PIX_FMT_H265, 640, 480, 2 * 1024 * 1024);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set capture plane format\n";
+        return EXIT_FAILURE;
+    }
+
+    // Set the output plane format
+    ret =
+        enc->setOutputPlaneFormat(V4L2_PIX_FMT_YUV420M, 640, 480);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set output plane format\n";
+        return EXIT_FAILURE;
+    }
+
+    // Set the bitrate
+    ret = enc->setBitrate(4 * 1024 * 1024);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set bitrate\n";
+        return EXIT_FAILURE;
+    }
+
+    /* Set encoder profile for HEVC format */
+    ret = enc->setProfile(V4L2_MPEG_VIDEO_H265_PROFILE_MAIN);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set encoder profile\n";
+        return EXIT_FAILURE;
+    }
+
+    ret = enc->setRateControlMode(V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set rate control mode\n";
+        return EXIT_FAILURE;
+    }
+
+    ret = enc->setPeakBitrate(6 * 1024 * 1024);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to set peak bitrate\n";
+        return EXIT_FAILURE;
+    }
+
+    /* Query, Export and Map the output plane buffers so that we can read
+       raw data into the buffers */
+    ret = enc->output_plane.setupPlane(V4L2_MEMORY_USERPTR, 10, false, true);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to setup output plane\n";
+        return EXIT_FAILURE;
+    }
+
+    /* Query, Export and Map the capture plane buffers so that we can write
+       encoded bitstream data into the buffers */
+    ret = enc->capture_plane.setupPlane(V4L2_MEMORY_MMAP, num_output_buffers, true, false);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to setup capture plane\n";
+        return EXIT_FAILURE;
+    }
+    
+    /* Subscibe for End Of Stream event */
+    ret = enc->subscribeEvent(V4L2_EVENT_EOS,0,0);
+
+    if (ret < 0)
+    {
+        std::cout << "Failed to subscribe to EOS event\n";
+        return EXIT_FAILURE;
+    }
 
     // Enable the Realsense and start the pipeline
     rs2::config cfg;
-    cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_BGR8, 30);
+    cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_YUYV, 30);
 
     rs2::pipeline pipe;
     pipe.start(cfg);
@@ -45,6 +130,9 @@ int main(int argc, char * argv[]) try
 
         std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
         std::cout << color_frame.get_data_size() << std::endl;
+
+        // TODO Convert from YUYV format to expected YUV420 format for encoding
+        break;
     }
 
 

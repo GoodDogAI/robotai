@@ -1,6 +1,7 @@
 # for projects that use SCons for building: http://http://www.scons.org/
 .sconsign.dblite
 
+src/hello
 
 # When configure fails, SCons outputs these
 config.log
@@ -38,3 +39,4 @@ config.log
 *.exe
 *.out
 *.app
+
