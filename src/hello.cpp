@@ -162,7 +162,8 @@ int main(int argc, char * argv[]) try
     rs2::pipeline pipe;
     pipe.start(cfg);
 
-    while (true) {
+    for (uint32_t i = 0; i < enc->output_plane.getNumBuffers(); i++)
+    {
         rs2::frameset frames = pipe.wait_for_frames();
         rs2::video_frame color_frame = frames.get_color_frame();
 
@@ -173,13 +174,23 @@ int main(int argc, char * argv[]) try
 
         struct v4l2_buffer v4l2_buf;
         struct v4l2_plane planes[MAX_PLANES];
+        NvBuffer *buffer = enc->output_plane.getNthBuffer(i);
 
         memset(&v4l2_buf, 0, sizeof(v4l2_buf));
         memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
 
         // TODO Change once you want to encode more than one frame
-        v4l2_buf.index = 0;
+        v4l2_buf.index = i;
         v4l2_buf.m.planes = planes;
+
+        for (uint32_t p = 0; p < buffer->n_planes; p++)
+        {
+            NvBuffer::NvBufferPlane &plane = buffer->planes[p];
+            std::streamsize bytes_to_read = plane.fmt.bytesperpixel * plane.fmt.width;
+            plane.bytesused = plane.fmt.stride * plane.fmt.height;
+
+            std::cout << "plane " << p << ": " << plane.bytesused << std::endl;
+        }
 
         std::cout << "Queued buffer at output plane\n";
 
@@ -189,8 +200,6 @@ int main(int argc, char * argv[]) try
             std::cerr << "Error while queueing buffer at output plane" << std::endl;
             return EXIT_FAILURE;
         }
-
-        break;
     }
 
     while (1)
@@ -215,7 +224,7 @@ int main(int argc, char * argv[]) try
                 std::cerr << "ERROR while DQing buffer at capture plane" << std::endl;
             }
 
-            std::cout << "DQed buffer at capture plane\n";
+            std::cout << "DQed capture buffer " << capplane_buffer->planes[0].bytesused << " bytes used" << std::endl;
             /* Invoke encoder capture-plane deque buffer callback */
             // capture_dq_continue = encoder_capture_plane_dq_callback(&v4l2_capture_buf, capplane_buffer, NULL,
             //         &ctx);
