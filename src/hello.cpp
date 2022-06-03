@@ -170,10 +170,62 @@ int main(int argc, char * argv[]) try
         std::cout << color_frame.get_data_size() << std::endl;
 
         // TODO Convert from YUYV format to expected YUV420 format for encoding
+
+        struct v4l2_buffer v4l2_buf;
+        struct v4l2_plane planes[MAX_PLANES];
+
+        memset(&v4l2_buf, 0, sizeof(v4l2_buf));
+        memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
+
+        // TODO Change once you want to encode more than one frame
+        v4l2_buf.index = 0;
+        v4l2_buf.m.planes = planes;
+
+        std::cout << "Queued buffer at output plane\n";
+
+        ret = enc->output_plane.qBuffer(v4l2_buf, NULL);
+        if (ret < 0)
+        {
+            std::cerr << "Error while queueing buffer at output plane" << std::endl;
+            return EXIT_FAILURE;
+        }
+
         break;
     }
 
+    while (1)
+        {
+            struct v4l2_buffer v4l2_capture_buf;
+            struct v4l2_plane capture_planes[MAX_PLANES];
+            NvBuffer *capplane_buffer = NULL;
+            bool capture_dq_continue = true;
 
+            memset(&v4l2_capture_buf, 0, sizeof(v4l2_capture_buf));
+            memset(capture_planes, 0, sizeof(capture_planes));
+            v4l2_capture_buf.m.planes = capture_planes;
+            v4l2_capture_buf.length = 1;
+
+            /* Dequeue from output plane, fill the frame and enqueue it back again.
+               NOTE: This could be moved out to a different thread as an optimization. */
+            ret = enc->capture_plane.dqBuffer(v4l2_capture_buf, &capplane_buffer, NULL, 10);
+            if (ret < 0)
+            {
+                if (errno == EAGAIN)
+                    break;
+                std::cerr << "ERROR while DQing buffer at capture plane" << std::endl;
+            }
+
+            std::cout << "DQed buffer at capture plane\n";
+            /* Invoke encoder capture-plane deque buffer callback */
+            // capture_dq_continue = encoder_capture_plane_dq_callback(&v4l2_capture_buf, capplane_buffer, NULL,
+            //         &ctx);
+            // if (!capture_dq_continue)
+            // {
+            //     cout << "Capture plane dequeued 0 size buffer " << endl;
+            //     ctx.got_eos = true;
+            //     return 0;
+            // }
+        }
 
     return EXIT_SUCCESS;
 }
