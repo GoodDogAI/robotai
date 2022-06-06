@@ -1,14 +1,16 @@
-#include "util.h"
-
 #include <assert.h>
 #include <librealsense2/rs.hpp> 
 #include <iostream>             
 #include <fstream>
+#include <cstring>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
 #include <libv4l2.h>
 #include "v4l2_nv_extensions.h"
+
+#include "util.h"
+#include "visionbuf.h"
 
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"
@@ -38,27 +40,31 @@ const int MAIN_BITRATE = 10000000;
 //   assert(v4l_buf.m.planes[0].data_offset == 0);
 // }
 
-// static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
-//   v4l2_plane plane = {
-//     .length = (unsigned int)buf->len,
-//     .m = { .userptr = (unsigned long)buf->addr, },
-//     .bytesused = bytesused,
-//     .reserved = {(unsigned int)buf->fd}
-//   };
+static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
+  v4l2_buffer v4l_buf = {0};
 
-//   v4l2_buffer v4l_buf = {
+  v4l_buf.type = buf_type;
+  v4l_buf.index = index;
+  v4l_buf.memory = V4L2_MEMORY_USERPTR;
+  v4l_buf.length = buf->n_planes;
+
+  v4l2_plane planes[MAX_PLANES];
+  memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
+  v4l_buf.m.planes = planes;
+
+
+//   = {
 //     .type = buf_type,
 //     .index = index,
 //     .memory = V4L2_MEMORY_USERPTR,
-//     .m = { .planes = &plane, },
 //     .length = 1,
 //     .bytesused = 0,
 //     .flags = V4L2_BUF_FLAG_TIMESTAMP_COPY,
 //     .timestamp = timestamp
 //   };
 
-//   checked_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
-// }
+  checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
+}
 
 static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count) {
   struct v4l2_requestbuffers reqbuf = {
@@ -73,10 +79,11 @@ static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count) {
 int main(int argc, char * argv[]) try
 {
     int ret;
-
-    int num_output_buffers = 10;
     int out_width = 1920, out_height = 1080;
     int in_width = 1920, in_height = 1080;
+
+    std::vector<VisionBuf> buf_out;
+    std::vector<VisionBuf> buf_in;
 
     rs2::context ctx;
     rs2::device_list devices_list = ctx.query_devices();
@@ -188,7 +195,10 @@ int main(int argc, char * argv[]) try
 
     // queue up output buffers
     for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
-        buf_out[i].allocate(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage);
+        VisionBuf buf = VisionBuf(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage, i);
+        buf.allocate();
+        buf_out.push_back(buf);
+        
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, i, &buf_out[i]);
     }
 
