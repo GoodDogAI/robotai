@@ -57,6 +57,7 @@ static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, Vis
         v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
         v4l_buf.m.planes[i].bytesused = bytesused;
     }
+    
 
 //   = {
 //     .type = buf_type,
@@ -84,8 +85,8 @@ static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count) {
 int main(int argc, char * argv[]) try
 {
     int ret;
-    int out_width = 1920, out_height = 1080;
-    int in_width = 1920, in_height = 1080;
+    int out_width = 1280, out_height = 720;
+    int in_width = 1280, in_height = 720;
 
     std::vector<VisionBuf> buf_out;
     std::vector<VisionBuf> buf_in;
@@ -231,6 +232,27 @@ int main(int argc, char * argv[]) try
         VisionBuf buf = VisionBuf(3, yuv_format, i);
         buf.allocate();
         buf_in.push_back(buf);
+    }
+
+    // Enable the Realsense and start the pipeline
+    rs2::config cfg;
+    cfg.enable_stream(RS2_STREAM_COLOR, in_width, in_height, RS2_FORMAT_YUYV, 15);
+
+    rs2::pipeline pipe;
+    pipe.start(cfg);
+
+    for (uint32_t i = 0; i < 5; i++) {
+        rs2::frameset frames = pipe.wait_for_frames();
+        rs2::video_frame color_frame = frames.get_color_frame();
+
+        uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
+
+        std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
+        std::cout << color_frame.get_data_size() << std::endl;
+
+        // Grab an input buffer
+        VisionBuf buf = buf_in[i];
+        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, i, &buf);
     }
 
     return EXIT_SUCCESS;
