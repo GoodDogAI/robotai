@@ -255,6 +255,8 @@ int main(int argc, char * argv[]) try
             // Write buffer to output file
             outfile.write((char *)capplane_buffer->planes[0].data, capplane_buffer->planes[0].bytesused);
 
+            // Queue the buffer back
+            ret = enc->capture_plane.qBuffer(v4l2_capture_buf, NULL);
             /* Invoke encoder capture-plane deque buffer callback */
             // capture_dq_continue = encoder_capture_plane_dq_callback(&v4l2_capture_buf, capplane_buffer, NULL,
             //         &ctx);
