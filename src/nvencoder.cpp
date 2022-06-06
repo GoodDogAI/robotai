@@ -13,10 +13,61 @@
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"
 
+#define BUF_IN_COUNT 6
+#define BUF_OUT_COUNT 6
+
 const int MAIN_BITRATE = 10000000;
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 
+// From Openpilot encoderd
+// static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
+//   v4l2_plane plane = {0};
+//   v4l2_buffer v4l_buf = {
+//     .type = buf_type,
+//     .memory = V4L2_MEMORY_USERPTR,
+//     .m = { .planes = &plane, },
+//     .length = 1,
+//   };
+//   checked_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+
+//   if (index) *index = v4l_buf.index;
+//   if (bytesused) *bytesused = v4l_buf.m.planes[0].bytesused;
+//   if (flags) *flags = v4l_buf.flags;
+//   if (timestamp) *timestamp = v4l_buf.timestamp;
+//   assert(v4l_buf.m.planes[0].data_offset == 0);
+// }
+
+// static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
+//   v4l2_plane plane = {
+//     .length = (unsigned int)buf->len,
+//     .m = { .userptr = (unsigned long)buf->addr, },
+//     .bytesused = bytesused,
+//     .reserved = {(unsigned int)buf->fd}
+//   };
+
+//   v4l2_buffer v4l_buf = {
+//     .type = buf_type,
+//     .index = index,
+//     .memory = V4L2_MEMORY_USERPTR,
+//     .m = { .planes = &plane, },
+//     .length = 1,
+//     .bytesused = 0,
+//     .flags = V4L2_BUF_FLAG_TIMESTAMP_COPY,
+//     .timestamp = timestamp
+//   };
+
+//   checked_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
+// }
+
+static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count) {
+  struct v4l2_requestbuffers reqbuf = {
+    .count = count,
+    .type = buf_type,
+    .memory = V4L2_MEMORY_USERPTR,
+  };
+  checked_v4l2_ioctl(fd, VIDIOC_REQBUFS, &reqbuf);
+}
 
 // Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
 int main(int argc, char * argv[]) try
@@ -117,15 +168,30 @@ int main(int argc, char * argv[]) try
     //H265 controls
     {
         struct v4l2_control ctrls[] = {
-        { .id = V4L2_CID_MPEG_VIDEO_H265_PROFILE, .value = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN},
-        //   { .id = V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL, .value = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5},
-        //   { .id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES, .value = 29},
-        //   { .id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES, .value = 0},
+            { .id = V4L2_CID_MPEG_VIDEO_H265_PROFILE, .value = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN},
+            { .id = V4L2_CID_MPEG_VIDEOENC_NUM_BFRAMES, .value = 0},
         };
         for (auto ctrl : ctrls) {
             checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl);
         }
     }
+
+    // Allocate the buffers
+    request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, BUF_OUT_COUNT);
+    request_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, BUF_IN_COUNT);
+
+    // start encoder
+    v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+    buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+
+    // queue up output buffers
+    for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
+        buf_out[i].allocate(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage);
+        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, i, &buf_out[i]);
+    }
+
     return EXIT_SUCCESS;
 }
 catch (const rs2::error & e)

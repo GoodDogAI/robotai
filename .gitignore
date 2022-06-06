@@ -2,6 +2,7 @@
 .sconsign.dblite
 
 src/hello
+src/nvencoder
 
 # When configure fails, SCons outputs these
 config.log
