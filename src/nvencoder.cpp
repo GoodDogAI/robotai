@@ -41,17 +41,22 @@ const int MAIN_BITRATE = 10000000;
 // }
 
 static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
-  v4l2_buffer v4l_buf = {0};
+    v4l2_buffer v4l_buf = {0};
 
-  v4l_buf.type = buf_type;
-  v4l_buf.index = index;
-  v4l_buf.memory = V4L2_MEMORY_USERPTR;
-  v4l_buf.length = buf->n_planes;
+    v4l_buf.type = buf_type;
+    v4l_buf.index = index;
+    v4l_buf.memory = V4L2_MEMORY_USERPTR;
+    v4l_buf.length = buf->n_planes;
 
-  v4l2_plane planes[MAX_PLANES];
-  memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
-  v4l_buf.m.planes = planes;
+    v4l2_plane planes[MAX_PLANES];
+    memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
+    v4l_buf.m.planes = planes;
 
+    for (int i = 0; i < buf->n_planes; i++) {
+        v4l_buf.m.planes[i].m.userptr = (unsigned long)buf->planes[i].data;
+        v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
+        v4l_buf.m.planes[i].bytesused = bytesused;
+    }
 
 //   = {
 //     .type = buf_type,
@@ -200,6 +205,32 @@ int main(int argc, char * argv[]) try
         buf_out.push_back(buf);
         
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, i, &buf_out[i]);
+    }
+
+    // setup input buffers
+    BufferPlaneFormat yuv_format[3];
+    yuv_format[0].width = in_width;
+    yuv_format[0].height = in_height;
+    yuv_format[0].bytesperpixel = 1;
+    yuv_format[0].stride = in_width;
+    yuv_format[0].sizeimage = in_width * in_height;
+
+    yuv_format[1].width = in_width / 2; 
+    yuv_format[1].height = in_height / 2;
+    yuv_format[1].bytesperpixel = 1;
+    yuv_format[1].stride = in_width / 2;
+    yuv_format[1].sizeimage = in_width * in_height / 4;
+
+    yuv_format[2].width = in_width / 2;
+    yuv_format[2].height = in_height / 2;
+    yuv_format[2].bytesperpixel = 1;
+    yuv_format[2].stride = in_width / 2;
+    yuv_format[2].sizeimage = in_width * in_height / 4;
+
+    for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
+        VisionBuf buf = VisionBuf(3, yuv_format, i);
+        buf.allocate();
+        buf_in.push_back(buf);
     }
 
     return EXIT_SUCCESS;
