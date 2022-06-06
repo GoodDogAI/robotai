@@ -23,7 +23,6 @@ const int MAIN_BITRATE = 10000000;
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 // Many ideas and code From Openpilot encoderd
 
-
 static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
     v4l2_plane plane = {0};
     v4l2_buffer v4l_buf = {0};
@@ -42,7 +41,7 @@ static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=N
     assert(v4l_buf.m.planes[0].data_offset == 0);
 }
 
-static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
+static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf) {
     v4l2_buffer v4l_buf = {0};
 
     v4l_buf.type = buf_type;
@@ -57,7 +56,7 @@ static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, Vis
     for (int i = 0; i < buf->n_planes; i++) {
         v4l_buf.m.planes[i].m.userptr = (unsigned long)buf->planes[i].data;
         v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
-        v4l_buf.m.planes[i].bytesused = bytesused;
+        v4l_buf.m.planes[i].bytesused = buf->planes[i].fmt.sizeimage;
     }
     
   checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
@@ -243,6 +242,19 @@ int main(int argc, char * argv[]) try
 
         // Grab an input buffer
         VisionBuf buf = buf_in[i];
+
+        for(uint32_t row = 0; row < color_frame.get_height(); row++) {
+            for (uint32_t col = 0; col < color_frame.get_width(); col++) {
+                buf.planes[0].data[row * buf.planes[0].fmt.stride + col] = yuyv_data[row * color_frame.get_stride_in_bytes() + col * 2];
+            }
+        }
+
+        for(uint32_t row = 0; row < color_frame.get_height() / 2; row++) {
+            for (uint32_t col = 0; col < color_frame.get_width() / 2; col++) {
+                buf.planes[1].data[row * buf.planes[1].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 1];
+                buf.planes[2].data[row * buf.planes[2].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 3];
+            }
+        }
 
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, i, &buf);
     }
