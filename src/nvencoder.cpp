@@ -21,24 +21,26 @@
 const int MAIN_BITRATE = 10000000;
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
+// Many ideas and code From Openpilot encoderd
 
-// From Openpilot encoderd
-// static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
-//   v4l2_plane plane = {0};
-//   v4l2_buffer v4l_buf = {
-//     .type = buf_type,
-//     .memory = V4L2_MEMORY_USERPTR,
-//     .m = { .planes = &plane, },
-//     .length = 1,
-//   };
-//   checked_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
 
-//   if (index) *index = v4l_buf.index;
-//   if (bytesused) *bytesused = v4l_buf.m.planes[0].bytesused;
-//   if (flags) *flags = v4l_buf.flags;
-//   if (timestamp) *timestamp = v4l_buf.timestamp;
-//   assert(v4l_buf.m.planes[0].data_offset == 0);
-// }
+static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
+    v4l2_plane plane = {0};
+    v4l2_buffer v4l_buf = {0};
+
+    v4l_buf.type = buf_type;
+    v4l_buf.memory = V4L2_MEMORY_USERPTR;
+    v4l_buf.m.planes = &plane;
+    v4l_buf.length = 1;
+
+    checked_v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+
+    if (index) *index = v4l_buf.index;
+    if (bytesused) *bytesused = v4l_buf.m.planes[0].bytesused;
+    if (flags) *flags = v4l_buf.flags;
+    if (timestamp) *timestamp = v4l_buf.timestamp;
+    assert(v4l_buf.m.planes[0].data_offset == 0);
+}
 
 static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf, struct timeval timestamp={0}, unsigned int bytesused=0) {
     v4l2_buffer v4l_buf = {0};
@@ -58,17 +60,6 @@ static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, Vis
         v4l_buf.m.planes[i].bytesused = bytesused;
     }
     
-
-//   = {
-//     .type = buf_type,
-//     .index = index,
-//     .memory = V4L2_MEMORY_USERPTR,
-//     .length = 1,
-//     .bytesused = 0,
-//     .flags = V4L2_BUF_FLAG_TIMESTAMP_COPY,
-//     .timestamp = timestamp
-//   };
-
   checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
 }
 
@@ -241,7 +232,7 @@ int main(int argc, char * argv[]) try
     rs2::pipeline pipe;
     pipe.start(cfg);
 
-    for (uint32_t i = 0; i < 5; i++) {
+    for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
         rs2::frameset frames = pipe.wait_for_frames();
         rs2::video_frame color_frame = frames.get_color_frame();
 
@@ -252,7 +243,17 @@ int main(int argc, char * argv[]) try
 
         // Grab an input buffer
         VisionBuf buf = buf_in[i];
+
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, i, &buf);
+    }
+
+    // Grab the capture buffers with H265 data
+    for (uint32_t i = 0; i < BUF_OUT_COUNT; i++) {
+        uint32_t index, bytesused;
+        
+        dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
+
+        std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
     }
 
     return EXIT_SUCCESS;
