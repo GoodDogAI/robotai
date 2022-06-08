@@ -152,7 +152,7 @@ int main(int argc, char * argv[]) try
 
    
     // Create the v4l encoder manually
-    int fd = v4l2_open(ENCODER_DEV, O_RDWR);
+    int fd = v4l2_open(ENCODER_DEV, O_RDWR | O_NONBLOCK);
 
     if (fd == -1)
     {
@@ -338,20 +338,24 @@ int main(int argc, char * argv[]) try
 
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
-        // Poll the capture and output buffers
-        struct pollfd pfd;
-        pfd.events = POLLIN | POLLOUT;
-        pfd.fd = fd;
-  
-        usleep(20000);
-        int rc = poll(&pfd, 1, 1000);
-        std::cout << pfd.revents << " " << (pfd.revents & POLLERR) <<  std::endl;
-        if (!rc) { 
-            std::cout << "Poll timeout" << std::endl;
+        // Poll the capture and output buffers, we have to use the NVIDIA specific poll ioctl
+        v4l2_ctrl_video_device_poll devicepoll;
+        devicepoll.req_events = POLLIN | POLLOUT | POLLERR | POLLPRI;
+
+        v4l2_ext_control pollctrl;                
+        pollctrl.id = V4L2_CID_MPEG_VIDEO_DEVICE_POLL;
+        pollctrl.string = (char *)&devicepoll;
+         
+        checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &pollctrl);
+
+        std::cout << devicepoll.resp_events << ": " << (devicepoll.resp_events & POLLIN) << " " << (devicepoll.resp_events & POLLOUT) << " " << (devicepoll.resp_events & POLLERR) << std::endl;
+
+        if (devicepoll.resp_events & POLLERR) {
+            std::cout << "poll error" << std::endl;
             continue;
         }
 
-        if (pfd.revents & POLLIN) {
+        if (devicepoll.resp_events & POLLOUT) {
             uint32_t index, bytesused;
 
             dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
@@ -365,7 +369,7 @@ int main(int argc, char * argv[]) try
             queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
         }
 
-        if (pfd.revents & POLLOUT) {
+        if (devicepoll.resp_events & POLLIN) {
             unsigned int index;
             std::cout << "pollout " << std::endl;
             dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index);
