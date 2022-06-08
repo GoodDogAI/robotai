@@ -44,3 +44,4 @@ config.log
 *.h264
 *.h265
 *.mkv
+*.hevc

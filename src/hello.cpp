@@ -194,7 +194,7 @@ int main(int argc, char * argv[]) try
 
         buffer->planes[0].bytesused = buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height;
         buffer->planes[1].bytesused = buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height;
-        buffer->planes[1].bytesused = buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height;
+        buffer->planes[2].bytesused = buffer->planes[2].fmt.stride * buffer->planes[2].fmt.height;
     
         // Copy the YUYV rows into the Y plane
 

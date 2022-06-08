@@ -252,20 +252,20 @@ int main(int argc, char * argv[]) try
     yuv_format[0].width = in_width;
     yuv_format[0].height = in_height;
     yuv_format[0].bytesperpixel = 1;
-    yuv_format[0].stride = in_width;
-    yuv_format[0].sizeimage = in_width * in_height;
+    yuv_format[0].stride = fmt_in.fmt.pix_mp.plane_fmt[0].bytesperline;
+    yuv_format[0].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[0].sizeimage;
 
     yuv_format[1].width = in_width / 2; 
     yuv_format[1].height = in_height / 2;
     yuv_format[1].bytesperpixel = 1;
-    yuv_format[1].stride = in_width / 2;
-    yuv_format[1].sizeimage = in_width * in_height / 4;
+    yuv_format[1].stride = fmt_in.fmt.pix_mp.plane_fmt[1].bytesperline;
+    yuv_format[1].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[1].sizeimage;
 
     yuv_format[2].width = in_width / 2;
     yuv_format[2].height = in_height / 2;
     yuv_format[2].bytesperpixel = 1;
-    yuv_format[2].stride = in_width / 2;
-    yuv_format[2].sizeimage = in_width * in_height / 4;
+    yuv_format[2].stride = fmt_in.fmt.pix_mp.plane_fmt[2].bytesperline;
+    yuv_format[2].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[2].sizeimage;
 
     for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
         VisionBuf buf = VisionBuf(3, yuv_format, i);
@@ -317,7 +317,7 @@ int main(int argc, char * argv[]) try
     }
 
     // Open an output file for writing the encoded data
-    std::ofstream outfile("output.h264", std::ios::out | std::ios::binary);
+    std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
 
 
     // Grab the capture buffers with H265 data
