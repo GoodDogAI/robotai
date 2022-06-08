@@ -141,7 +141,6 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<Vi
 // Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
 int main(int argc, char * argv[]) try
 {
-    int ret;
     int out_width = 1280, out_height = 720;
     int in_width = 1280, in_height = 720;
 
@@ -302,8 +301,8 @@ int main(int argc, char * argv[]) try
     // Start the camera
     auto profiles = color_sens.get_stream_profiles();
     auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [in_height, in_width](rs2::stream_profile &profile) {
-        rs2::video_stream_profile stream_profile = profile.as<rs2::video_stream_profile>();
-            return stream_profile.width() == in_width && stream_profile.height() == in_height && stream_profile.format() == RS2_FORMAT_YUYV && stream_profile.fps() == 15;
+        rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
+            return sp.width() == in_width && sp.height() == in_height && sp.format() == RS2_FORMAT_YUYV && sp.fps() == 15;
         });
 
     color_sens.open(stream_profile);
@@ -336,8 +335,8 @@ int main(int argc, char * argv[]) try
         int32_t color_frame_stride = color_frame.get_stride_in_bytes();
 
         // Find an empty buf
-        auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](VisionBuf &buf) {
-            return !buf.is_queued;
+        auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](VisionBuf &b) {
+            return !b.is_queued;
         });
 
         assert(buf != buf_in.end());

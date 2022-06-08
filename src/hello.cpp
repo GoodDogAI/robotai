@@ -234,7 +234,6 @@ int main(int argc, char * argv[]) try
             struct v4l2_buffer v4l2_capture_buf;
             struct v4l2_plane capture_planes[MAX_PLANES];
             NvBuffer *capplane_buffer = NULL;
-            bool capture_dq_continue = true;
 
             memset(&v4l2_capture_buf, 0, sizeof(v4l2_capture_buf));
             memset(capture_planes, 0, sizeof(capture_planes));
