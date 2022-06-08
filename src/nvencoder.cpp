@@ -25,8 +25,9 @@ const int MAIN_BITRATE = 10000000;
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 // Many ideas and code From Openpilot encoderd
-static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
+static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
 {
+    int ret;
     v4l2_plane plane = {0};
     v4l2_buffer v4l_buf = {0};
 
@@ -35,7 +36,16 @@ static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index =
     v4l_buf.m.planes = &plane;
     v4l_buf.length = 1;
 
-    checked_v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+    ret = v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+
+    if (ret < 0)
+    {
+        if (errno == EAGAIN)
+            return 0;
+
+        std::cerr << "Failed to dequeue buffer (" << errno << ") : " << strerror(errno) << std::endl;
+        exit(1);
+    }
 
     if (index)
         *index = v4l_buf.index;
@@ -46,6 +56,8 @@ static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index =
     if (timestamp)
         *timestamp = v4l_buf.timestamp;
     assert(v4l_buf.m.planes[0].data_offset == 0);
+    
+    return 1;
 }
 
 static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf)
@@ -152,7 +164,7 @@ int main(int argc, char * argv[]) try
 
    
     // Create the v4l encoder manually
-    int fd = v4l2_open(ENCODER_DEV, O_RDWR | O_NONBLOCK);
+    int fd = v4l2_open(ENCODER_DEV, O_RDWR);
 
     if (fd == -1)
     {
@@ -338,28 +350,11 @@ int main(int argc, char * argv[]) try
 
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
-        // Poll the capture and output buffers, we have to use the NVIDIA specific poll ioctl
-        v4l2_ctrl_video_device_poll devicepoll;
-        devicepoll.req_events = POLLIN | POLLOUT | POLLERR | POLLPRI;
 
-        v4l2_ext_control pollctrl;                
-        pollctrl.id = V4L2_CID_MPEG_VIDEO_DEVICE_POLL;
-        pollctrl.string = (char *)&devicepoll;
-         
-        checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &pollctrl);
+        uint32_t index, bytesused;
 
-        std::cout << devicepoll.resp_events << ": " << (devicepoll.resp_events & POLLIN) << " " << (devicepoll.resp_events & POLLOUT) << " " << (devicepoll.resp_events & POLLERR) << std::endl;
-
-        if (devicepoll.resp_events & POLLERR) {
-            std::cout << "poll error" << std::endl;
-            continue;
-        }
-
-        if (devicepoll.resp_events & POLLOUT) {
-            uint32_t index, bytesused;
-
-            dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
-
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
+        {
             std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
 
             // Write buffer to output file
@@ -368,11 +363,10 @@ int main(int argc, char * argv[]) try
             // Requeue the buffer
             queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
         }
+  
 
-        if (devicepoll.resp_events & POLLIN) {
-            unsigned int index;
-            std::cout << "pollout " << std::endl;
-            dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index);
+         if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
+            std::cout << "dequeued buffer " << index << std::endl;
             buf_in[index].is_queued = false;
         }
 
