@@ -5,6 +5,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <linux/videodev2.h>
 #include <libv4l2.h>
 #include "v4l2_nv_extensions.h"
@@ -22,53 +23,103 @@ const int MAIN_BITRATE = 10000000;
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 // Many ideas and code From Openpilot encoderd
-
-static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index=NULL, unsigned int *bytesused=NULL, unsigned int *flags=NULL, struct timeval *timestamp=NULL) {
+static void dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
+{
     v4l2_plane plane = {0};
     v4l2_buffer v4l_buf = {0};
 
     v4l_buf.type = buf_type;
-    v4l_buf.memory = V4L2_MEMORY_USERPTR;
+    v4l_buf.memory = V4L2_MEMORY_MMAP;
     v4l_buf.m.planes = &plane;
     v4l_buf.length = 1;
 
     checked_v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
 
-    if (index) *index = v4l_buf.index;
-    if (bytesused) *bytesused = v4l_buf.m.planes[0].bytesused;
-    if (flags) *flags = v4l_buf.flags;
-    if (timestamp) *timestamp = v4l_buf.timestamp;
+    if (index)
+        *index = v4l_buf.index;
+    if (bytesused)
+        *bytesused = v4l_buf.m.planes[0].bytesused;
+    if (flags)
+        *flags = v4l_buf.flags;
+    if (timestamp)
+        *timestamp = v4l_buf.timestamp;
     assert(v4l_buf.m.planes[0].data_offset == 0);
 }
 
-static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf) {
+static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf)
+{
     v4l2_buffer v4l_buf = {0};
 
     v4l_buf.type = buf_type;
     v4l_buf.index = index;
-    v4l_buf.memory = V4L2_MEMORY_USERPTR;
+    v4l_buf.memory = V4L2_MEMORY_MMAP;
     v4l_buf.length = buf->n_planes;
 
     v4l2_plane planes[MAX_PLANES];
     memset(planes, 0, MAX_PLANES * sizeof(struct v4l2_plane));
     v4l_buf.m.planes = planes;
 
-    for (int i = 0; i < buf->n_planes; i++) {
+    for (int i = 0; i < buf->n_planes; i++)
+    {
         v4l_buf.m.planes[i].m.userptr = (unsigned long)buf->planes[i].data;
         v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
         v4l_buf.m.planes[i].bytesused = buf->planes[i].fmt.sizeimage;
     }
-    
-  checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
+
+    checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
 }
 
-static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count) {
-  struct v4l2_requestbuffers reqbuf = {
-    .count = count,
-    .type = buf_type,
-    .memory = V4L2_MEMORY_USERPTR,
-  };
-  checked_v4l2_ioctl(fd, VIDIOC_REQBUFS, &reqbuf);
+static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count)
+{
+    struct v4l2_requestbuffers reqbuf = {
+        .count = count,
+        .type = buf_type,
+        .memory = V4L2_MEMORY_MMAP,
+    };
+    checked_v4l2_ioctl(fd, VIDIOC_REQBUFS, &reqbuf);
+
+    if (reqbuf.count != count)
+    {
+        std::cerr << "Failed to allocate enough buffers, only got " << reqbuf.count << " out of " << count << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<VisionBuf> &bufs)
+{
+    for (uint32_t i = 0; i < bufs.size(); i++)
+    {
+        v4l2_buffer v4l_buf = {0};
+        v4l2_plane planes[MAX_PLANES];
+        v4l_buf.type = buf_type;
+        v4l_buf.memory = V4L2_MEMORY_MMAP;
+        v4l_buf.index = i;
+        v4l_buf.length = bufs[i].n_planes;
+        v4l_buf.m.planes = planes;
+        checked_v4l2_ioctl(fd, VIDIOC_QUERYBUF, &v4l_buf);
+
+        // Export and Map each plane
+        for (uint32_t p = 0; p < bufs[i].n_planes; p++)
+        {
+            v4l2_exportbuffer expbuf = {0};
+            expbuf.type = buf_type;
+            expbuf.index = i;
+            expbuf.plane = p;
+            checked_v4l2_ioctl(fd, VIDIOC_EXPBUF, &expbuf);
+
+            bufs[i].planes[p].fd = expbuf.fd;
+            bufs[i].planes[p].length = v4l_buf.m.planes[p].length;
+            bufs[i].planes[p].mem_offset = v4l_buf.m.planes[p].m.mem_offset;
+
+            bufs[i].planes[p].data = (uint8_t *)mmap(NULL,  bufs[i].planes[p].length, PROT_READ | PROT_WRITE, MAP_SHARED,  bufs[i].planes[p].fd, bufs[i].planes[p].mem_offset);
+
+            if (bufs[i].planes[p].data == MAP_FAILED)
+            {
+                std::cerr << "Failed to mmap buffer" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
 }
 
 // Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
@@ -164,7 +215,7 @@ int main(int argc, char * argv[]) try
             { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR},
         };
         for (auto ctrl : ctrls) {
-            checked_v4l2_ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+            checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl);
         }
     }
 
@@ -189,12 +240,17 @@ int main(int argc, char * argv[]) try
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
 
-    // queue up output buffers
+    // initialize output buffers
     for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
         VisionBuf buf = VisionBuf(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage, i);
-        buf.allocate();
         buf_out.push_back(buf);
-        
+    }
+
+    // map the output buffers
+    query_and_map_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, buf_out);
+
+    // queue the output buffers
+    for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, i, &buf_out[i]);
     }
 
@@ -220,9 +276,12 @@ int main(int argc, char * argv[]) try
 
     for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
         VisionBuf buf = VisionBuf(3, yuv_format, i);
-        buf.allocate();
         buf_in.push_back(buf);
     }
+
+    // map the input buffers
+    query_and_map_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf_in);
+
 
     // Enable the Realsense and start the pipeline
     rs2::config cfg;
@@ -259,6 +318,10 @@ int main(int argc, char * argv[]) try
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, i, &buf);
     }
 
+    // Open an output file for writing the encoded data
+    std::ofstream outfile("output.h264", std::ios::out | std::ios::binary);
+
+
     // Grab the capture buffers with H265 data
     for (uint32_t i = 0; i < BUF_OUT_COUNT; i++) {
         uint32_t index, bytesused;
@@ -266,6 +329,9 @@ int main(int argc, char * argv[]) try
         dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
 
         std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
+
+        // Write buffer to output file
+        outfile.write((char *)buf_out[index].planes[0].data, bytesused);
     }
 
     return EXIT_SUCCESS;

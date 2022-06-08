@@ -43,7 +43,7 @@ class VisionBuf {
   // Multi plane color buffer
   VisionBuf(uint32_t n_planes, BufferPlaneFormat *fmt, uint32_t index);                             
 
-  void allocate();
-  void free();
+  void map(uint32_t index, v4l2_buf_type type);
+  void unmap();
 };
 

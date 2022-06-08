@@ -39,16 +39,25 @@ VisionBuf::VisionBuf(uint32_t n_planes, BufferPlaneFormat *fmt, uint32_t index)
 }
 
 
-void VisionBuf::allocate() {
-    for (uint32_t i = 0; i < n_planes; i++)
-    {
-        this->planes[i].data = (uint8_t *)malloc(this->planes[i].fmt.sizeimage);
-    }
+void VisionBuf::map(uint32_t index, v4l2_buf_type type) {
+    // struct v4l2_buffer buffer = {0};
+    // struct v4l2_plane planes[MAX_PLANES];
+
+    // buffer.type = type;
+    // buffer.memory = V4L2_MEMORY_MMAP;
+    // buffer.index = i;
+
+    // check
+
+    // for (uint32_t i = 0; i < n_planes; i++)
+    // {
+    //     this->planes[i].data = (uint8_t *)malloc(this->planes[i].fmt.sizeimage);
+    // }
 }
 
-void VisionBuf::free() {
-   for (uint32_t i = 0; i < n_planes; i++)
-   {
-       ::free(this->planes[i].data);
-   }
+void VisionBuf::unmap() {
+//    for (uint32_t i = 0; i < n_planes; i++)
+//    {
+//        ::free(this->planes[i].data);
+//    }
 }

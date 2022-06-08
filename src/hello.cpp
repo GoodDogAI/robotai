@@ -92,7 +92,8 @@ int main(int argc, char * argv[]) try
 
     /* Query, Export and Map the output plane buffers so that we can read
        raw data into the buffers */
-    ret = enc->output_plane.setupPlane(V4L2_MEMORY_USERPTR, 10, false, true);
+    //ret = enc->output_plane.setupPlane(V4L2_MEMORY_USERPTR, 10, false, true);
+    ret = enc->output_plane.setupPlane(V4L2_MEMORY_MMAP, 10, true, false);
 
     if (ret < 0)
     {
@@ -186,10 +187,10 @@ int main(int argc, char * argv[]) try
         v4l2_buf.index = i;
         v4l2_buf.m.planes = planes;
 
-        assert(buffer->n_planes == 3);
-        assert(buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height == 640 * 480);
-        assert(buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height == 640 * 480 / 4);
-        assert(buffer->planes[2].fmt.stride * buffer->planes[2].fmt.height == 640 * 480 / 4);
+        // assert(buffer->n_planes == 3);
+        // assert(buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height == 640 * 480);
+        // assert(buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height == 640 * 480 / 4);
+        // assert(buffer->planes[2].fmt.stride * buffer->planes[2].fmt.height == 640 * 480 / 4);
 
         buffer->planes[0].bytesused = buffer->planes[0].fmt.stride * buffer->planes[0].fmt.height;
         buffer->planes[1].bytesused = buffer->planes[1].fmt.stride * buffer->planes[1].fmt.height;
