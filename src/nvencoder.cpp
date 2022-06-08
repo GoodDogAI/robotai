@@ -61,8 +61,8 @@ static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, Vis
 
     for (int i = 0; i < buf->n_planes; i++)
     {
-        v4l_buf.m.planes[i].m.userptr = (unsigned long)buf->planes[i].data;
-        v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
+        // v4l_buf.m.planes[i].m.userptr = (unsigned long)buf->planes[i].data;
+        // v4l_buf.m.planes[i].length = buf->planes[i].fmt.sizeimage;
         v4l_buf.m.planes[i].bytesused = buf->planes[i].fmt.sizeimage;
     }
 
@@ -174,13 +174,12 @@ int main(int argc, char * argv[]) try
             .width = (unsigned int)out_width,
             .height = (unsigned int)out_height,
             .pixelformat = V4L2_PIX_FMT_H265,
-            .field = V4L2_FIELD_ANY,
-            .colorspace = V4L2_COLORSPACE_DEFAULT,
+            // .field = V4L2_FIELD_ANY,
+            // .colorspace = V4L2_COLORSPACE_DEFAULT,
         }
         }
     };
 
-    // TODO Configure planes themselves
     fmt_out.fmt.pix_mp.num_planes = 1;
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_out);
@@ -196,7 +195,7 @@ int main(int argc, char * argv[]) try
         .width = (unsigned int)in_width,
         .height = (unsigned int)in_height,
         .pixelformat = V4L2_PIX_FMT_YUV420M,
-        .field = V4L2_FIELD_ANY,
+        //.field = V4L2_FIELD_ANY,
         //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
       }
         }
@@ -233,12 +232,6 @@ int main(int argc, char * argv[]) try
     // Allocate the buffers
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, BUF_OUT_COUNT);
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, BUF_IN_COUNT);
-
-    // start encoder
-    v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
-    buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
 
     // initialize output buffers
     for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
@@ -282,6 +275,11 @@ int main(int argc, char * argv[]) try
     // map the input buffers
     query_and_map_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf_in);
 
+    // start encoder
+    v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+    buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
 
     // Enable the Realsense and start the pipeline
     rs2::config cfg;

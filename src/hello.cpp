@@ -38,7 +38,7 @@ int main(int argc, char * argv[]) try
 
     // Set the capture plane format
     ret =
-        enc->setCapturePlaneFormat(V4L2_PIX_FMT_H265, 640, 480, 2 * 1024 * 1024);
+        enc->setCapturePlaneFormat(V4L2_PIX_FMT_H265, 1280, 720, 2 * 1024 * 1024);
 
     if (ret < 0)
     {
@@ -48,7 +48,7 @@ int main(int argc, char * argv[]) try
 
     // Set the output plane format
     ret =
-        enc->setOutputPlaneFormat(V4L2_PIX_FMT_YUV420M, 640, 480);
+        enc->setOutputPlaneFormat(V4L2_PIX_FMT_YUV420M, 1280, 720);
 
     if (ret < 0)
     {
@@ -160,7 +160,7 @@ int main(int argc, char * argv[]) try
 
     // Enable the Realsense and start the pipeline
     rs2::config cfg;
-    cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_YUYV, 30);
+    cfg.enable_stream(RS2_STREAM_COLOR, 1280, 720, RS2_FORMAT_YUYV, 15);
 
     rs2::pipeline pipe;
     pipe.start(cfg);
