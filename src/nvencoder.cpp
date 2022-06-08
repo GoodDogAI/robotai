@@ -1,9 +1,11 @@
 #include <assert.h>
 #include <librealsense2/rs.hpp> 
-#include <iostream>             
+#include <iostream>      
+#include <algorithm>       
 #include <fstream>
 #include <cstring>
 #include <fcntl.h>
+#include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
@@ -66,6 +68,7 @@ static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, Vis
         v4l_buf.m.planes[i].bytesused = buf->planes[i].fmt.sizeimage;
     }
 
+    buf->is_queued = true;
     checked_v4l2_ioctl(fd, VIDIOC_QBUF, &v4l_buf);
 }
 
@@ -288,8 +291,18 @@ int main(int argc, char * argv[]) try
     rs2::pipeline pipe;
     pipe.start(cfg);
 
-    for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
-        rs2::frameset frames = pipe.wait_for_frames();
+    // Temporary output file
+    std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
+
+    while (1) {
+        // Poll for a new realsense frame
+        rs2::frameset frames;
+
+        if (!pipe.poll_for_frames(&frames)) {
+            usleep(1000);
+            continue;
+        }
+
         rs2::video_frame color_frame = frames.get_color_frame();
 
         uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
@@ -297,40 +310,70 @@ int main(int argc, char * argv[]) try
         std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
         std::cout << color_frame.get_data_size() << std::endl;
 
-        // Grab an input buffer
-        VisionBuf buf = buf_in[i];
+        int32_t color_frame_width = color_frame.get_width();
+        int32_t color_frame_height = color_frame.get_height();
+        int32_t color_frame_stride = color_frame.get_stride_in_bytes();
 
-        for(uint32_t row = 0; row < color_frame.get_height(); row++) {
-            for (uint32_t col = 0; col < color_frame.get_width(); col++) {
-                buf.planes[0].data[row * buf.planes[0].fmt.stride + col] = yuyv_data[row * color_frame.get_stride_in_bytes() + col * 2];
+        // Find an empty buf
+        auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](VisionBuf &buf) {
+            return !buf.is_queued;
+        });
+
+        assert(buf != buf_in.end());
+
+        // TODO Combine these loops into one for better cache performance
+        for(uint32_t row = 0; row < color_frame_height; row++) {
+            for (uint32_t col = 0; col < color_frame_width; col++) {
+                buf->planes[0].data[row * buf->planes[0].fmt.stride + col] = yuyv_data[row * color_frame_stride + col * 2];
             }
         }
 
-        for(uint32_t row = 0; row < color_frame.get_height() / 2; row++) {
-            for (uint32_t col = 0; col < color_frame.get_width() / 2; col++) {
-                buf.planes[1].data[row * buf.planes[1].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 1];
-                buf.planes[2].data[row * buf.planes[2].fmt.stride + col] = yuyv_data[row * 2 * color_frame.get_stride_in_bytes() + col * 4 + 3];
+        // TODO Maybe need some averaging on the colors data
+        for(uint32_t row = 0; row < color_frame_height / 2; row++) {
+            for (uint32_t col = 0; col < color_frame_width / 2; col++) {
+                buf->planes[1].data[row * buf->planes[1].fmt.stride + col] = yuyv_data[row * 2 * color_frame_stride + col * 4 + 1];
+                buf->planes[2].data[row * buf->planes[2].fmt.stride + col] = yuyv_data[row * 2 * color_frame_stride + col * 4 + 3];
             }
         }
 
-        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, i, &buf);
+        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
+
+        // Poll the capture and output buffers
+        struct pollfd pfd;
+        pfd.events = POLLIN | POLLOUT;
+        pfd.fd = fd;
+  
+        usleep(20000);
+        int rc = poll(&pfd, 1, 1000);
+        std::cout << pfd.revents << " " << (pfd.revents & POLLERR) <<  std::endl;
+        if (!rc) { 
+            std::cout << "Poll timeout" << std::endl;
+            continue;
+        }
+
+        if (pfd.revents & POLLIN) {
+            uint32_t index, bytesused;
+
+            dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
+
+            std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
+
+            // Write buffer to output file
+            outfile.write((char *)buf_out[index].planes[0].data, bytesused);
+            
+            // Requeue the buffer
+            queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
+        }
+
+        if (pfd.revents & POLLOUT) {
+            unsigned int index;
+            std::cout << "pollout " << std::endl;
+            dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index);
+            buf_in[index].is_queued = false;
+        }
+
     }
 
-    // Open an output file for writing the encoded data
-    std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
-
-
-    // Grab the capture buffers with H265 data
-    for (uint32_t i = 0; i < BUF_OUT_COUNT; i++) {
-        uint32_t index, bytesused;
-        
-        dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused);
-
-        std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
-
-        // Write buffer to output file
-        outfile.write((char *)buf_out[index].planes[0].data, bytesused);
-    }
 
     return EXIT_SUCCESS;
 }

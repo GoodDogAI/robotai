@@ -35,15 +35,13 @@ class VisionBuf {
  public:
   BufferPlane planes[MAX_PLANES];  
   uint32_t n_planes; 
-  const uint32_t index;     
+  const uint32_t index;    
+  bool is_queued;
 
   // Single plane for just storing output data
   VisionBuf(uint32_t size, uint32_t index);   
 
   // Multi plane color buffer
   VisionBuf(uint32_t n_planes, BufferPlaneFormat *fmt, uint32_t index);                             
-
-  void map(uint32_t index, v4l2_buf_type type);
-  void unmap();
 };
 
