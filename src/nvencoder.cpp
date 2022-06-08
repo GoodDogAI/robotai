@@ -2,6 +2,7 @@
 #include <librealsense2/rs.hpp> 
 #include <iostream>      
 #include <algorithm>       
+#include <chrono>
 #include <fstream>
 #include <cstring>
 #include <fcntl.h>
@@ -162,7 +163,9 @@ int main(int argc, char * argv[]) try
 
     std::cout << "Device Name: " << device.get_info(RS2_CAMERA_INFO_NAME ) << std::endl;
 
-   
+    auto depth_sens = device.first< rs2::depth_sensor >();
+    auto color_sens = device.first< rs2::color_sensor >();
+    
     // Create the v4l encoder manually
     int fd = v4l2_open(ENCODER_DEV, O_RDWR);
 
@@ -296,31 +299,36 @@ int main(int argc, char * argv[]) try
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
 
-    // Enable the Realsense and start the pipeline
-    rs2::config cfg;
-    cfg.enable_stream(RS2_STREAM_COLOR, in_width, in_height, RS2_FORMAT_YUYV, 15);
+    // Start the camera
+    auto profiles = color_sens.get_stream_profiles();
+    auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [in_height, in_width](rs2::stream_profile &profile) {
+        rs2::video_stream_profile stream_profile = profile.as<rs2::video_stream_profile>();
+            return stream_profile.width() == in_width && stream_profile.height() == in_height && stream_profile.format() == RS2_FORMAT_YUYV && stream_profile.fps() == 15;
+        });
 
-    rs2::pipeline pipe;
-    pipe.start(cfg);
+    color_sens.open(stream_profile);
+
+    rs2::frame_queue queue(1);
+    color_sens.start(queue);
 
     // Temporary output file
     std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
+    uint32_t frame_id = 0;
 
     while (1) {
-        // Poll for a new realsense frame
-        rs2::frameset frames;
+        auto start = std::chrono::steady_clock::now();
+        rs2::video_frame color_frame = queue.wait_for_frame();
 
-        if (!pipe.poll_for_frames(&frames)) {
-            usleep(1000);
-            continue;
+        if (color_frame.get_frame_number() != frame_id + 1) {
+            std::cerr << "Frame number mismatch" << std::endl;
+            std::cerr << "Got " << color_frame.get_frame_number() << " expected " << frame_id + 1 << std::endl;
+            break;
+        }
+        else {
+            frame_id = color_frame.get_frame_number();
         }
 
-        rs2::video_frame color_frame = frames.get_color_frame();
-
         uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
-
-        std::cout << color_frame.get_width() << "x" << color_frame.get_height() << std::endl;
-        std::cout << color_frame.get_data_size() << std::endl;
 
         int32_t color_frame_width = color_frame.get_width();
         int32_t color_frame_height = color_frame.get_height();
@@ -355,8 +363,6 @@ int main(int argc, char * argv[]) try
 
         if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
         {
-            std::cout << "dequeued buffer " << index << " bytesused " << bytesused << std::endl;
-
             // Write buffer to output file
             outfile.write((char *)buf_out[index].planes[0].data, bytesused);
             
@@ -364,12 +370,17 @@ int main(int argc, char * argv[]) try
             queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
         }
   
-
-         if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
-            std::cout << "dequeued buffer " << index << std::endl;
+        // TODO This is probably the slowest part
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
             buf_in[index].is_queued = false;
         }
 
+        if (frame_id % 100 == 0) {
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;
+            std::cout << "100 Frames " << " took " << duration.count() << "ms" << std::endl;
+
+            start = std::chrono::steady_clock::now();
+        }
     }
 
 
