@@ -315,8 +315,9 @@ int main(int argc, char * argv[]) try
     std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
     uint32_t frame_id = 0;
 
+    auto start = std::chrono::steady_clock::now();
+    
     while (1) {
-        auto start = std::chrono::steady_clock::now();
         rs2::video_frame color_frame = queue.wait_for_frame();
 
         if (color_frame.get_frame_number() != frame_id + 1) {
@@ -341,20 +342,21 @@ int main(int argc, char * argv[]) try
 
         assert(buf != buf_in.end());
 
-        // TODO Combine these loops into one for better cache performance
-        for(uint32_t row = 0; row < color_frame_height; row++) {
-            for (uint32_t col = 0; col < color_frame_width; col++) {
-                buf->planes[0].data[row * buf->planes[0].fmt.stride + col] = yuyv_data[row * color_frame_stride + col * 2];
-            }
-        }
+        auto copy_start = std::chrono::steady_clock::now();
 
-        // TODO Maybe need some averaging on the colors data
         for(uint32_t row = 0; row < color_frame_height / 2; row++) {
             for (uint32_t col = 0; col < color_frame_width / 2; col++) {
-                buf->planes[1].data[row * buf->planes[1].fmt.stride + col] = yuyv_data[row * 2 * color_frame_stride + col * 4 + 1];
-                buf->planes[2].data[row * buf->planes[2].fmt.stride + col] = yuyv_data[row * 2 * color_frame_stride + col * 4 + 3];
+                buf->planes[0].data[(row * 2) * buf->planes[0].fmt.stride + col * 2] = yuyv_data[(row * 2) * color_frame_stride + col * 4];
+                buf->planes[0].data[(row * 2) * buf->planes[0].fmt.stride + col * 2 + 1] = yuyv_data[(row * 2) * color_frame_stride + col * 4 + 2];
+                buf->planes[0].data[(row * 2 + 1) * buf->planes[0].fmt.stride + col * 2] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4];
+                buf->planes[0].data[(row * 2 + 1) * buf->planes[0].fmt.stride + col * 2 + 1] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 2];
+
+                buf->planes[1].data[row * buf->planes[1].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
+                
+                buf->planes[2].data[row * buf->planes[2].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
             }
         }
+        std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
 
         queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
