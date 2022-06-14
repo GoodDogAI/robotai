@@ -36,6 +36,10 @@ config.log
 *.a
 *.lib
 
+# Python
+*.pyc
+*.pyo
+
 # Executables
 *.exe
 *.out
