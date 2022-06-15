@@ -3,4 +3,7 @@ sudo apt-get install -y --no-install-recommends \
     capnproto \
     libcapnp-dev \
     libzmq3-dev \
-    cython3 
+    cython3 \
+    python3-pkgconfig
+
+pip3 install -r requirements.txt
