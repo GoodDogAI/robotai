@@ -12,9 +12,7 @@
 #include "cereal/visionipc/visionipc.h"
 #include "cereal/visionipc/visionipc_server.h"
 
-#define CAMERA_WIDTH 1280
-#define CAMERA_HEIGHT 720
-#define CAMERA_FPS 15
+#include "config.h"
 
 #define CAMERA_BUFFER_COUNT 30
 

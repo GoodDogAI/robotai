@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <csignal>
+#include <cassert>
 #include <thread>
 
 // From Openpilot

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <iostream>
 
-VisionBuf::VisionBuf(uint32_t size, uint32_t idx)
+NVVisionBuf::NVVisionBuf(uint32_t size, uint32_t idx)
          :index(idx), is_queued(false)
 {
     uint32_t i;
@@ -23,7 +23,7 @@ VisionBuf::VisionBuf(uint32_t size, uint32_t idx)
     this->n_planes = 1;
 }
 
-VisionBuf::VisionBuf(uint32_t np, BufferPlaneFormat *fmt, uint32_t idx)
+NVVisionBuf::NVVisionBuf(uint32_t np, BufferPlaneFormat *fmt, uint32_t idx)
          :index(idx), n_planes(np), is_queued(false)
 {
     for (uint32_t i = 0; i < n_planes; i++)

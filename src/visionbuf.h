@@ -31,7 +31,7 @@ typedef struct
     uint32_t length; 
 } BufferPlane;
 
-class VisionBuf {
+class NVVisionBuf {
  public:
   BufferPlane planes[MAX_PLANES];  
   uint32_t n_planes; 
@@ -39,9 +39,9 @@ class VisionBuf {
   bool is_queued;
 
   // Single plane for just storing output data
-  VisionBuf(uint32_t size, uint32_t index);   
+  NVVisionBuf(uint32_t size, uint32_t index);   
 
   // Multi plane color buffer
-  VisionBuf(uint32_t n_planes, BufferPlaneFormat *fmt, uint32_t index);                             
+  NVVisionBuf(uint32_t n_planes, BufferPlaneFormat *fmt, uint32_t index);                             
 };
 

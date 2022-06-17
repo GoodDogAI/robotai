@@ -1,67 +1,62 @@
-#include <assert.h>
-#include <librealsense2/rs.hpp> 
-#include <iostream>      
-#include <algorithm>       
-#include <chrono>
-#include <fstream>
+#include <iostream>
 #include <cstring>
+#include <vector>
 #include <fcntl.h>
 #include <poll.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 #include <libv4l2.h>
+
 #include "v4l2_nv_extensions.h"
 
-#include "util.h"
+#include "nvencoder.h"
 #include "visionbuf.h"
+#include "util.h"
 
-#define ENCODER_DEV "/dev/nvhost-msenc"
-#define ENCODER_COMP_NAME "NVENC"
-
-#define BUF_IN_COUNT 6
 #define BUF_OUT_COUNT 6
+#define BUF_IN_COUNT 6
 
-const int MAIN_BITRATE = 10000000;
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 // Many ideas and code From Openpilot encoderd
-static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
-{
-    int ret;
-    v4l2_plane plane = {0};
-    v4l2_buffer v4l_buf = {0};
+// static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
+// {
+//     int ret;
+//     v4l2_plane plane = {0};
+//     v4l2_buffer v4l_buf = {0};
 
-    v4l_buf.type = buf_type;
-    v4l_buf.memory = V4L2_MEMORY_MMAP;
-    v4l_buf.m.planes = &plane;
-    v4l_buf.length = 1;
+//     v4l_buf.type = buf_type;
+//     v4l_buf.memory = V4L2_MEMORY_MMAP;
+//     v4l_buf.m.planes = &plane;
+//     v4l_buf.length = 1;
 
-    ret = v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+//     ret = v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
 
-    if (ret < 0)
-    {
-        if (errno == EAGAIN)
-            return 0;
+//     if (ret < 0)
+//     {
+//         if (errno == EAGAIN)
+//             return 0;
 
-        std::cerr << "Failed to dequeue buffer (" << errno << ") : " << strerror(errno) << std::endl;
-        exit(1);
-    }
+//         std::cerr << "Failed to dequeue buffer (" << errno << ") : " << strerror(errno) << std::endl;
+//         exit(1);
+//     }
 
-    if (index)
-        *index = v4l_buf.index;
-    if (bytesused)
-        *bytesused = v4l_buf.m.planes[0].bytesused;
-    if (flags)
-        *flags = v4l_buf.flags;
-    if (timestamp)
-        *timestamp = v4l_buf.timestamp;
-    assert(v4l_buf.m.planes[0].data_offset == 0);
+//     if (index)
+//         *index = v4l_buf.index;
+//     if (bytesused)
+//         *bytesused = v4l_buf.m.planes[0].bytesused;
+//     if (flags)
+//         *flags = v4l_buf.flags;
+//     if (timestamp)
+//         *timestamp = v4l_buf.timestamp;
+//     assert(v4l_buf.m.planes[0].data_offset == 0);
     
-    return 1;
-}
+//     return 1;
+// }
 
-static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, VisionBuf *buf)
+static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, NVVisionBuf *buf)
 {
     v4l2_buffer v4l_buf = {0};
 
@@ -101,7 +96,7 @@ static void request_buffers(int fd, v4l2_buf_type buf_type, uint32_t count)
     }
 }
 
-static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<VisionBuf> &bufs)
+static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NVVisionBuf> &bufs)
 {
     for (uint32_t i = 0; i < bufs.size(); i++)
     {
@@ -138,40 +133,14 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<Vi
     }
 }
 
-// Encodes an Intel Real Sense stream using the NVIDIA Hardware encoder on Jetson Platform
-int main(int argc, char * argv[]) try
+NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int bitrate, int fps):
+    in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps)
 {
-    int out_width = 1280, out_height = 720;
-    int in_width = 1280, in_height = 720;
-
-    std::vector<VisionBuf> buf_out;
-    std::vector<VisionBuf> buf_in;
-
-    rs2::context ctx;
-    rs2::device_list devices_list = ctx.query_devices();
-    size_t device_count = devices_list.size();
-    if (!device_count)
-    {
-        std::cout << "No device detected. Is it plugged in?\n";
-        return EXIT_SUCCESS;
-    }
-    
-    std::cout << "Found " << device_count << " devices\n";
-
-    rs2::device device = devices_list.front();
-
-    std::cout << "Device Name: " << device.get_info(RS2_CAMERA_INFO_NAME ) << std::endl;
-
-    auto depth_sens = device.first< rs2::depth_sensor >();
-    auto color_sens = device.first< rs2::color_sensor >();
-    
-    // Create the v4l encoder manually
-    int fd = v4l2_open(ENCODER_DEV, O_RDWR);
+    fd = v4l2_open(encoderdev.c_str(), O_RDWR);
 
     if (fd == -1)
     {
-        std::cerr << "Could not open device '" << ENCODER_DEV << "'" << std::endl;
-        return EXIT_FAILURE;
+        throw std::runtime_error("Could not open device");
     }
 
     struct v4l2_capability caps;
@@ -179,8 +148,7 @@ int main(int argc, char * argv[]) try
 
     if (!(caps.capabilities & V4L2_CAP_VIDEO_M2M_MPLANE))
     {
-        std::cerr << "Device does not support V4L2_CAP_VIDEO_M2M_MPLANE";
-        return EXIT_FAILURE;
+        throw std::runtime_error("Device does not support V4L2_CAP_VIDEO_M2M_MPLANE");
     }
 
     struct v4l2_format fmt_out = {
@@ -227,7 +195,7 @@ int main(int argc, char * argv[]) try
     {
         struct v4l2_control ctrls[] = {
             { .id = V4L2_CID_MPEG_VIDEO_HEADER_MODE, .value = V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_1ST_FRAME},
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = MAIN_BITRATE},
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate},
             { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR},
         };
         for (auto ctrl : ctrls) {
@@ -246,13 +214,14 @@ int main(int argc, char * argv[]) try
         }
     }
 
+
     // Allocate the buffers
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, BUF_OUT_COUNT);
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, BUF_IN_COUNT);
 
     // initialize output buffers
     for (unsigned int i = 0; i < BUF_OUT_COUNT; i++) {
-        VisionBuf buf = VisionBuf(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage, i);
+        NVVisionBuf buf = NVVisionBuf(fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage, i);
         buf_out.push_back(buf);
     }
 
@@ -285,7 +254,7 @@ int main(int argc, char * argv[]) try
     yuv_format[2].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[2].sizeimage;
 
     for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
-        VisionBuf buf = VisionBuf(3, yuv_format, i);
+        NVVisionBuf buf = NVVisionBuf(3, yuv_format, i);
         buf_in.push_back(buf);
     }
 
@@ -297,103 +266,17 @@ int main(int argc, char * argv[]) try
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+}
 
-    // Start the camera
-    auto profiles = color_sens.get_stream_profiles();
-    auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [in_height, in_width](rs2::stream_profile &profile) {
-        rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
-            return sp.width() == in_width && sp.height() == in_height && sp.format() == RS2_FORMAT_YUYV && sp.fps() == 15;
-        });
-
-    color_sens.open(stream_profile);
-
-    rs2::frame_queue queue(1);
-    color_sens.start(queue);
-
-    // Temporary output file
-    std::ofstream outfile("output.hevc", std::ios::out | std::ios::binary);
-    uint32_t frame_id = 0;
-
-    auto start = std::chrono::steady_clock::now();
+NVEncoder::~NVEncoder() {
+    v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMOFF, &buf_type);
+    request_buffers(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, 0);
     
-    while (1) {
-        rs2::video_frame color_frame = queue.wait_for_frame();
+    buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    checked_v4l2_ioctl(fd, VIDIOC_STREAMOFF, &buf_type);
+    request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, 0);
 
-        if (color_frame.get_frame_number() != frame_id + 1) {
-            std::cerr << "Frame number mismatch" << std::endl;
-            std::cerr << "Got " << color_frame.get_frame_number() << " expected " << frame_id + 1 << std::endl;
-            break;
-        }
-        else {
-            frame_id = color_frame.get_frame_number();
-        }
-
-        uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
-
-        int32_t color_frame_width = color_frame.get_width();
-        int32_t color_frame_height = color_frame.get_height();
-        int32_t color_frame_stride = color_frame.get_stride_in_bytes();
-
-        // Find an empty buf
-        auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](VisionBuf &b) {
-            return !b.is_queued;
-        });
-
-        assert(buf != buf_in.end());
-
-        auto copy_start = std::chrono::steady_clock::now();
-
-        for(uint32_t row = 0; row < color_frame_height / 2; row++) {
-            for (uint32_t col = 0; col < color_frame_width / 2; col++) {
-                buf->planes[0].data[(row * 2) * buf->planes[0].fmt.stride + col * 2] = yuyv_data[(row * 2) * color_frame_stride + col * 4];
-                buf->planes[0].data[(row * 2) * buf->planes[0].fmt.stride + col * 2 + 1] = yuyv_data[(row * 2) * color_frame_stride + col * 4 + 2];
-                buf->planes[0].data[(row * 2 + 1) * buf->planes[0].fmt.stride + col * 2] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4];
-                buf->planes[0].data[(row * 2 + 1) * buf->planes[0].fmt.stride + col * 2 + 1] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 2];
-
-                buf->planes[1].data[row * buf->planes[1].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
-                
-                buf->planes[2].data[row * buf->planes[2].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
-            }
-        }
-        std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
-
-        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
-
-
-        uint32_t index, bytesused;
-
-        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
-        {
-            // Write buffer to output file
-            outfile.write((char *)buf_out[index].planes[0].data, bytesused);
-            
-            // Requeue the buffer
-            queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
-        }
-  
-        // TODO This is probably the slowest part
-        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
-            buf_in[index].is_queued = false;
-        }
-
-        if (frame_id % 100 == 0) {
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;
-            std::cout << "100 Frames " << " took " << duration.count() << "ms" << std::endl;
-
-            start = std::chrono::steady_clock::now();
-        }
-    }
-
-
-    return EXIT_SUCCESS;
-}
-catch (const rs2::error & e)
-{
-    std::cerr << "RealSense error calling " << e.get_failed_function() << "(" << e.get_failed_args() << "):\n    " << e.what() << std::endl;
-    return EXIT_FAILURE;
-}
-catch (const std::exception& e)
-{
-    std::cerr << e.what() << std::endl;
-    return EXIT_FAILURE;
+    std::cout << "Closing encoder" << std::endl;
+    v4l2_close(fd);
 }
