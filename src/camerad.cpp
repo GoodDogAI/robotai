@@ -14,14 +14,15 @@
 
 #define CAMERA_WIDTH 1280
 #define CAMERA_HEIGHT 720
+#define CAMERA_FPS 15
 
 #define CAMERA_BUFFER_COUNT 30
 
 int main(int argc, char *argv[])
 {
-    VisionIpcServer server("camerad");
-    server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
-    server.start_listener();
+    VisionIpcServer vipc_server("camerad");
+    vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
+    vipc_server.start_listener();
 
     rs2::context ctx;
     rs2::device_list devices_list = ctx.query_devices();
@@ -41,12 +42,18 @@ int main(int argc, char *argv[])
     auto depth_sens = device.first<rs2::depth_sensor>();
     auto color_sens = device.first<rs2::color_sensor>();
 
-    // Start the camera
+    // Find a matching profile
     auto profiles = color_sens.get_stream_profiles();
     auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [](rs2::stream_profile &profile)
                                         {
         rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
-            return sp.width() == CAMERA_WIDTH && sp.height() == CAMERA_HEIGHT && sp.format() == RS2_FORMAT_YUYV && sp.fps() == 15; });
+            return sp.width() == CAMERA_WIDTH && sp.height() == CAMERA_HEIGHT && sp.format() == RS2_FORMAT_YUYV && sp.fps() == CAMERA_FPS; });
+
+    if (!stream_profile)
+    {
+        std::cerr << "No matching camera configuration found\n";
+        return EXIT_FAILURE;
+    }
 
     color_sens.open(stream_profile);
 
@@ -70,6 +77,23 @@ int main(int argc, char *argv[])
         {
             frame_id = color_frame.get_frame_number();
         }
+
+        auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_COLOR);
+
+        // TODO To get proper frame metadata, it will be necessary to patch the kernel and bypass the UVC stuff
+        // For now, it will be best to just go with UVC, and maybe by the time I finish coding, they will have
+        // discontinued realsense anyways...
+        //auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
+        //std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << std::endl;
+
+        VisionIpcBufExtra extra = {
+                        frame_id,
+                        0,
+                        0,
+        };
+        cur_yuv_buf->set_frame_id(frame_id);
+
+        vipc_server.send(cur_yuv_buf, &extra);
 
         // uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
 
