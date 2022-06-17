@@ -291,6 +291,9 @@ int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
     });
 
     assert(buf != buf_in.end());
+
+    memcpy(buf->planes[0].data, ipcbuf->y, ipcbuf->uv_offset);
+
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
     uint32_t index, bytesused;
