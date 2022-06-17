@@ -49,6 +49,8 @@ int main(int argc, char *argv[])
             continue;
 
         std::cout << "Received frame " << extra.frame_id << std::endl;
+
+        encoder.encode_frame(buf, &extra);
     }
 
     return EXIT_SUCCESS;

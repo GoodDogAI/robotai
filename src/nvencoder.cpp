@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <algorithm>
 #include <fcntl.h>
 #include <poll.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 
 #include "v4l2_nv_extensions.h"
 
+#include "cereal/visionipc/visionbuf.h"
 #include "nvencoder.h"
 #include "visionbuf.h"
 #include "util.h"
@@ -21,40 +23,40 @@
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
 // Many ideas and code From Openpilot encoderd
-// static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
-// {
-//     int ret;
-//     v4l2_plane plane = {0};
-//     v4l2_buffer v4l_buf = {0};
+static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = NULL, unsigned int *bytesused = NULL, unsigned int *flags = NULL, struct timeval *timestamp = NULL)
+{
+    int ret;
+    v4l2_plane plane = {0};
+    v4l2_buffer v4l_buf = {0};
 
-//     v4l_buf.type = buf_type;
-//     v4l_buf.memory = V4L2_MEMORY_MMAP;
-//     v4l_buf.m.planes = &plane;
-//     v4l_buf.length = 1;
+    v4l_buf.type = buf_type;
+    v4l_buf.memory = V4L2_MEMORY_MMAP;
+    v4l_buf.m.planes = &plane;
+    v4l_buf.length = 1;
 
-//     ret = v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
+    ret = v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
 
-//     if (ret < 0)
-//     {
-//         if (errno == EAGAIN)
-//             return 0;
+    if (ret < 0)
+    {
+        if (errno == EAGAIN)
+            return 0;
 
-//         std::cerr << "Failed to dequeue buffer (" << errno << ") : " << strerror(errno) << std::endl;
-//         exit(1);
-//     }
+        std::cerr << "Failed to dequeue buffer (" << errno << ") : " << strerror(errno) << std::endl;
+        exit(1);
+    }
 
-//     if (index)
-//         *index = v4l_buf.index;
-//     if (bytesused)
-//         *bytesused = v4l_buf.m.planes[0].bytesused;
-//     if (flags)
-//         *flags = v4l_buf.flags;
-//     if (timestamp)
-//         *timestamp = v4l_buf.timestamp;
-//     assert(v4l_buf.m.planes[0].data_offset == 0);
+    if (index)
+        *index = v4l_buf.index;
+    if (bytesused)
+        *bytesused = v4l_buf.m.planes[0].bytesused;
+    if (flags)
+        *flags = v4l_buf.flags;
+    if (timestamp)
+        *timestamp = v4l_buf.timestamp;
+    assert(v4l_buf.m.planes[0].data_offset == 0);
     
-//     return 1;
-// }
+    return 1;
+}
 
 static void queue_buffer(int fd, v4l2_buf_type buf_type, unsigned int index, NVVisionBuf *buf)
 {
@@ -134,7 +136,7 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NV
 }
 
 NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int bitrate, int fps):
-    in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps)
+    in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps), outfile("output.hevc", std::ios::out | std::ios::binary)
 {
     fd = v4l2_open(encoderdev.c_str(), O_RDWR);
 
@@ -266,6 +268,7 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+
 }
 
 NVEncoder::~NVEncoder() {
@@ -279,4 +282,32 @@ NVEncoder::~NVEncoder() {
 
     std::cout << "Closing encoder" << std::endl;
     v4l2_close(fd);
+}
+
+int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
+    // Find an empty buf
+    auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](NVVisionBuf &b) {
+        return !b.is_queued;
+    });
+
+    assert(buf != buf_in.end());
+    queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
+
+    uint32_t index, bytesused;
+
+    if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
+    {
+        // Write buffer to output file
+        outfile.write((char *)buf_out[index].planes[0].data, bytesused);
+        
+        // Requeue the buffer
+        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
+    }
+
+    // TODO This is probably the slowest part
+    if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
+        buf_in[index].is_queued = false;
+    }
+
+    return 0;
 }
