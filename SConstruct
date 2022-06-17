@@ -11,17 +11,21 @@ if platform.system() == "Darwin":
 
 cereal_dir = Dir('./cereal')
 messaging_dir = Dir('./cereal/messaging')
+visionipc_dir = Dir('./cereal/visionipc')
 common = ''
 
 cpppath = [
-  cereal_dir,
-  messaging_dir,
   '/usr/lib/include',
   sysconfig.get_paths()['include'],
+  '#',
+  '#cereal'
 ]
 
 libpath = [
-  '/opt/homebrew/lib',
+  "/usr/local/lib",
+  "/usr/lib",
+  "/usr/lib/aarch64-linux-gnu",
+  "#cereal"
 ]
 
 AddOption('--test',
@@ -57,6 +61,7 @@ env = Environment(
 
 Export('env', 'arch', 'common')
 
+# Base cython environment
 envCython = env.Clone(LIBS=[])
 envCython["CPPPATH"] += [np.get_include()]
 envCython["CCFLAGS"] += ["-Wno-#warnings", "-Wno-shadow", "-Wno-deprecated-declarations"]
@@ -64,6 +69,14 @@ envCython["LINKFLAGS"] = ["-pthread", "-shared"]
 
 Export('envCython')
 
+# build and export shared cereal libs
+SConscript(['cereal/SConscript'])
 
-SConscript(["src/SConscript",
-            "cereal/SConscript"])
+cereal = [File('#cereal/libcereal.a')]
+messaging = [File('#cereal/libmessaging.a')]
+visionipc = [File('#cereal/libvisionipc.a')]
+
+Export('cereal', 'messaging', 'visionipc')
+
+
+SConscript(["src/SConscript"])

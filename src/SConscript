@@ -1,7 +1,11 @@
-Import("env")
+Import("env", "common", "cereal", "messaging", "visionipc")
 
 
 env.Append(CPPPATH = ["/usr/src/jetson_multimedia_api/include"])
 env.Append(LIBPATH = ["/usr/lib/aarch64-linux-gnu/tegra/"])
 
-env.Program("nvencoder", ["nvencoder.cpp", "visionbuf.cpp"], LIBS=["realsense2", "nvbuf_utils", "v4l2", "pthread"])
+visionlibs = ["pthread", common, "realsense2", "nvbuf_utils", "v4l2", cereal, 'zmq', 'capnp', 'kj', visionipc, messaging]
+
+env.Program("camerad", ["camerad.cpp"], LIBS=visionlibs)
+
+env.Program("nvencoder", ["nvencoder.cpp", "visionbuf.cpp"], LIBS=visionlibs)
