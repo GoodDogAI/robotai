@@ -181,13 +181,13 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
       .pix_mp = {
         .width = (unsigned int)in_width,
         .height = (unsigned int)in_height,
-        .pixelformat = V4L2_PIX_FMT_YUV420M,
+        .pixelformat = V4L2_PIX_FMT_NV12M,
         //.field = V4L2_FIELD_ANY,
         //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
       }
         }
     };
-    fmt_in.fmt.pix_mp.num_planes = 3;
+    fmt_in.fmt.pix_mp.num_planes = 2;
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
 
@@ -236,27 +236,21 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     }
 
     // setup input buffers
-    BufferPlaneFormat yuv_format[3];
+    BufferPlaneFormat yuv_format[2];
     yuv_format[0].width = in_width;
     yuv_format[0].height = in_height;
     yuv_format[0].bytesperpixel = 1;
     yuv_format[0].stride = fmt_in.fmt.pix_mp.plane_fmt[0].bytesperline;
     yuv_format[0].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[0].sizeimage;
 
-    yuv_format[1].width = in_width / 2; 
+    yuv_format[1].width = in_width; 
     yuv_format[1].height = in_height / 2;
     yuv_format[1].bytesperpixel = 1;
     yuv_format[1].stride = fmt_in.fmt.pix_mp.plane_fmt[1].bytesperline;
     yuv_format[1].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[1].sizeimage;
 
-    yuv_format[2].width = in_width / 2;
-    yuv_format[2].height = in_height / 2;
-    yuv_format[2].bytesperpixel = 1;
-    yuv_format[2].stride = fmt_in.fmt.pix_mp.plane_fmt[2].bytesperline;
-    yuv_format[2].sizeimage = fmt_in.fmt.pix_mp.plane_fmt[2].sizeimage;
-
     for (uint32_t i = 0; i < BUF_IN_COUNT; i++) {
-        NVVisionBuf buf = NVVisionBuf(3, yuv_format, i);
+        NVVisionBuf buf = NVVisionBuf(2, yuv_format, i);
         buf_in.push_back(buf);
     }
 
@@ -293,6 +287,7 @@ int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
     assert(buf != buf_in.end());
 
     memcpy(buf->planes[0].data, ipcbuf->y, ipcbuf->uv_offset);
+    memcpy(buf->planes[1].data, ipcbuf->uv, ipcbuf->uv_offset / 2);
 
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 

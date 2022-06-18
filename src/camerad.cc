@@ -91,15 +91,11 @@ int main(int argc, char *argv[])
         };
         cur_yuv_buf->set_frame_id(frame_id);
 
-        vipc_server.send(cur_yuv_buf, &extra);
-
         uint8_t *yuyv_data = (uint8_t *)color_frame.get_data();
 
         int32_t color_frame_width = color_frame.get_width();
         int32_t color_frame_height = color_frame.get_height();
         int32_t color_frame_stride = color_frame.get_stride_in_bytes();
-
-        std::cout << "stride " << color_frame_stride << " buf stride " << cur_yuv_buf->stride << std::endl;
 
         for(uint32_t row = 0; row < color_frame_height / 2; row++) {
             for (uint32_t col = 0; col < color_frame_width / 2; col++) {
@@ -108,13 +104,12 @@ int main(int argc, char *argv[])
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4];
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 2];
 
-
-                // TODO Copy to UV buffer
-                //buf->planes[1].data[row * buf->planes[1].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
-                
-                //buf->planes[2].data[row * buf->planes[2].fmt.stride + col] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
             }
         }
+
+        vipc_server.send(cur_yuv_buf, &extra);
 
         if (frame_id % 100 == 0)
         {
