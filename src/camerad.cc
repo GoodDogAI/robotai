@@ -18,13 +18,13 @@
 
 int main(int argc, char *argv[])
 {
-    VisionIpcServer vipc_server("camerad");
+    VisionIpcServer vipc_server{ "camerad" };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.start_listener();
 
     rs2::context ctx;
-    rs2::device_list devices_list = ctx.query_devices();
-    size_t device_count = devices_list.size();
+    rs2::device_list devices_list{ ctx.query_devices() };
+    size_t device_count{ devices_list.size() };
     if (!device_count)
     {
         std::cout << "No device detected. Is it plugged in?\n";
@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
 
     std::cout << "Device Name: " << device.get_info(RS2_CAMERA_INFO_NAME) << std::endl;
 
-    auto depth_sens = device.first<rs2::depth_sensor>();
-    auto color_sens = device.first<rs2::color_sensor>();
+    auto depth_sens{ device.first<rs2::depth_sensor>() };
+    auto color_sens{ device.first<rs2::color_sensor>() };
 
     // Find a matching profile
-    auto profiles = color_sens.get_stream_profiles();
+    auto profiles{ color_sens.get_stream_profiles() };
     auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [](rs2::stream_profile &profile)
                                         {
         rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
@@ -55,13 +55,13 @@ int main(int argc, char *argv[])
 
     color_sens.open(stream_profile);
 
-    rs2::frame_queue queue(1);
+    rs2::frame_queue queue{ 1 };
     color_sens.start(queue);
 
-    uint32_t frame_id = 0;
-    auto start = std::chrono::steady_clock::now();
+    uint32_t frame_id{ 0 };
+    auto start {std::chrono::steady_clock::now()};
 
-    while (1)
+    while (true)
     {
         rs2::video_frame color_frame = queue.wait_for_frame();
 
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
         //auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
         //std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << std::endl;
 
-        VisionIpcBufExtra extra = {
+        VisionIpcBufExtra extra {
                         frame_id,
                         0,
                         0,

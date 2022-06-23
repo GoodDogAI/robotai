@@ -3,7 +3,7 @@
 #include <string>
 #include <fstream>
 
-#include "visionbuf.h"
+#include "nvvisionbuf.h"
 
 
 class NVEncoder{

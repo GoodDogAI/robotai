@@ -1,4 +1,4 @@
-#include "visionbuf.h"
+#include "nvvisionbuf.h"
 
 #include <stdlib.h>
 #include <iostream>

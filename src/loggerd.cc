@@ -2,12 +2,18 @@
 #include <cstdlib>
 #include <iostream>
 
-constexpr uint8_t mask0{ 0b0000'0001 };
 
-constexpr int32_t bitrate = 1'000'000;
+template <typename T>
+struct Pair {
+    T x{};
+    T y{};
+};
 
 int main(int argc, char *argv[])
 {
-    std::cout << "Hello, World!" << mask0 << bitrate << std::endl;
+    Pair<int> z {5,4};
+
+    std::cout << z.x << z.y;
+    
     return EXIT_SUCCESS;
 }

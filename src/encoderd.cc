@@ -26,8 +26,8 @@ ExitHandler do_exit;
 
 int main(int argc, char *argv[])
 {
-    VisionIpcClient vipc_client = VisionIpcClient("camerad", VISION_STREAM_HEAD_COLOR, false);
-    NVEncoder encoder(ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, 2000000, CAMERA_FPS);
+    VisionIpcClient vipc_client {"camerad", VISION_STREAM_HEAD_COLOR, false};
+    NVEncoder encoder {ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS};
 
     // Connect to the visionipc server
     while (!do_exit) {

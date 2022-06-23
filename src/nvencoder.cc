@@ -14,7 +14,7 @@
 
 #include "cereal/visionipc/visionbuf.h"
 #include "nvencoder.h"
-#include "visionbuf.h"
+#include "nvvisionbuf.h"
 #include "util.h"
 
 #define BUF_OUT_COUNT 6
@@ -262,7 +262,6 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
-
 }
 
 NVEncoder::~NVEncoder() {
