@@ -286,13 +286,16 @@ int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
 
     assert(buf != buf_in.end());
 
+    auto copy_start = std::chrono::steady_clock::now();
     memcpy(buf->planes[0].data, ipcbuf->y, ipcbuf->uv_offset);
     memcpy(buf->planes[1].data, ipcbuf->uv, ipcbuf->uv_offset / 2);
+    std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
+
 
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
     uint32_t index, bytesused;
-
+    
     if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
     {
         // Write buffer to output file

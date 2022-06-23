@@ -5,6 +5,7 @@ src/hello
 src/nvencoder
 src/camerad
 src/encoderd
+src/loggerd
 
 # When configure fails, SCons outputs these
 config.log

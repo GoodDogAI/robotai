@@ -8,4 +8,4 @@ visionlibs = ["pthread", common, "realsense2", "nvbuf_utils", "v4l2", cereal, 'z
 
 env.Program("camerad", ["camerad.cc"], LIBS=visionlibs)
 env.Program("encoderd", ["encoderd.cc", "nvencoder.cc", "visionbuf.cc"], LIBS=visionlibs)
-
+env.Program("loggerd", ["loggerd.cc"], LIBS=visionlibs)
