@@ -48,6 +48,7 @@ config.log
 *.out
 *.app
 
+*.tmp
 *.h264
 *.h265
 *.mkv
