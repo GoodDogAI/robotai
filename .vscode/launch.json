@@ -15,8 +15,14 @@
             "type": "cppdbg",
             "request": "launch",
             "name": "Launch C++",
-            "program": "${workspaceRoot}/src/nvencoder",
+            "program": "${workspaceRoot}/src/encoderd",
             "cwd": "${workspaceRoot}/src",
+            "setupCommands": [
+                {
+                    "description": "ignore SIGUSR2 signal",
+                    "text": "handle SIGUSR2 nostop noprint pass"
+                }
+            ]
         }
     ]
 }

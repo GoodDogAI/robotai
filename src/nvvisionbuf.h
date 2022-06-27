@@ -1,5 +1,6 @@
 #pragma once
 
+#include <future>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -30,6 +31,11 @@ typedef struct
     uint32_t mem_offset;       
     uint32_t length; 
 } BufferPlane;
+
+struct NVResult {
+    uint8_t *data;
+    size_t len;
+};
 
 class NVVisionBuf {
  public:

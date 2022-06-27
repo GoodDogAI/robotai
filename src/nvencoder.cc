@@ -2,6 +2,8 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
+
 #include <fcntl.h>
 #include <poll.h>
 #include <string.h>
@@ -9,6 +11,7 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 #include <libv4l2.h>
+
 
 #include "v4l2_nv_extensions.h"
 
@@ -136,7 +139,7 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NV
 }
 
 NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int bitrate, int fps):
-    in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps), outfile("output.hevc", std::ios::out | std::ios::binary)
+   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps)
 {
     fd = v4l2_open(encoderdev.c_str(), O_RDWR);
 
@@ -262,6 +265,10 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
+
+    // start the dequeue threads
+    dequeue_capture_thread = std::thread { &NVEncoder::do_dequeue_capture, this };
+    dequeue_output_thread = std::thread { &NVEncoder::do_dequeue_output, this };
 }
 
 NVEncoder::~NVEncoder() {
@@ -273,11 +280,49 @@ NVEncoder::~NVEncoder() {
     checked_v4l2_ioctl(fd, VIDIOC_STREAMOFF, &buf_type);
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, 0);
 
+    dequeue_capture_thread.join();
+    dequeue_output_thread.join();
+
     std::cout << "Closing encoder" << std::endl;
     v4l2_close(fd);
 }
 
-int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
+void NVEncoder::do_dequeue_capture() {
+    while(true) {
+        uint32_t index, bytesused;
+    
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
+        {
+            auto &promise = encoder_promises[frame_read_index];
+            
+            // Write buffer to output file
+            //outfile.write((char *)buf_out[index].planes[0].data, bytesused);
+            NVResult r {
+                buf_out[index].planes[0].data,
+                bytesused
+            };
+            promise.set_value(r);
+            encoder_promises.erase(frame_read_index);
+            frame_read_index++;
+            
+            // Requeue the buffer
+            queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
+        }
+    }
+}
+
+void NVEncoder::do_dequeue_output() {
+    while(true) {
+        uint32_t index;
+
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
+            buf_in[index].is_queued = false;
+        }
+    }
+}
+
+
+std::future<NVResult> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
     // Find an empty buf
     auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](NVVisionBuf &b) {
         return !b.is_queued;
@@ -285,29 +330,16 @@ int NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
 
     assert(buf != buf_in.end());
 
-    auto copy_start = std::chrono::steady_clock::now();
+    //auto copy_start = std::chrono::steady_clock::now();
     memcpy(buf->planes[0].data, ipcbuf->y, ipcbuf->uv_offset);
     memcpy(buf->planes[1].data, ipcbuf->uv, ipcbuf->uv_offset / 2);
-    std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
+    //std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
 
+    auto &promise = encoder_promises[frame_write_index];
+    frame_write_index++;
 
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
-    uint32_t index, bytesused;
-    
-    if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
-    {
-        // Write buffer to output file
-        outfile.write((char *)buf_out[index].planes[0].data, bytesused);
-        
-        // Requeue the buffer
-        queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
-    }
-
-    // TODO This is probably the slowest part
-    if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
-        buf_in[index].is_queued = false;
-    }
-
-    return 0;
+    std::cout << "Sent buffer " << (frame_write_index - 1) << std::endl;
+    return promise.get_future();
 }

@@ -1,6 +1,7 @@
 // encoderd takes in visionframes, and encodes them to H265 format using the hardware nvidia encoder
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <cassert>
 #include <linux/videodev2.h>
@@ -26,8 +27,9 @@ ExitHandler do_exit;
 
 int main(int argc, char *argv[])
 {
-    VisionIpcClient vipc_client {"camerad", VISION_STREAM_HEAD_COLOR, false};
-    NVEncoder encoder {ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS};
+    VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
+    std::ofstream outfile { "output.hevc", std::ios::out | std::ios::binary };
 
     // Connect to the visionipc server
     while (!do_exit) {
@@ -50,7 +52,9 @@ int main(int argc, char *argv[])
 
         std::cout << "Received frame " << extra.frame_id << std::endl;
 
-        encoder.encode_frame(buf, &extra);
+        auto encoded = encoder.encode_frame(buf, &extra);
+
+        std::cout << "size" << encoded.get().len << std::endl;
     }
 
     return EXIT_SUCCESS;
