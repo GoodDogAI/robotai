@@ -35,12 +35,15 @@ typedef struct
 struct NVResult {
     uint8_t *data;
     size_t len;
+
+    private:
+    uint32_t index;
 };
 
 class NVVisionBuf {
  public:
   BufferPlane planes[MAX_PLANES];  
-  uint32_t n_planes; 
+  const uint32_t n_planes; 
   const uint32_t index;    
   bool is_queued;
 
