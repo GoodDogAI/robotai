@@ -36,8 +36,10 @@ struct NVResult {
     uint8_t *data;
     size_t len;
 
+    NVResult(uint8_t *d, size_t l, uint32_t i) :data(d), len(l), index(i) {}
+
     private:
-    uint32_t index;
+        __attribute__((unused)) const uint32_t index;
 };
 
 class NVVisionBuf {

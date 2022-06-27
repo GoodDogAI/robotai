@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 
         auto encoded = encoder.encode_frame(buf, &extra);
 
-        std::cout << "size" << encoded.get().len << std::endl;
+        std::cout << "size" << encoded.get()->len << std::endl;
     }
 
     return EXIT_SUCCESS;
