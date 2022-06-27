@@ -299,7 +299,8 @@ void NVEncoder::do_dequeue_capture() {
             //outfile.write((char *)buf_out[index].planes[0].data, bytesused);
             NVResult r {
                 buf_out[index].planes[0].data,
-                bytesused
+                bytesused,
+                index
             };
             promise.set_value(r);
             encoder_promises.erase(frame_read_index);
@@ -322,7 +323,7 @@ void NVEncoder::do_dequeue_output() {
 }
 
 
-std::future<NVResult> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
+std::future<const NVResult> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
     // Find an empty buf
     auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](NVVisionBuf &b) {
         return !b.is_queued;

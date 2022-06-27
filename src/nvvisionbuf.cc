@@ -4,11 +4,10 @@
 #include <iostream>
 
 NVVisionBuf::NVVisionBuf(uint32_t size, uint32_t idx)
-         :index(idx), is_queued(false)
+         :index(idx), n_planes(1), is_queued(false)
 {
     uint32_t i;
 
-    n_planes = 1;
     for (i = 0; i < n_planes; i++)
     {
         this->planes[i].fd = -1;
@@ -19,8 +18,6 @@ NVVisionBuf::NVVisionBuf(uint32_t size, uint32_t idx)
         this->planes[i].bytesused = 0;
         this->planes[i].fmt.sizeimage = size;
     }
-
-    this->n_planes = 1;
 }
 
 NVVisionBuf::NVVisionBuf(uint32_t np, BufferPlaneFormat *fmt, uint32_t idx)

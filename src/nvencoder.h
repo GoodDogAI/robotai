@@ -19,7 +19,7 @@ class NVEncoder{
         NVEncoder(const NVEncoder&) = delete;
         NVEncoder& operator=(const NVEncoder&) = delete;
 
-        std::future<NVResult> encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra);
+        std::future<const NVResult> encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra);
 
         int fd;
         int in_width, in_height, out_width, out_height, bitrate, fps;
@@ -35,6 +35,6 @@ class NVEncoder{
         std::vector<NVVisionBuf> buf_out;
         std::vector<NVVisionBuf> buf_in;
     
-        std::map<int, std::promise<NVResult>> encoder_promises;
+        std::map<int, std::promise<const NVResult>> encoder_promises;
 };
 
