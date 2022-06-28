@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <cstdlib>
+#include <chrono>
 #include <iostream>
+#include <experimental/filesystem>
 
 #include "util.h"
 
@@ -11,11 +13,16 @@
 
 ExitHandler do_exit;
 
+namespace fs = std::experimental::filesystem;
+
 const char *service_name = "headEncodeData";
+const fs::path log_path{ "/media/card" };
 
 int main(int argc, char *argv[])
 {
-    SubMaster sm({service_name});
+    SubMaster sm{ {service_name} };
+
+    
 
     while (!do_exit) {
         sm.update();
