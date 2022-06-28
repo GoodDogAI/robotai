@@ -30,8 +30,8 @@ class NVEncoder{
             // Requeues the resulting buffer to V4L2 once the user is done with it
             ~NVResult();
 
-            protected:
-                __attribute__((unused)) const uint32_t index;
+            private:
+                const uint32_t index;
         };
 
         std::future<std::unique_ptr<NVResult>> encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra);
