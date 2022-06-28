@@ -27,13 +27,14 @@ using namespace std::chrono_literals;
 
 ExitHandler do_exit;
 
+const char *service_name = "headEncodeData";
 
 int main(int argc, char *argv[])
 {
     VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
     NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
-    PubMaster pm{ {"headEncodeData"} };
+    PubMaster pm{ {service_name} };
     int32_t num_frames{ 0 };
 
     // Connect to the visionipc server
@@ -67,7 +68,17 @@ int main(int argc, char *argv[])
         while (!encoder_futures.empty() && encoder_futures.front().wait_for(0s) == std::future_status::ready) {
             auto result = encoder_futures.front().get();
 
+            MessageBuilder msg;
+            auto event = msg.initEvent(true);
+            auto edat = event.initHeadEncodeData();
+            auto edata = edat.initIdx(); 
+            edata.setEncodeId(num_frames);
 
+            edat.setData(kj::heapArray<capnp::byte>(result->data, result->len));
+
+            auto words = new kj::Array<capnp::word>(capnp::messageToFlatArray(msg));
+            auto bytes = words->asBytes();
+            pm.send(service_name, bytes.begin(), bytes.size());
           
             encoder_futures.pop_front();
         }
