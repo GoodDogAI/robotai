@@ -22,7 +22,6 @@ class NVEncoder{
         NVEncoder& operator=(const NVEncoder&) = delete;
 
         struct NVResult {
-            NVEncoder &enc;
             uint8_t *data;
             size_t len;
 
@@ -31,6 +30,7 @@ class NVEncoder{
             ~NVResult();
 
             private:
+                NVEncoder &enc;
                 const uint32_t index;
         };
 

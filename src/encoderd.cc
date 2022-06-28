@@ -2,6 +2,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <deque>
 #include <algorithm>
 #include <cassert>
 #include <linux/videodev2.h>
@@ -22,14 +23,17 @@
 #define BUF_IN_COUNT 6
 #define BUF_OUT_COUNT 6
 
-ExitHandler do_exit;
+using namespace std::chrono_literals;
 
+ExitHandler do_exit;
 
 int main(int argc, char *argv[])
 {
     VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
     NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
-    std::ofstream outfile { "output.hevc", std::ios::out | std::ios::binary };
+    std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
+    PubMaster{ {"headEncodeData"} };
+    int32_t num_frames{ 0 };
 
     // Connect to the visionipc server
     while (!do_exit) {
@@ -50,11 +54,24 @@ int main(int argc, char *argv[])
         if (buf == nullptr)
             continue;
 
-        std::cout << "Received frame " << extra.frame_id << std::endl;
+        if (num_frames % 50 == 0) {
+            std::cout << "Received frame " << extra.frame_id << std::endl;
+        }
 
-        auto encoded = encoder.encode_frame(buf, &extra);
+        // Add the future to be retrieved later
+        auto future = encoder.encode_frame(buf, &extra);
+        encoder_futures.push_back(std::move(future));
 
-        std::cout << "size" << encoded.get()->len << std::endl;
+        // Process and dump out any finished futures 
+        while (!encoder_futures.empty() && encoder_futures.front().wait_for(0s) == std::future_status::ready) {
+            auto result = encoder_futures.front().get();
+
+
+          
+            encoder_futures.pop_front();
+        }
+
+        num_frames++;
     }
 
     return EXIT_SUCCESS;
