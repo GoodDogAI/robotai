@@ -27,12 +27,13 @@ using namespace std::chrono_literals;
 
 ExitHandler do_exit;
 
+
 int main(int argc, char *argv[])
 {
     VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
     NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
-    PubMaster{ {"headEncodeData"} };
+    PubMaster pm{ {"headEncodeData"} };
     int32_t num_frames{ 0 };
 
     // Connect to the visionipc server

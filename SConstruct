@@ -32,6 +32,8 @@ AddOption('--test',
           action='store_true',
           help='build test files')
 
+ldflags = ["-pthread", "-Wl,--as-needed", "-Wl,--no-undefined"]
+
 env = Environment(
   ENV=os.environ,
   CC='clang',
@@ -53,6 +55,7 @@ env = Environment(
   ],
   CFLAGS="-std=gnu11",
   CXXFLAGS="-std=c++1z",
+  LINKFLAGS=ldflags,
   CPPPATH=cpppath,
   LIBPATH=libpath,
   CYTHONCFILESUFFIX=".cpp",
