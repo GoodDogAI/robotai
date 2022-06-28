@@ -32,16 +32,6 @@ typedef struct
     uint32_t length; 
 } BufferPlane;
 
-struct NVResult {
-    uint8_t *data;
-    size_t len;
-
-    NVResult(uint8_t *d, size_t l, uint32_t i) :data(d), len(l), index(i) {}
-
-    private:
-        __attribute__((unused)) const uint32_t index;
-};
-
 class NVVisionBuf {
  public:
   BufferPlane planes[MAX_PLANES];  

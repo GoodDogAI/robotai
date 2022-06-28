@@ -287,6 +287,10 @@ NVEncoder::~NVEncoder() {
     v4l2_close(fd);
 }
 
+NVEncoder::NVResult::~NVResult() {
+    queue_buffer(enc.fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &enc.buf_out[index]);
+}
+
 void NVEncoder::do_dequeue_capture() {
     while(true) {
         uint32_t index, bytesused;
@@ -295,14 +299,13 @@ void NVEncoder::do_dequeue_capture() {
         {
             auto &promise = encoder_promises[frame_read_index];
             
-            promise.set_value(std::make_unique<NVResult>( buf_out[index].planes[0].data,
+            promise.set_value(std::make_unique<NVResult>(*this, buf_out[index].planes[0].data,
                 bytesused,
                 index));
             encoder_promises.erase(frame_read_index);
             frame_read_index++;
             
-            // Requeue the buffer
-            queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, index, &buf_out[index]);
+            // The buffer is requeued once the unique pointer goes out of scope
         }
     }
 }
@@ -318,7 +321,7 @@ void NVEncoder::do_dequeue_output() {
 }
 
 
-std::future<std::unique_ptr<NVResult>> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
+std::future<std::unique_ptr<NVEncoder::NVResult>> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
     // Find an empty buf
     auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](NVVisionBuf &b) {
         return !b.is_queued;
@@ -336,6 +339,5 @@ std::future<std::unique_ptr<NVResult>> NVEncoder::encode_frame(VisionBuf* ipcbuf
 
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
 
-    std::cout << "Sent buffer " << (frame_write_index - 1) << std::endl;
     return promise.get_future();
 }
