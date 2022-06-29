@@ -26,24 +26,29 @@ const fs::path log_path{ "/media/card" };
 
 int main(int argc, char *argv[])
 {
-    SubMaster sm{ {service_name} };
+    std::unique_ptr<Context> ctx{ Context::create() };
+    std::unique_ptr<Poller> poller{ Poller::create() };
+
+    std::unique_ptr<SubSocket> encoder_sock{ SubSocket::create(ctx.get(), service_name) };
 
     const auto log_start = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const std::tm tm{*std::gmtime(&log_start)};
 
     auto log_filename = fmt::format("{}-{}-{}-{}-{}_{}.log", log_name, tm.tm_year + 1900, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min);
 
+    std::cout << "Opening log " << log_filename << std::endl;
+
     std::ofstream log{ log_path / log_filename, std::ios::binary };
 
+    poller->registerSocket(encoder_sock.get());
+
     while (!do_exit) {
-        sm.update();
+        Message *msg = nullptr;
+        for (auto sock : poller->poll(1000)) {
+            msg = sock->receive(true);
 
-        if (sm.updated(service_name)) {
-            auto event = sm[service_name];
-            std::cout << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
-        }
-
-        
+            log.write(msg->getData(), msg->getSize());
+        }        
     }
 
     return EXIT_SUCCESS;
