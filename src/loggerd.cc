@@ -48,6 +48,14 @@ int main(int argc, char *argv[])
             msg = sock->receive(true);
 
             log.write(msg->getData(), msg->getSize());
+            log.flush();
+
+            capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
+            auto event = cmsg.getRoot<cereal::Event>();
+
+            std::cout << "Wrote event " << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
+
+            return EXIT_SUCCESS;
         }        
     }
 
