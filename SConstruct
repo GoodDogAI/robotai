@@ -18,7 +18,8 @@ cpppath = [
   '/usr/lib/include',
   sysconfig.get_paths()['include'],
   '#',
-  '#cereal'
+  '#cereal',
+  '#src/include'
 ]
 
 libpath = [
@@ -36,8 +37,8 @@ ldflags = ["-pthread", "-Wl,--as-needed", "-Wl,--no-undefined"]
 
 env = Environment(
   ENV=os.environ,
-  CC='clang',
-  CXX='clang++',
+  CC='clang-10',
+  CXX='clang++-10',
   CCFLAGS=[
     "-g",
     "-fPIC",
@@ -52,9 +53,10 @@ env = Environment(
     "-Wno-c99-designator",
     "-Wno-reorder-init-list",
     "-Wno-error=unused-but-set-variable",
+    "-DFMT_HEADER_ONLY",
   ],
   CFLAGS="-std=gnu11",
-  CXXFLAGS="-std=c++1z",
+  CXXFLAGS=["-std=c++1z"],
   LINKFLAGS=ldflags,
   CPPPATH=cpppath,
   LIBPATH=libpath,

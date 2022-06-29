@@ -55,6 +55,11 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "cinttypes": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp",
+        "list": "cpp",
+        "filesystem": "cpp",
+        "variant": "cpp"
     }
 }
