@@ -7,12 +7,13 @@ Import("env", "common", "cereal", "messaging", "visionipc")
 env.Append(CPPPATH = ["/usr/src/jetson_multimedia_api/include"])
 env.Append(LIBPATH = ["/usr/lib/aarch64-linux-gnu/tegra/"])
 
-visionlibs = ["pthread", "realsense2", "nvbuf_utils", "v4l2", "stdc++fs", common, cereal, messaging, visionipc, messaging, 'zmq', 'capnp', 'kj']
+basiclibs = ["pthread", "stdc++fs", common, cereal, messaging, visionipc, messaging, 'zmq', 'capnp', 'kj']
+nvlibs = ["realsense2", "nvbuf_utils", "v4l2"]
 
 if pkgconfig.exists("realsense2"):
-    env.Program("camerad", ["camerad.cc"], LIBS=visionlibs)
+    env.Program("camerad", ["camerad.cc"], LIBS=basiclibs + nvlibs)
 
 if os.path.exists("/usr/src/jetson_multimedia_api/include"):
-    env.Program("encoderd", ["encoderd.cc", "nvencoder.cc", "nvvisionbuf.cc"], LIBS=visionlibs)
+    env.Program("encoderd", ["encoderd.cc", "nvencoder.cc", "nvvisionbuf.cc"], LIBS=basiclibs + nvlibs)
 
-env.Program("loggerd", ["loggerd.cc"], LIBS=visionlibs)
+env.Program("loggerd", ["loggerd.cc"], LIBS=basiclibs)
