@@ -1,2 +1,8 @@
+# For reading and writing capnp definitions
 pycapnp
-pkgconfig
+
+# For implementing the backend
+fastapi
+
+# For serving the backend
+uvicorn
