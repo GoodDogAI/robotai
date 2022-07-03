@@ -1,6 +1,9 @@
 # For reading and writing capnp definitions
 pycapnp
 
+# For storing some local data, like hashes of log files in DataFrames
+pandas
+
 # For implementing the backend
 fastapi
 
