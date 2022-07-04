@@ -1,9 +1,8 @@
 import os
-import pandas as pd
 import hashlib
+import json
 
-DATAFRAME_FILE = "_hashes.json"
-DATAFRAME_COLUMNS = ["filename", "last_modified", "sha256"]
+DATA_FILE = "_hashes.json"
 
 def sha256(filename: str) -> str:
     sha256_hash = hashlib.sha256()
@@ -18,21 +17,28 @@ def sha256(filename: str) -> str:
 class LogHashes:
     dir: str
     extension: str=".log"
-    hashes: pd.DataFrame
+    hashes: dict={}
 
     def __init__(self, dir):
         self.dir = dir
         self.update()
 
     def update(self):
-        path = os.path.join(self.dir, DATAFRAME_FILE)
+        path = os.path.join(self.dir, DATA_FILE)
         if os.path.exists(path):
-            self.hashes = pd.read_json(path)
+            self.hashes = json.load(path)
         else:
-            self.hashes = pd.DataFrame(columns=DATAFRAME_COLUMNS)
+            self.hashes = {}
 
         for file in os.listdir(self.dir):
             if not file.endswith(self.extension):
                 continue
+            filepath = os.path.join(self.dir, file)
 
-            self.hashes[file] = sha256(os.path.join(self.dir, file))
+            self.hashes[file] = {
+                "last_modified": round(os.path.getmtime(filepath) * 1e9),
+                "sha256": sha256(filepath),
+            }
+
+        with open(path, "w") as f:
+            json.dump(self.hashes, f)
