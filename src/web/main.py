@@ -8,7 +8,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from pydantic import BaseModel
 from src.logutil import LogHashes, LogSummary, asha256
 
-app = FastAPI()
+app = FastAPI(title="RobotAI Log Service")
 loghashes = LogHashes(RECORD_DIR)
 
 
@@ -22,8 +22,8 @@ async def log_exists(sha256: str):
     return loghashes.hash_exists(sha256)
 
 
-@app.put("/logs/{logfile}")
-async def put_log(logfile: UploadFile) -> bool:
+@app.post("/logs")
+async def put_log(logfile: UploadFile):
     # Make sure the hash doesn't exist already
     sha256 = await asha256(logfile)
 
@@ -43,12 +43,10 @@ async def put_log(logfile: UploadFile) -> bool:
 
     # Copy over to the final location
     with open(newfilename, "wb") as fp:
-        for byte_block in iter(lambda: await logfile.read(65536), b""):
+        while byte_block := await logfile.read(65536):
             fp.write(byte_block)
 
     loghashes.update()
-
-    return True
 
 
 @app.get("/logs/{logfile}")

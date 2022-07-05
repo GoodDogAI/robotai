@@ -6,3 +6,9 @@ fastapi
 
 # For serving the backend
 uvicorn
+
+# For unittesting fastapi
+requests
+
+# For receiving files in fastapi
+python-multipart

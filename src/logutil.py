@@ -24,7 +24,7 @@ def sha256(filename: str) -> str:
 
 async def asha256(fp: UploadFile) -> str:
     sha256_hash = hashlib.sha256()
-    async for byte_block in iter(lambda: await fp.read(65536), b""):
+    while byte_block := await fp.read(65536):
         sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
