@@ -16,8 +16,22 @@ class LogUtilTest(unittest.TestCase):
                 f.write(b"HelloWorld")
 
             logutil = LogHashes(td)
-            print(logutil.hashes)
+            logutil2 = LogHashes(td)
+            self.assertEqual(logutil.hashes, logutil2.hashes)
 
+            # File of different extension is not hashed
+            with open(os.path.join(td, "test.random"), "wb") as f:
+                f.write(b"Test")
+
+            logutil.update()
+            self.assertEqual(logutil.hashes, logutil2.hashes)
+
+            # Modifying a file changes the hash
+            with open(os.path.join(td, "test.log"), "wb") as f:
+                f.write(b"GoodbyeWorld")
+
+            logutil.update()
+            self.assertNotEqual(logutil.hashes, logutil2.hashes)
 
 
 if __name__ == '__main__':

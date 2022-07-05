@@ -26,7 +26,8 @@ class LogHashes:
     def update(self):
         path = os.path.join(self.dir, DATA_FILE)
         if os.path.exists(path):
-            self.hashes = json.load(path)
+            with open(path, "r") as f:
+                self.hashes = json.load(f)
         else:
             self.hashes = {}
 
@@ -34,11 +35,18 @@ class LogHashes:
             if not file.endswith(self.extension):
                 continue
             filepath = os.path.join(self.dir, file)
+            mtime = round(os.path.getmtime(filepath) * 1e9)
+
+            if file in self.hashes and self.hashes[file]["last_modified"] == mtime:
+                continue
 
             self.hashes[file] = {
-                "last_modified": round(os.path.getmtime(filepath) * 1e9),
+                "last_modified": mtime,
                 "sha256": sha256(filepath),
             }
 
         with open(path, "w") as f:
             json.dump(self.hashes, f)
+
+    def hash_exists(self, hash:str) -> bool:
+        return hash in self.hashes
