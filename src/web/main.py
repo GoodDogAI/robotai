@@ -23,7 +23,7 @@ async def log_exists(sha256: str):
 
 
 @app.post("/logs")
-async def put_log(logfile: UploadFile):
+async def post_log(logfile: UploadFile):
     # Make sure the hash doesn't exist already
     sha256 = await asha256(logfile)
 
@@ -36,10 +36,10 @@ async def put_log(logfile: UploadFile):
     # Determine a new filename
     newfilename = os.path.join(RECORD_DIR, logfile.filename)
 
-    while os.path.exists(newfilename):
+    while os.path.exists(newfilename) or not newfilename.endswith(loghashes.extension):
         root, ext = os.path.splitext(logfile.filename)
         extra = ''.join(random.choices(string.ascii_letters, k=5))
-        newfilename = os.path.join(RECORD_DIR, f"{root}_{extra}{ext}")
+        newfilename = os.path.join(RECORD_DIR, f"{root}_{extra}{loghashes.extension}")
 
     # Copy over to the final location
     with open(newfilename, "wb") as fp:
