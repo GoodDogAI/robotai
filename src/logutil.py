@@ -3,8 +3,9 @@ import hashlib
 import json
 import logging
 
-from typing import List, Dict
+from typing import List, Dict, BinaryIO
 
+from fastapi import UploadFile
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
 
@@ -18,6 +19,13 @@ def sha256(filename: str) -> str:
         for byte_block in iter(lambda: f.read(65536), b""):
             sha256_hash.update(byte_block)
 
+    return sha256_hash.hexdigest()
+
+
+async def asha256(fp: UploadFile) -> str:
+    sha256_hash = hashlib.sha256()
+    for byte_block in iter(lambda: await fp.read(65536), b""):
+        sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
 
