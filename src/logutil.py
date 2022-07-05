@@ -45,8 +45,12 @@ class LogHashes:
                 "sha256": sha256(filepath),
             }
 
-        with open(path, "w") as f:
+        with open(path + "_temp", "w") as f:
             json.dump(self.hashes, f)
+
+        if os.path.exists(path):
+            os.remove(path)
+        os.rename(path + "_temp", path)
 
     def hash_exists(self, hash:str) -> bool:
         return hash in self.hashes

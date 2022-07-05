@@ -5,7 +5,7 @@ import os
 from src.logutil import LogHashes
 
 
-class LogUtilTest(unittest.TestCase):
+class LogHashesTest(unittest.TestCase):
     def test_empty_dir(self):
         with tempfile.TemporaryDirectory() as td:
             logutil = LogHashes(td)
