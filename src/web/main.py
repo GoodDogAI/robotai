@@ -30,8 +30,10 @@ async def put_log(logfile: UploadFile) -> bool:
     if loghashes.hash_exists(sha256):
         raise HTTPException(status_code=500, detail="Log hash already exists")
 
+    # Reset the logfile back to the beginning
     await logfile.seek(0)
 
+    # Determine a new filename
     newfilename = os.path.join(RECORD_DIR, logfile.filename)
 
     while os.path.exists(newfilename):
@@ -39,11 +41,15 @@ async def put_log(logfile: UploadFile) -> bool:
         extra = ''.join(random.choices(string.ascii_letters, k=5))
         newfilename = os.path.join(RECORD_DIR, f"{root}_{extra}{ext}")
 
+    # Copy over to the final location
     with open(newfilename, "wb") as fp:
         for byte_block in iter(lambda: await logfile.read(65536), b""):
             fp.write(byte_block)
 
+    loghashes.update()
+
     return True
+
 
 @app.get("/logs/{logfile}")
 async def get_log(logfile: str):

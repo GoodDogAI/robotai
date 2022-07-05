@@ -24,7 +24,7 @@ def sha256(filename: str) -> str:
 
 async def asha256(fp: UploadFile) -> str:
     sha256_hash = hashlib.sha256()
-    for byte_block in iter(lambda: await fp.read(65536), b""):
+    async for byte_block in iter(lambda: await fp.read(65536), b""):
         sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
 
@@ -72,7 +72,7 @@ class LogHashes:
         os.rename(path + "_temp", path)
 
     def values(self) -> List[LogSummary]:
-        return self.hashes.values()
+        return list(self.hashes.values())
 
     def hash_exists(self, hash:str) -> bool:
         return hash in self.hashes
