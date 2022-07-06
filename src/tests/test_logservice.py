@@ -1,19 +1,20 @@
-import os
 import unittest
 import tempfile
 import hashlib
 
 from unittest.mock import patch
 from fastapi.testclient import TestClient
-from src.logutil import sha256
+from src.logutil import sha256, LogHashes
+from src.web.main import app
+
 
 class LogServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.td = tempfile.TemporaryDirectory()
         self.addCleanup(lambda: self.td.cleanup())
 
-        with patch.dict("os.environ", {"ROBOTAI_RECORD_DIR": self.td.name}):
-            from src.web.main import app
+        with patch("src.web.main.get_loghashes") as lh:
+            lh.return_value = LogHashes(self.td.name)
             self.client = TestClient(app)
 
     def test_empty_logs(self):
