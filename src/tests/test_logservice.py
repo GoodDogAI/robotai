@@ -42,6 +42,11 @@ class LogServiceTest(unittest.TestCase):
         sha256_hash.update(b"Wow, this is a log")
         self.assertEqual(resp.json()[0]["sha256"], sha256_hash.hexdigest())
 
+        # Posting the same log again should error out
+        tf.seek(0)
+        resp = self.client.post("/logs", files={"logfile": tf})
+        self.assertNotEqual(resp.status_code, 200)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -38,8 +38,8 @@ class LogSummary(BaseModel):
 # Allows for quick and cached access to the SHA256 hash of a bunch of log files
 class LogHashes:
     dir: str
-    extension: str=".log"
-    hashes: Dict[str, LogSummary] = {}
+    extension: str = ".log"
+    files: Dict[str, LogSummary] = {}
 
     def __init__(self, dir):
         self.dir = dir
@@ -48,9 +48,9 @@ class LogHashes:
     def update(self):
         path = os.path.join(self.dir, DATA_FILE)
         if os.path.exists(path):
-            self.hashes = parse_file_as(Dict[str, LogSummary], path)
+            self.files = parse_file_as(Dict[str, LogSummary], path)
         else:
-            self.hashes = {}
+            self.files = {}
 
         for file in os.listdir(self.dir):
             if not file.endswith(self.extension):
@@ -58,21 +58,21 @@ class LogHashes:
             filepath = os.path.join(self.dir, file)
             mtime = round(os.path.getmtime(filepath) * 1e9)
 
-            if file in self.hashes and self.hashes[file].last_modified == mtime:
+            if file in self.files and self.files[file].last_modified == mtime:
                 continue
 
             logger.info(f"Hashing {filepath}")
-            self.hashes[file] = LogSummary(filename=file, sha256=sha256(filepath), last_modified=mtime)
+            self.files[file] = LogSummary(filename=file, sha256=sha256(filepath), last_modified=mtime)
 
         with open(path + "_temp", "w") as f:
-            json.dump(jsonable_encoder(self.hashes), f)
+            json.dump(jsonable_encoder(self.files), f)
 
         if os.path.exists(path):
             os.remove(path)
         os.rename(path + "_temp", path)
 
     def values(self) -> List[LogSummary]:
-        return list(self.hashes.values())
+        return list(self.files.values())
 
     def hash_exists(self, hash:str) -> bool:
-        return hash in self.hashes
+        return hash in [f.sha256 for f in self.files.values()]
