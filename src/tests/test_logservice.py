@@ -2,20 +2,22 @@ import unittest
 import tempfile
 import hashlib
 
-from unittest.mock import patch
 from fastapi.testclient import TestClient
 from src.logutil import sha256, LogHashes
-from src.web.main import app
+from src.web.main import app,get_loghashes
 
 
 class LogServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.td = tempfile.TemporaryDirectory()
+        lh = LogHashes(self.td.name)
+        app.dependency_overrides[get_loghashes] = lambda: lh
         self.addCleanup(lambda: self.td.cleanup())
 
-        with patch("src.web.main.get_loghashes") as lh:
-            lh.return_value = LogHashes(self.td.name)
-            self.client = TestClient(app)
+        self.client = TestClient(app)
+
+    def tearDown(self) -> None:
+        app.dependency_overrides = {}
 
     def test_empty_logs(self):
         resp = self.client.get("/logs")
@@ -39,6 +41,7 @@ class LogServiceTest(unittest.TestCase):
         sha256_hash = hashlib.sha256()
         sha256_hash.update(b"Wow, this is a log")
         self.assertEqual(resp.json()[0]["sha256"], sha256_hash.hexdigest())
+
 
 if __name__ == '__main__':
     unittest.main()

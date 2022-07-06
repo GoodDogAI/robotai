@@ -41,12 +41,12 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
     await logfile.seek(0)
 
     # Determine a new filename
-    newfilename = os.path.join(RECORD_DIR, logfile.filename)
+    newfilename = os.path.join(lh.dir, logfile.filename)
 
     while os.path.exists(newfilename) or not newfilename.endswith(lh.extension):
         root, ext = os.path.splitext(logfile.filename)
         extra = ''.join(random.choices(string.ascii_letters, k=5))
-        newfilename = os.path.join(RECORD_DIR, f"{root}_{extra}{lh.extension}")
+        newfilename = os.path.join(lh.dir, f"{root}_{extra}{lh.extension}")
 
     # Copy over to the final location
     with open(newfilename, "wb") as fp:
