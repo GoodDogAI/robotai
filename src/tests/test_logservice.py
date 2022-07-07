@@ -4,7 +4,7 @@ import hashlib
 
 from fastapi.testclient import TestClient
 from src.logutil import sha256, LogHashes
-from src.web.main import app,get_loghashes
+from src.web.logservice import app,get_loghashes
 
 
 class LogServiceTest(unittest.TestCase):
