@@ -66,7 +66,7 @@ function LogTimeline(props) {
 
     return (
         <div>
-            <p>Timeline for {data}</p>
+            <pre>{JSON.stringify(data, null, 2)}</pre>
 
         </div>
     );

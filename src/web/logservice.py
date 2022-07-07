@@ -5,7 +5,10 @@ import string
 from typing import List
 
 from fastapi import FastAPI, Depends, UploadFile, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.responses import JSONResponse
 
 from cereal import log
 import cereal.messaging as messaging
@@ -82,7 +85,7 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
 
 
 @app.get("/logs/{logfile}")
-async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> List[dict]:
+async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONResponse:
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
@@ -94,4 +97,5 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> List[
         for evt in events:
             result.append(evt.to_dict())
 
-    return result
+    return JSONResponse(jsonable_encoder(result,
+                        custom_encoder={bytes: lambda date_obj: None}))
