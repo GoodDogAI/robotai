@@ -82,14 +82,16 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
 
 
 @app.get("/logs/{logfile}")
-async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> List[dict]:
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
+
+    result = []
 
     with open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
         for evt in events:
-            print(evt.which(), evt.headEncodeData.idx.encodeId)
+            result.append(evt.to_dict())
 
-        return events
+    return result

@@ -13,10 +13,6 @@ class LogHashesTest(unittest.TestCase):
             logutil = LogHashes(td)
             self.assertEqual(logutil.files, {})
 
-    def test_artificial_logfile(self):
-        with artificial_logfile() as f:
-            self.assertTrue(validate_log(f))
-
     def test_basic_log(self):
         with tempfile.TemporaryDirectory() as td:
             with open(os.path.join(td, "test.log"), "wb") as f:
@@ -51,6 +47,9 @@ class LogHashesTest(unittest.TestCase):
             with open(os.path.join(td, "test.log"), "rb") as f:
                 self.assertFalse(validate_log(f))
 
+    def test_artificial_logfile(self):
+        with artificial_logfile() as f:
+            self.assertTrue(validate_log(f))
 
 if __name__ == '__main__':
     unittest.main()

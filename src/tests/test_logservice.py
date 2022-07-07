@@ -4,7 +4,7 @@ import hashlib
 import os
 
 from fastapi.testclient import TestClient
-from contextlib import contextmanager
+from cereal import log
 from src.logutil import sha256, LogHashes
 from src.tests.utils import artificial_logfile
 from src.web.logservice import app, get_loghashes
@@ -58,6 +58,27 @@ class LogServiceTest(unittest.TestCase):
             tf.seek(0)
             resp = self.client.post("/logs", files={"logfile": tf})
             self.assertNotEqual(resp.status_code, 200)
+
+    def test_read_log(self):
+        with artificial_logfile() as tf:
+            resp = self.client.post("/logs", files={"logfile": tf})
+            self.assertEqual(resp.status_code, 200)
+
+            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertEqual(len(resp.json()), 1)
+
+    def test_read_video_log(self):
+        with artificial_logfile(video=True) as tf:
+            resp = self.client.post("/logs", files={"logfile": tf})
+            self.assertEqual(resp.status_code, 200)
+
+            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")
+            self.assertEqual(resp.status_code, 200)
+
+            self.assertEqual(len(resp.json()), 1)
+            print(resp.json())
 
 
 if __name__ == '__main__':

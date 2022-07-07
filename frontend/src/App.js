@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "react-query";
 import { ReactQueryDevtools } from "react-query/devtools";
 import axios from "axios";
@@ -7,16 +8,22 @@ import './App.css';
 const backendUrl = "http://jake-training-box:8000"
 const queryClient = new QueryClient();
 
+
+
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <LogList />
-    </QueryClientProvider>
-  );
+    const [currentLog, setCurrentLog] = useState();
+
+    return (
+        <QueryClientProvider client={queryClient}>
+          <LogList onLogSelected={(newLog) => setCurrentLog(newLog)} />
+            <LogTimeline logName={currentLog}/>
+        </QueryClientProvider>
+    );
 }
 
-function LogList() {
-    const { isLoading, error, data, isFetching } = useQuery("logs", () =>
+function LogList(props) {
+    const { onLogSelected } = props;
+    const { isLoading, error, data } = useQuery("logs", () =>
         axios.get(
           `${backendUrl}/logs`
         ).then((res) => res.data)
@@ -31,7 +38,7 @@ function LogList() {
         <h4>Available Logs</h4>
         <ul>
             {data.map(log =>
-                <li key={log.sha256}>{log.filename}</li>
+                <li key={log.sha256}><button onClick={() => onLogSelected(log.filename)}>{log.filename}</button></li>
                 )
             }
         </ul>
@@ -39,6 +46,30 @@ function LogList() {
         <ReactQueryDevtools initialIsOpen />
     </div>
   );
+}
+
+function LogTimeline(props) {
+    const { logName } = props;
+    const { isLoading, error, data } = useQuery(["logs", logName], () =>
+        axios.get(
+          `${backendUrl}/logs/${logName}`
+        ).then((res) => res.data)
+      );
+
+    if (!logName) {
+        return <div>Select a log to view</div>;
+    }
+
+    if (error) {
+        return <div>Error loading {error}</div>
+    }
+
+    return (
+        <div>
+            <p>Timeline for {data}</p>
+
+        </div>
+    );
 }
 
 export default App;
