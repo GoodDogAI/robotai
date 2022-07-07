@@ -4,6 +4,7 @@ import tempfile
 import os
 
 from src.logutil import LogHashes, validate_log
+from src.tests.utils import artificial_logfile
 
 
 class LogHashesTest(unittest.TestCase):
@@ -11,6 +12,10 @@ class LogHashesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             logutil = LogHashes(td)
             self.assertEqual(logutil.files, {})
+
+    def test_artificial_logfile(self):
+        with artificial_logfile() as f:
+            self.assertTrue(validate_log(f))
 
     def test_basic_log(self):
         with tempfile.TemporaryDirectory() as td:

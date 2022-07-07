@@ -1,3 +1,4 @@
+import io
 import os
 import random
 import string
@@ -53,6 +54,10 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
 
     if lh.hash_exists(sha256):
         raise HTTPException(status_code=500, detail="Log hash already exists")
+
+    logfile.file.seek(0, io.SEEK_END)
+    if logfile.file.tell() < 1:
+        raise HTTPException(status_code=400, detail="Empty file")
 
     # Reset the logfile back to the beginning
     await logfile.seek(0)
