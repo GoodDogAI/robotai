@@ -1,3 +1,4 @@
+import time
 import unittest
 import tempfile
 import os
@@ -9,6 +10,7 @@ class LogHashesTest(unittest.TestCase):
     def test_empty_dir(self):
         with tempfile.TemporaryDirectory() as td:
             logutil = LogHashes(td)
+            self.assertEqual(logutil.files, {})
 
     def test_basic_log(self):
         with tempfile.TemporaryDirectory() as td:
@@ -25,6 +27,9 @@ class LogHashesTest(unittest.TestCase):
 
             logutil.update()
             self.assertEqual(logutil.files, logutil2.files)
+
+            # Annoying hack, because it uses modification time as a speedup
+            time.sleep(0.01)
 
             # Modifying a file changes the hash
             with open(os.path.join(td, "test.log"), "wb") as f:
