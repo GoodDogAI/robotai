@@ -3,7 +3,7 @@ import unittest
 import tempfile
 import os
 
-from src.logutil import LogHashes
+from src.logutil import LogHashes, validate_log
 
 
 class LogHashesTest(unittest.TestCase):
@@ -37,6 +37,14 @@ class LogHashesTest(unittest.TestCase):
 
             logutil.update()
             self.assertNotEqual(logutil.files, logutil2.files)
+
+    def test_validate_log(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "test.log"), "wb") as f:
+                f.write(b"HelloWorld")
+
+            with open(os.path.join(td, "test.log"), "rb") as f:
+                self.assertFalse(validate_log(f))
 
 
 if __name__ == '__main__':

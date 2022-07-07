@@ -3,11 +3,14 @@ import random
 import string
 from typing import List
 
-from .config import RECORD_DIR
 from fastapi import FastAPI, Depends, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.logutil import LogHashes, LogSummary, asha256
+from cereal import log
+import cereal.messaging as messaging
+
+from .config import RECORD_DIR
+from src.logutil import LogHashes, LogSummary, asha256, validate_log
 
 app = FastAPI(title="RobotAI Log Service")
 origins = [
@@ -54,6 +57,10 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
     # Reset the logfile back to the beginning
     await logfile.seek(0)
 
+    # Check that you can read all messages
+    if not validate_log(logfile.file):
+        raise HTTPException(status_code=400, detail="Log file is not a serialized capnp buffer")
+
     # Determine a new filename
     newfilename = os.path.join(lh.dir, logfile.filename)
 
@@ -72,4 +79,13 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
 
 @app.get("/logs/{logfile}")
 async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)):
-    return {}
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with open(os.path.join(lh.dir, logfile), "rb") as f:
+        events = log.Event.read_multiple(f)
+
+        for evt in events:
+            print(evt.which(), evt.headEncodeData.idx.encodeId)
+
+        return events

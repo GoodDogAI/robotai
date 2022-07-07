@@ -5,9 +5,11 @@ import logging
 
 from typing import List, Dict, BinaryIO
 
+from capnp.lib import capnp
 from fastapi import UploadFile
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
+from cereal import log
 
 logger = logging.getLogger(__name__)
 DATA_FILE = "_hashes.json"
@@ -27,6 +29,18 @@ async def asha256(fp: UploadFile) -> str:
     while byte_block := await fp.read(65536):
         sha256_hash.update(byte_block)
     return sha256_hash.hexdigest()
+
+
+def validate_log(f: BinaryIO) -> bool:
+    try:
+        events = log.Event.read_multiple(f)
+
+        for evt in events:
+            evt.which()
+
+        return True
+    except capnp.KjException:
+        return False
 
 
 class LogSummary(BaseModel):
@@ -76,3 +90,6 @@ class LogHashes:
 
     def hash_exists(self, hash:str) -> bool:
         return hash in [f.sha256 for f in self.files.values()]
+
+    def filename_exists(self, filename:str) -> bool:
+        return filename in self.files
