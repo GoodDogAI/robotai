@@ -5,10 +5,24 @@ from typing import List
 
 from .config import RECORD_DIR
 from fastapi import FastAPI, Depends, UploadFile, HTTPException
-from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+
 from src.logutil import LogHashes, LogSummary, asha256
 
 app = FastAPI(title="RobotAI Log Service")
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+    "http://jake-training-box:3000",
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 _loghashes = None
 
 
