@@ -97,5 +97,6 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
         for evt in events:
             result.append(evt.to_dict())
 
+    # Don't try to encode raw data fields in the json, it will just get interpreted as utf-8 text and you will have a bad time
     return JSONResponse(jsonable_encoder(result,
                         custom_encoder={bytes: lambda date_obj: None}))
