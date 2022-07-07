@@ -1,20 +1,20 @@
 import unittest
 import tempfile
 import hashlib
+import os
 
 from fastapi.testclient import TestClient
 from contextlib import contextmanager
 from src.logutil import sha256, LogHashes
 from src.tests.utils import artificial_logfile
 from src.web.logservice import app, get_loghashes
-from cereal import log
 
 
 class LogServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.td = tempfile.TemporaryDirectory()
-        lh = LogHashes(self.td.name)
-        app.dependency_overrides[get_loghashes] = lambda: lh
+        self.lh = LogHashes(self.td.name)
+        app.dependency_overrides[get_loghashes] = lambda: self.lh
         self.addCleanup(lambda: self.td.cleanup())
 
         self.client = TestClient(app)
@@ -50,7 +50,8 @@ class LogServiceTest(unittest.TestCase):
 
             tf.seek(0)
             sha256_hash = hashlib.sha256()
-            sha256_hash.update(tf.read())
+            b = tf.read()
+            sha256_hash.update(b)
             self.assertEqual(resp.json()[0]["sha256"], sha256_hash.hexdigest())
 
             # Posting the same log again should error out

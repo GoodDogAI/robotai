@@ -59,10 +59,8 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
     if logfile.file.tell() < 1:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    # Reset the logfile back to the beginning
-    await logfile.seek(0)
-
     # Check that you can read all messages
+    logfile.file.seek(0)
     if not validate_log(logfile.file):
         raise HTTPException(status_code=400, detail="Log file is not a serialized capnp buffer")
 
@@ -75,6 +73,7 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
         newfilename = os.path.join(lh.dir, f"{root}_{extra}{lh.extension}")
 
     # Copy over to the final location
+    logfile.file.seek(0)
     with open(newfilename, "wb") as fp:
         while byte_block := await logfile.read(65536):
             fp.write(byte_block)
