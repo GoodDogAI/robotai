@@ -16,7 +16,7 @@ function App() {
 }
 
 function LogList() {
-    const { isLoading, error, data, isFetching } = useQuery("repoData", () =>
+    const { isLoading, error, data, isFetching } = useQuery("logs", () =>
         axios.get(
           `${backendUrl}/logs`
         ).then((res) => res.data)
@@ -28,7 +28,14 @@ function LogList() {
 
   return (
     <div>
-      <h1>{data}</h1>
+        <h4>Available Logs</h4>
+        <ul>
+            {data.map(log =>
+                <li key={log.sha256}>{log.filename}</li>
+                )
+            }
+        </ul>
+
         <ReactQueryDevtools initialIsOpen />
     </div>
   );
