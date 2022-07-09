@@ -48,8 +48,22 @@ function LogList(props) {
   );
 }
 
+function LogTimelineEntry(props) {
+    const { data } = props;
+    const { valid, logMonoTime, ...rest } = data;
+
+    const mainKey = Object.keys(rest).pop();
+
+
+    //return (<pre>{JSON.stringify(data, null, 2)}</pre>);
+    return (<div>
+        {mainKey} @ {logMonoTime}
+    </div>);
+}
+
 function LogTimeline(props) {
     const { logName } = props;
+
     const { isLoading, error, data } = useQuery(["logs", logName], () =>
         axios.get(
           `${backendUrl}/logs/${logName}`
@@ -61,12 +75,16 @@ function LogTimeline(props) {
     }
 
     if (error) {
-        return <div>Error loading {error}</div>
+        return <div>Error loading {error}</div>;
+    }
+
+    if (isLoading) {
+        return <div>Loading...</div>;
     }
 
     return (
         <div>
-            <pre>{JSON.stringify(data, null, 2)}</pre>
+            { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
 
         </div>
     );
