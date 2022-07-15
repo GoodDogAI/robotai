@@ -58,6 +58,7 @@ function LogTimelineEntry(props) {
     //return (<pre>{JSON.stringify(data, null, 2)}</pre>);
     return (<div>
         {mainKey} @ {logMonoTime}
+        <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>);
 }
 
