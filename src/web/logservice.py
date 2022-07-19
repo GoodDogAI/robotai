@@ -9,8 +9,7 @@ from typing import List
 from fastapi import FastAPI, Depends, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from cereal import log
 import cereal.messaging as messaging
@@ -111,5 +110,8 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
         raise HTTPException(status_code=404, detail="Log not found")
 
     rgb = load_image(os.path.join(RECORD_DIR, logfile), frameid)
-
-    print(rgb.shape)
+    img = png.from_array(rgb, 'RGB')
+    img_data = io.BytesIO()
+    img.write(img_data)
+    print(img.info, img.rows)
+    return Response(content=img_data.getvalue(), media_type="image/png")

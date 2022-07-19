@@ -66,9 +66,12 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             print(f"surface empty: {surface.Empty()}")
 
             if not surface.Empty():
-                nv_dl.DownloadSingleSurface(surface, frame_rgb)
+                if events_recv == index:
+                    print(surface)
+                    nv_dl.DownloadSingleSurface(surface, frame_rgb)
+                    return frame_rgb.reshape((720, -1))
+
                 events_recv += 1
-                return frame_rgb
 
         while True:
             surface = nv_dec.FlushSingleSurface()
