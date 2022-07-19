@@ -29,37 +29,55 @@ NALU_TYPES = {
 24: 	"Unspecified",
 }
 
+GPU_ID = 0
+
 def load_image(logpath: str, index: int) -> np.ndarray:
+    width, height = 1280, 720
     nv_dec = nvc.PyNvDecoder(
-        1280,
-        720,
-        nvc.PixelFormat.NV12,
+        width,
+        height,
+        nvc.PixelFormat.RGB,
         nvc.CudaVideoCodec.HEVC,
-        0,
+        GPU_ID,
     )
 
-    frame_nv12 = np.ndarray(shape=(0), dtype=np.uint8)
+    nv_dl = nvc.PySurfaceDownloader(width, height, nv_dec.Format(), GPU_ID)
+
+    frame_rgb = np.ndarray(shape=(0), dtype=np.uint8)
     packet_data = nvc.PacketData()
+
+    events_sent = 0
+    events_recv = 0
 
     with open(logpath, "rb") as f:
         events = log.Event.read_multiple(f)
 
         for evt in events:
             packet = evt.headEncodeData.data
-            #print(len(packet), "bytes")
+            print(len(packet), "bytes")
             assert packet[0] == 0 and packet[1] == 0 and packet[2] == 0 and packet[3] == 1
             nalu_type = (packet[4] & 0x1F)
             print(f"{nalu_type} = {NALU_TYPES[nalu_type]}")
 
-
             packet = np.frombuffer(packet, dtype=np.uint8)
-
             surface = nv_dec.DecodeSurfaceFromPacket(packet)
+            events_sent += 1
 
-            #print(f"surface empty: {surface.Empty()}")
+            print(f"surface empty: {surface.Empty()}")
 
-            #surface = nv_dec.FlushSingleSurface()
+            if not surface.Empty():
+                nv_dl.DownloadSingleSurface(surface, frame_rgb)
+                events_recv += 1
+                return frame_rgb
 
-            #print(f"surface: {surface}")
+        while True:
+            surface = nv_dec.FlushSingleSurface()
 
-            #break
+            if surface.Empty():
+                break
+            else:
+                events_recv += 1
+
+        print(events_sent, events_recv)
+
+

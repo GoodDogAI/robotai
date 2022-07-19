@@ -13,6 +13,9 @@ requests
 # For receiving files in fastapi
 python-multipart
 
+# For sending out image frames for debugging on the webui
+pypng
+
 # For pytorch, with cuda 11.6 support
 --extra-index-url https://download.pytorch.org/whl/cu116
 torch

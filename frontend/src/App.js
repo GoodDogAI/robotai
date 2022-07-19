@@ -85,8 +85,10 @@ function LogTimeline(props) {
 
     return (
         <div>
-            { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
-
+            <img src={`${backendUrl}/logs/${logName}/frame/0`} alt={`frame0`}/>
+            <div>
+                { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
+            </div>
         </div>
     );
 }
