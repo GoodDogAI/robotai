@@ -48,7 +48,6 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             packet = evt.headEncodeData.data
             #print(len(packet), "bytes")
             assert packet[0] == 0 and packet[1] == 0 and packet[2] == 0 and packet[3] == 1
-            nalu_type = (packet[4] & 0b11111000) >> 3
             nalu_type = (packet[4] & 0x1F)
             print(f"{nalu_type} = {NALU_TYPES[nalu_type]}")
 

@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
     const auto log_start = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const std::tm tm{*std::gmtime(&log_start)};
 
-    auto log_filename = fmt::format("{}-{}-{}-{}-{}_{}.log", log_name, tm.tm_year + 1900, tm.tm_mon, tm.tm_mday, tm.tm_hour, tm.tm_min);
+    auto log_filename = fmt::format("{}-{}-{}-{}-{}_{}.log", log_name, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 
     std::cout << "Opening log " << log_filename << std::endl;
 
@@ -53,9 +53,9 @@ int main(int argc, char *argv[])
             capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
             auto event = cmsg.getRoot<cereal::Event>();
 
-            std::cout << "Wrote event " << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
-
-            return EXIT_SUCCESS;
+//            std::cout << "Wrote event " << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
+//
+//            return EXIT_SUCCESS;
         }        
     }
 
