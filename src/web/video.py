@@ -58,10 +58,8 @@ def load_image(logpath: str, index: int) -> np.ndarray:
 
         for evt in events:
             packet = evt.headEncodeData.data
-            print(len(packet), "bytes")
             assert packet[0] == 0 and packet[1] == 0 and packet[2] == 0 and packet[3] == 1
             nalu_type = (packet[4] & 0x1F)
-            print(f"{nalu_type} = {NALU_TYPES[nalu_type]}")
 
             packet = np.frombuffer(packet, dtype=np.uint8)
             surface = nv_dec.DecodeSurfaceFromPacket(packet)
@@ -70,12 +68,10 @@ def load_image(logpath: str, index: int) -> np.ndarray:
 
             if not surface.Empty():
                 if events_recv == index:
-                    print(surface)
                     surface = nv_yuv.Execute(surface, nv_cc)
                     surface = nv_rgb.Execute(surface, nv_cc)
                     nv_dl.DownloadSingleSurface(surface, frame_rgb)
-                    print(frame_rgb.shape)
-                    return frame_rgb.reshape((720, -1))
+                    return frame_rgb.reshape((height, -1))
 
                 events_recv += 1
 
@@ -85,6 +81,12 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             if surface.Empty():
                 break
             else:
+                if events_recv == index:
+                    surface = nv_yuv.Execute(surface, nv_cc)
+                    surface = nv_rgb.Execute(surface, nv_cc)
+                    nv_dl.DownloadSingleSurface(surface, frame_rgb)
+                    return frame_rgb.reshape((height, -1))
+
                 events_recv += 1
 
         print(events_sent, events_recv)
