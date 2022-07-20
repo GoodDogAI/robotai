@@ -3,6 +3,7 @@ import os
 import random
 import string
 import png
+import time
 
 from typing import List
 
@@ -109,9 +110,12 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
+    start = time.perf_counter()
     rgb = load_image(os.path.join(RECORD_DIR, logfile), frameid)
     img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
     img_data = io.BytesIO()
     img.write(img_data)
-    print(img.info, img.rows)
-    return Response(content=img_data.getvalue(), media_type="image/png")
+    response = Response(content=img_data.getvalue(), media_type="image/png")
+    #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
+
+    return response

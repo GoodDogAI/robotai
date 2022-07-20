@@ -97,7 +97,7 @@ function LogTimeline(props) {
         <div>
             <div className="frameContainer">
                 <img width="100%" src={`${backendUrl}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
-                <FrameSlider max={data.length} index={index} onChangeIndex={setIndex}/>
+                <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
             </div>
             <div>
                 { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
