@@ -110,7 +110,7 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
         raise HTTPException(status_code=404, detail="Log not found")
 
     rgb = load_image(os.path.join(RECORD_DIR, logfile), frameid)
-    img = png.from_array(rgb, 'RGB')
+    img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
     img_data = io.BytesIO()
     img.write(img_data)
     print(img.info, img.rows)

@@ -36,12 +36,16 @@ def load_image(logpath: str, index: int) -> np.ndarray:
     nv_dec = nvc.PyNvDecoder(
         width,
         height,
-        nvc.PixelFormat.RGB,
+        nvc.PixelFormat.NV12,
         nvc.CudaVideoCodec.HEVC,
         GPU_ID,
     )
 
-    nv_dl = nvc.PySurfaceDownloader(width, height, nv_dec.Format(), GPU_ID)
+    nv_yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, GPU_ID)
+    nv_rgb = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, GPU_ID)
+
+    nv_dl = nvc.PySurfaceDownloader(width, height, nvc.PixelFormat.RGB, GPU_ID)
+    nv_cc = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
 
     frame_rgb = np.ndarray(shape=(0), dtype=np.uint8)
     packet_data = nvc.PacketData()
@@ -63,12 +67,14 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             surface = nv_dec.DecodeSurfaceFromPacket(packet)
             events_sent += 1
 
-            print(f"surface empty: {surface.Empty()}")
 
             if not surface.Empty():
                 if events_recv == index:
                     print(surface)
+                    surface = nv_yuv.Execute(surface, nv_cc)
+                    surface = nv_rgb.Execute(surface, nv_cc)
                     nv_dl.DownloadSingleSurface(surface, frame_rgb)
+                    print(frame_rgb.shape)
                     return frame_rgb.reshape((720, -1))
 
                 events_recv += 1
