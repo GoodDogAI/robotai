@@ -44,7 +44,7 @@ def get_loghashes() -> LogHashes:
 
 @app.get("/logs")
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[LogSummary]:
-    return lh.values()
+    return sorted(lh.values())
 
 
 @app.get("/logs/exists/{sha256}")
