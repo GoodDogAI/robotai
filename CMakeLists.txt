@@ -23,7 +23,11 @@ FetchContent_MakeAvailable(fmt)
 
 # Find any dependencies that must be installed on the system
 find_package(CapnProto REQUIRED)
-#find_package(ZeroMQ REQUIRED)
+
+# TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
+# find_package(ZeroMQ REQUIRED)
+
+find_package(realsense2 QUIET)
 
 # Build and configure cereal, as an in-place build
 include(ExternalProject)
@@ -45,8 +49,8 @@ include_directories(
     "${CEREAL_INCLUDE_DIRS}/.."
 )
 
-#add_executable(camerad src/realtime/camerad.cc)
-#add_executable(encoderd src/realtime/encoderd.cc src/realtime/nvvisionbuf.cc)
+set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
+
 
 add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS})
 target_link_libraries(
@@ -58,3 +62,20 @@ target_link_libraries(
         zmq
         CapnProto::capnp
 )
+
+if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
+    add_executable(encoderd src/realtime/encoderd.cc src/realtime/nvvisionbuf.cc)
+    target_include_directories(${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
+    target_link_libraries(
+        encoderd 
+        PRIVATE 
+            fmt::fmt
+            ${CEREAL_LIBRARIES}
+            zmq
+            CapnProto::capnp
+    )
+endif()
+
+if(${REALSENSE2_FOUND})
+    add_executable(camerad src/realtime/camerad.cc)
+endif()
