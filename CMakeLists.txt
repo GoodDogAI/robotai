@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(RobotAI)
+project(RobotAI LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
 
 # Download and compile some lightweight dependencies
 Include(FetchContent)
@@ -20,6 +21,14 @@ FetchContent_Declare(fmt
         GIT_TAG 9.0.0
         )
 FetchContent_MakeAvailable(fmt)
+
+FetchContent_Declare(vpf
+        GIT_REPOSITORY https://github.com/NVIDIA/VideoProcessingFramework.git
+        GIT_TAG v1.1.1
+        )
+FetchContent_MakeAvailable(vpf)
+
+find_package(CUDAToolkit)
 
 # Find any dependencies that must be installed on the system
 find_package(CapnProto REQUIRED)
