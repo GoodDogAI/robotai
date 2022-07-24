@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+include(CMakePrintHelpers)
 
 project(RobotAI LANGUAGES CXX)
 
@@ -21,6 +22,14 @@ FetchContent_Declare(fmt
         GIT_TAG 9.0.0
         )
 FetchContent_MakeAvailable(fmt)
+
+FetchContent_Declare(VideoCodecSDK
+    URL https://storage.googleapis.com/robotai_public/Video_Codec_SDK_11.1.5.zip
+)
+FetchContent_MakeAvailable(VideoCodecSDK)
+
+# Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
+FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
 
 FetchContent_Declare(vpf
         GIT_REPOSITORY https://github.com/NVIDIA/VideoProcessingFramework.git
