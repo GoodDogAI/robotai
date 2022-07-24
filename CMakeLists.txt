@@ -30,6 +30,10 @@ FetchContent_MakeAvailable(VideoCodecSDK)
 
 # Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
 FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
+set(GENERATE_PYTHON_BINDINGS 1)
+
+# TODO Enabling this would need to override some install locations
+#set(GENERATE_PYTORCH_EXTENSION 1)
 
 FetchContent_Declare(vpf
         GIT_REPOSITORY https://github.com/NVIDIA/VideoProcessingFramework.git
@@ -37,9 +41,8 @@ FetchContent_Declare(vpf
         )
 FetchContent_MakeAvailable(vpf)
 
-find_package(CUDAToolkit)
-
 # Find any dependencies that must be installed on the system
+find_package(CUDAToolkit)
 find_package(CapnProto REQUIRED)
 
 # TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
