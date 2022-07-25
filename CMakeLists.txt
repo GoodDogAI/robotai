@@ -87,7 +87,7 @@ ExternalProject_Add(cereal
 
 ExternalProject_Get_Property(cereal SOURCE_DIR)
 set(CEREAL_INCLUDE_DIRS ${SOURCE_DIR})
-set(CEREAL_LIBRARIES "${SOURCE_DIR}/libcereal.a" "${SOURCE_DIR}/libmessaging.a" "${SOURCE_DIR}/libvisionipc.a")
+set(CEREAL_LIBRARIES "${SOURCE_DIR}/libcereal.a" "${SOURCE_DIR}/libvisionipc.a" "${SOURCE_DIR}/libmessaging.a")
 
 include_directories(
     src/include
