@@ -6,6 +6,10 @@ project(RobotAI LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Locate CUDA, and configure the CUDA COMPILER location manually
+# as a prerequisite for building the Nvidia VPF library
+find_package(CUDAToolkit)
+set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 
 # Download and compile some lightweight dependencies
 Include(FetchContent)
@@ -30,6 +34,7 @@ FetchContent_MakeAvailable(VideoCodecSDK)
 
 # Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
 FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
+set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
 set(GENERATE_PYTHON_BINDINGS 1)
 
 # TODO Enabling this would need to override some install locations
@@ -41,8 +46,10 @@ FetchContent_Declare(vpf
         )
 FetchContent_MakeAvailable(vpf)
 
+# Install the built python modules into the source tree, so you can run them
+install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
+
 # Find any dependencies that must be installed on the system
-find_package(CUDAToolkit)
 find_package(CapnProto REQUIRED)
 
 # TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
