@@ -2,19 +2,22 @@ import io
 import os
 import random
 import string
+import png
+import time
+
 from typing import List
 
 from fastapi import FastAPI, Depends, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from cereal import log
 import cereal.messaging as messaging
 
 from .config import RECORD_DIR
 from src.logutil import LogHashes, LogSummary, asha256, validate_log
+from .video import load_image
 
 app = FastAPI(title="RobotAI Log Service")
 origins = [
@@ -42,7 +45,7 @@ def get_loghashes() -> LogHashes:
 
 @app.get("/logs")
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[LogSummary]:
-    return lh.values()
+    return sorted(lh.values())
 
 
 @app.get("/logs/exists/{sha256}")
@@ -82,6 +85,7 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
             fp.write(byte_block)
 
     lh.update()
+    await logfile.close()
 
 
 @app.get("/logs/{logfile}")
@@ -101,3 +105,18 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
     # it will just get interpreted as utf-8 text and you will have a bad time
     return JSONResponse(jsonable_encoder(result,
                         custom_encoder={bytes: lambda data_obj: None}))
+
+@app.get("/logs/{logfile}/frame/{frameid}")
+async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    start = time.perf_counter()
+    rgb = load_image(os.path.join(RECORD_DIR, logfile), frameid)
+    img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
+    img_data = io.BytesIO()
+    img.write(img_data)
+    response = Response(content=img_data.getvalue(), media_type="image/png")
+    #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
+
+    return response

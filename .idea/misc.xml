@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.8 (robotai)" project-jdk-type="Python SDK" />
+  <component name="UnattendedHostPersistenceState">
+    <option name="openedFilesInfos">
+      <list>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="3012" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/SampleRemap.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="962" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/docs/Makefile" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="2319" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/src/web/video.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="0" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/docs/conf.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="0" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/docs/PyNvCodec.rst" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="4937" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/PyNvCodec/src/PySurfaceDownloader.cpp" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="5688" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/vpf/SampleDecode.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="0" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/src/web/parse.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="1001" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/src/web/logservice.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="94" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/src/logutil.py" />
+        </OpenedFileInfo>
+      </list>
+    </option>
+  </component>
+</project>

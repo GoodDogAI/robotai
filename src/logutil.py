@@ -4,7 +4,7 @@ import json
 import logging
 
 from typing import List, Dict, BinaryIO
-
+from functools import total_ordering
 from capnp.lib import capnp
 from fastapi import UploadFile
 from fastapi.encoders import jsonable_encoder
@@ -42,11 +42,14 @@ def validate_log(f: BinaryIO) -> bool:
     except capnp.KjException:
         return False
 
-
+@total_ordering
 class LogSummary(BaseModel):
     filename: str
     sha256: str
     last_modified: int
+
+    def __le__(self, other):
+        return self.filename < other.filename
 
 
 # Allows for quick and cached access to the SHA256 hash of a bunch of log files

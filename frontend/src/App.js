@@ -62,6 +62,14 @@ function LogTimelineEntry(props) {
     </div>);
 }
 
+function FrameSlider(props) {
+    const { index, max, onChangeIndex } = props;
+
+    return (
+        <input className="frameSlider" type="range" min="0" max={max} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
+    );
+}
+
 function LogTimeline(props) {
     const { logName } = props;
 
@@ -70,6 +78,8 @@ function LogTimeline(props) {
           `${backendUrl}/logs/${logName}`
         ).then((res) => res.data)
       );
+
+    const [index, setIndex] = useState(0);
 
     if (!logName) {
         return <div>Select a log to view</div>;
@@ -85,8 +95,13 @@ function LogTimeline(props) {
 
     return (
         <div>
-            { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
-
+            <div className="frameContainer">
+                <img width="100%" src={`${backendUrl}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
+                <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
+            </div>
+            <div>
+                { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
+            </div>
         </div>
     );
 }

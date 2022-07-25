@@ -164,8 +164,8 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
                 .width = (unsigned int)out_width,
                 .height = (unsigned int)out_height,
                 .pixelformat = V4L2_PIX_FMT_H265,
-                // .field = V4L2_FIELD_ANY,
-                // .colorspace = V4L2_COLORSPACE_DEFAULT,
+                .field = V4L2_FIELD_ANY,
+                .colorspace = V4L2_COLORSPACE_DEFAULT,
             }
         }
     };
@@ -185,7 +185,7 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
                 .width = (unsigned int)in_width,
                 .height = (unsigned int)in_height,
                 .pixelformat = V4L2_PIX_FMT_NV12M,
-                //.field = V4L2_FIELD_ANY,
+                .field = V4L2_FIELD_ANY,
                 //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
             }
         }
