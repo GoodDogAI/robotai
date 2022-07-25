@@ -73,6 +73,7 @@ find_package(CapnProto 0.8.0 REQUIRED)
 # find_package(ZeroMQ REQUIRED)
 
 find_package(realsense2 QUIET)
+message("REALSENSE Version: ${realsense2_VERSION}")
 
 # Build and configure cereal, as an in-place build
 include(ExternalProject)
@@ -127,6 +128,14 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     catch_discover_tests(encoderd_tests)
 endif()
 
-if(${REALSENSE2_FOUND})
+if(${realsense2_FOUND})
     add_executable(camerad src/realtime/camerad.cc)
+    target_link_libraries(
+        camerad
+        PRIVATE
+            fmt::fmt
+            ${CEREAL_LIBRARIES}
+            zmq
+            realsense2::realsense2
+            CapnProto::capnp)
 endif()
