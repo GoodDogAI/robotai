@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 include(CMakePrintHelpers)
 
 project(RobotAI LANGUAGES CXX)
@@ -10,6 +10,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # as a prerequisite for building the Nvidia VPF library
 find_package(CUDAToolkit)
 set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
+
+# Locate Python
+set(Python_FIND_VIRTUALENV FIRST)
+find_package(Python COMPONENTS Interpreter Development)
+message("Using Python from ${Python_INCLUDE_DIRS}")
 
 # Download and compile some lightweight dependencies
 Include(FetchContent)
@@ -48,6 +53,8 @@ FetchContent_MakeAvailable(vpf)
 
 # Install the built python modules into the source tree, so you can run them
 install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
+install(FILES $<TARGET_FILE:TC_CORE> DESTINATION src)
+install(FILES $<TARGET_FILE:TC>	DESTINATION src)
 
 # Find any dependencies that must be installed on the system
 find_package(CapnProto REQUIRED)

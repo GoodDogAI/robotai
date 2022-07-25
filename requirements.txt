@@ -1,6 +1,9 @@
 # For reading and writing capnp definitions
 pycapnp
 
+# For building the cereal submodule
+scons
+
 # For implementing the backend
 fastapi
 
