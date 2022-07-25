@@ -41,12 +41,7 @@ FetchContent_MakeAvailable(VideoCodecSDK)
 FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
 set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
 
-# Override the python library location for compiling VPF
-set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE} CACHE PATH "Override python binary for VPF" FORCE)
-set(PYTHON_LIBRARY ${Python3_LIBRARIES} CACHE PATH "Override python library dirs for VPF" FORCE)
-set(PYTHON_INCLUDE_DIR ${Python3_INCLUDE_DIRS} CACHE PATH "Override python include dirs for VPF" FORCE)
-
-set(GENERATE_PYTHON_BINDINGS 1)
+set(GENERATE_PYTHON_BINDINGS 1 CACHE BOOL "Override for generating python bindings for VPF" FORCE)
 # TODO Enabling this would need to override some install locations
 #set(GENERATE_PYTORCH_EXTENSION 1)
 
