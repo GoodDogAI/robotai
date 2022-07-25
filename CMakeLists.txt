@@ -13,8 +13,8 @@ set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 
 # Locate Python
 set(Python_FIND_VIRTUALENV FIRST)
-find_package(Python COMPONENTS Interpreter Development)
-message("Using Python from ${Python_INCLUDE_DIRS}")
+find_package(Python3 COMPONENTS Interpreter Development)
+message("Using Python from ${Python3_INCLUDE_DIRS}")
 
 # Download and compile some lightweight dependencies
 Include(FetchContent)
@@ -40,14 +40,19 @@ FetchContent_MakeAvailable(VideoCodecSDK)
 # Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
 FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
 set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
-set(GENERATE_PYTHON_BINDINGS 1)
 
+# Override the python library location for compiling VPF
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE} CACHE PATH "Override python binary for VPF" FORCE)
+set(PYTHON_LIBRARY ${Python3_LIBRARIES} CACHE PATH "Override python library dirs for VPF" FORCE)
+set(PYTHON_INCLUDE_DIR ${Python3_INCLUDE_DIRS} CACHE PATH "Override python include dirs for VPF" FORCE)
+
+set(GENERATE_PYTHON_BINDINGS 1)
 # TODO Enabling this would need to override some install locations
 #set(GENERATE_PYTORCH_EXTENSION 1)
 
 FetchContent_Declare(vpf
-        GIT_REPOSITORY https://github.com/NVIDIA/VideoProcessingFramework.git
-        GIT_TAG v1.1.1
+        GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
+        GIT_TAG origin/pybind_cmake
         )
 FetchContent_MakeAvailable(vpf)
 

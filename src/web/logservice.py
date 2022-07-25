@@ -85,6 +85,7 @@ async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
             fp.write(byte_block)
 
     lh.update()
+    await logfile.close()
 
 
 @app.get("/logs/{logfile}")
