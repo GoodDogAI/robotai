@@ -159,14 +159,14 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     struct v4l2_format fmt_out = {
         .type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
         .fmt = {
-        .pix_mp = {
-            // downscales are free with v4l
-            .width = (unsigned int)out_width,
-            .height = (unsigned int)out_height,
-            .pixelformat = V4L2_PIX_FMT_H265,
-            // .field = V4L2_FIELD_ANY,
-            // .colorspace = V4L2_COLORSPACE_DEFAULT,
-        }
+            .pix_mp = {
+                // downscales are free with v4l
+                .width = (unsigned int)out_width,
+                .height = (unsigned int)out_height,
+                .pixelformat = V4L2_PIX_FMT_H265,
+                // .field = V4L2_FIELD_ANY,
+                // .colorspace = V4L2_COLORSPACE_DEFAULT,
+            }
         }
     };
 
@@ -179,15 +179,15 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
 
     struct v4l2_format fmt_in = {
-    .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
-    .fmt = {
-      .pix_mp = {
-        .width = (unsigned int)in_width,
-        .height = (unsigned int)in_height,
-        .pixelformat = V4L2_PIX_FMT_NV12M,
-        //.field = V4L2_FIELD_ANY,
-        //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
-      }
+        .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+        .fmt = {
+            .pix_mp = {
+                .width = (unsigned int)in_width,
+                .height = (unsigned int)in_height,
+                .pixelformat = V4L2_PIX_FMT_NV12M,
+                //.field = V4L2_FIELD_ANY,
+                //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
+            }
         }
     };
     fmt_in.fmt.pix_mp.num_planes = 2;

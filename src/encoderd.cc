@@ -49,6 +49,9 @@ int main(int argc, char *argv[])
         }
     }
 
+    // TODO Do a proper synchronization between the encoder and logger with all the header data needed to restore the video stream
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
     // Perform the encoding
     while (!do_exit) {
         VisionIpcBufExtra extra;
