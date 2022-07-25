@@ -16,6 +16,9 @@ set(Python_FIND_VIRTUALENV FIRST)
 find_package(Python3 COMPONENTS Interpreter Development)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
 
+# Set the default location for the jetson multimedia sdk
+set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
+
 # Download and compile some lightweight dependencies
 Include(FetchContent)
 
@@ -25,6 +28,9 @@ FetchContent_Declare(
         GIT_TAG        v3.1.0
 )
 FetchContent_MakeAvailable(Catch2)
+list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+include(CTest)
+include(Catch)
 
 FetchContent_Declare(fmt
         GIT_REPOSITORY https://github.com/fmtlib/fmt.git
@@ -32,32 +38,36 @@ FetchContent_Declare(fmt
         )
 FetchContent_MakeAvailable(fmt)
 
-FetchContent_Declare(VideoCodecSDK
-    URL https://storage.googleapis.com/robotai_public/Video_Codec_SDK_11.1.5.zip
-)
-FetchContent_MakeAvailable(VideoCodecSDK)
+# If we are not on the Jetson platform, then we need to build the VPF
+if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
+    FetchContent_Declare(VideoCodecSDK
+        URL https://storage.googleapis.com/robotai_public/Video_Codec_SDK_11.1.5.zip
+    )
+    FetchContent_MakeAvailable(VideoCodecSDK)
 
-# Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
-FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
-set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
+    # Set the VIDEO_CODEC_SDK_DIR to the one that we just downloaded
+    FetchContent_GetProperties(VideoCodecSDK SOURCE_DIR VIDEO_CODEC_SDK_DIR)
+    set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
 
-set(GENERATE_PYTHON_BINDINGS 1 CACHE BOOL "Override for generating python bindings for VPF" FORCE)
-# TODO Enabling this would need to override some install locations
-#set(GENERATE_PYTORCH_EXTENSION 1)
+    set(GENERATE_PYTHON_BINDINGS 1 CACHE BOOL "Override for generating python bindings for VPF" FORCE)
+    # TODO Enabling this would need to override some install locations
+    #set(GENERATE_PYTORCH_EXTENSION 1)
 
-FetchContent_Declare(vpf
-        GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
-        GIT_TAG origin/pybind_cmake
-        )
-FetchContent_MakeAvailable(vpf)
+    FetchContent_Declare(vpf
+            GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
+            GIT_TAG origin/pybind_cmake
+            )
+    FetchContent_MakeAvailable(vpf)
 
-# Install the built python modules into the source tree, so you can run them
-install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
-install(FILES $<TARGET_FILE:TC_CORE> DESTINATION src)
-install(FILES $<TARGET_FILE:TC>	DESTINATION src)
+    # Install the built python modules into the source tree, so you can run them
+    install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
+    install(FILES $<TARGET_FILE:TC_CORE> DESTINATION src)
+    install(FILES $<TARGET_FILE:TC>	DESTINATION src)
+endif()
+
 
 # Find any dependencies that must be installed on the system
-find_package(CapnProto REQUIRED)
+find_package(CapnProto 0.8.0 REQUIRED)
 
 # TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
 # find_package(ZeroMQ REQUIRED)
@@ -84,8 +94,6 @@ include_directories(
     "${CEREAL_INCLUDE_DIRS}/.."
 )
 
-set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
-
 
 add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS})
 target_link_libraries(
@@ -99,16 +107,24 @@ target_link_libraries(
 )
 
 if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
-    add_executable(encoderd src/realtime/encoderd.cc src/realtime/nvvisionbuf.cc)
-    target_include_directories(${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
+    add_executable(encoderd 
+        src/realtime/encoderd.cc 
+        src/realtime/nvencoder.cc
+        src/realtime/nvvisionbuf.cc)
+    target_include_directories(encoderd PRIVATE ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     target_link_libraries(
         encoderd 
         PRIVATE 
             fmt::fmt
             ${CEREAL_LIBRARIES}
             zmq
+            v4l2
             CapnProto::capnp
     )
+
+    add_executable(encoderd_tests src/tests/test_nvencoder.cc)
+    target_link_libraries(encoderd_tests PRIVATE Catch2::Catch2WithMain)
+    catch_discover_tests(encoderd_tests)
 endif()
 
 if(${REALSENSE2_FOUND})
