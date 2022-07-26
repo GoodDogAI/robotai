@@ -196,27 +196,29 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
     std::cout << "in buffer size " << fmt_in.fmt.pix_mp.plane_fmt[0].sizeimage << " out buffer size " << fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage << std::endl;
 
-    // shared ctrls
+    // Configure Video controls
+    // valid controls are listed here
+    // https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html#ga8498d6532a37c8f0553df78d2952ed31
     {
-        struct v4l2_control ctrls[] = {
-            { .id = V4L2_CID_MPEG_VIDEO_HEADER_MODE, .value = V4L2_MPEG_VIDEO_HEADER_MODE_JOINED_WITH_1ST_FRAME},
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate},
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR},
-        };
-        for (auto ctrl : ctrls) {
-            checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl);
-        }
-    }
+        struct v4l2_ext_control ctrls[] = {
+            // Generic controls
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate },
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
+            { .id = V4L2_CID_MPEG_VIDEO_GOP_SIZE, .value = fps },
 
-    //H265 controls
-    {
-        struct v4l2_control ctrls[] = {
-            { .id = V4L2_CID_MPEG_VIDEO_H265_PROFILE, .value = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN},
-            { .id = V4L2_CID_MPEG_VIDEOENC_NUM_BFRAMES, .value = 0},
+            // NVIDIA Specific controls
+            { .id = V4L2_CID_MPEG_VIDEO_H265_PROFILE, .value = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN },
+            { .id = V4L2_CID_MPEG_VIDEOENC_NUM_BFRAMES, .value = 0 },
+            { .id = V4L2_CID_MPEG_VIDEO_IDR_INTERVAL, .value = fps },
+            { .id = V4L2_CID_MPEG_VIDEOENC_INSERT_SPS_PPS_AT_IDR, .value = true },
         };
-        for (auto ctrl : ctrls) {
-            checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl);
-        }
+
+        v4l2_ext_controls ctrl_data {};
+        ctrl_data.ctrl_class = V4L2_CTRL_CLASS_MPEG;
+        ctrl_data.count = std::size(ctrls);
+        ctrl_data.controls = ctrls;
+
+        checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl_data);
     }
 
 
@@ -306,6 +308,7 @@ void NVEncoder::do_dequeue_capture() {
             
             promise.set_value(std::make_unique<NVResult>(*this, buf_out[index].planes[0].data,
                 bytesused,
+                flags,
                 index));
             encoder_promises.erase(frame_read_index);
             frame_read_index++;

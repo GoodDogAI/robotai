@@ -24,8 +24,9 @@ class NVEncoder{
         struct NVResult {
             uint8_t *data;
             size_t len;
+            int32_t flags;
 
-            NVResult(NVEncoder &e, uint8_t *d, size_t l, uint32_t i) : enc(e), data(d), len(l), index(i) {}
+            NVResult(NVEncoder &e, uint8_t *d, size_t l, int32_t f, uint32_t i) : enc(e), data(d), len(l), flags(f), index(i) {}
             // Requeues the resulting buffer to V4L2 once the user is done with it
             ~NVResult();
 
