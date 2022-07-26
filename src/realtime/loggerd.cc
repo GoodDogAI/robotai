@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <experimental/filesystem>
+#include <linux/videodev2.h>
 #include <fmt/core.h>
 
 #include "util.h"
@@ -26,6 +27,7 @@ const fs::path log_path{ "/media/card" };
 
 int main(int argc, char *argv[])
 {
+    bool started_logging { false };
     std::unique_ptr<Context> ctx{ Context::create() };
     std::unique_ptr<Poller> poller{ Poller::create() };
 
@@ -47,13 +49,20 @@ int main(int argc, char *argv[])
         for (auto sock : poller->poll(1000)) {
             msg = sock->receive(true);
 
-            log.write(msg->getData(), msg->getSize());
-            log.flush();
+            capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
+            auto event = cmsg.getRoot<cereal::Event>();
 
-            //capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
-            //auto event = cmsg.getRoot<cereal::Event>();
+            if (!started_logging && event.getHeadEncodeData().getIdx().getFlags() & V4L2_BUF_FLAG_KEYFRAME) {
+                std::cout << "Received first Iframe, starting to log" << std::endl;
+                started_logging = true;
+            }
+
+            if (started_logging) {
+                log.write(msg->getData(), msg->getSize());
+                log.flush();
+            }
+
            //std::cout << "Wrote event " << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
-
         }        
     }
 

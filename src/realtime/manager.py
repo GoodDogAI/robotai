@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     for proc in procs:
         print(f"Starting {proc.name}...")
-        proc.p = subprocess.Popen(f"src/{proc.name}")
+        proc.p = subprocess.Popen(f"build/{proc.name}")
 
     for proc in procs:
         proc.p.wait()
