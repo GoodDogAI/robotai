@@ -123,8 +123,21 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
             CapnProto::capnp
     )
 
-    add_executable(encoderd_tests src/tests/test_nvencoder.cc)
-    target_link_libraries(encoderd_tests PRIVATE Catch2::Catch2WithMain)
+    add_executable(encoderd_tests 
+        src/tests/test_nvencoder.cc 
+        src/realtime/nvencoder.cc 
+        src/realtime/nvvisionbuf.cc)
+    target_include_directories(encoderd_tests PRIVATE ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS} src/realtime)
+    target_link_libraries(
+        encoderd_tests
+        PRIVATE 
+            fmt::fmt
+            ${CEREAL_LIBRARIES}
+            zmq
+            v4l2
+            CapnProto::capnp
+            Catch2::Catch2WithMain
+    )
     catch_discover_tests(encoderd_tests)
 endif()
 

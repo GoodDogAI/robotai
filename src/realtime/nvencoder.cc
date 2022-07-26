@@ -293,11 +293,16 @@ NVEncoder::NVResult::~NVResult() {
 
 void NVEncoder::do_dequeue_capture() {
     while(true) {
-        uint32_t index, bytesused;
+        uint32_t index, bytesused, flags;
     
-        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused)) 
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused, &flags)) 
         {
             auto &promise = encoder_promises[frame_read_index];
+
+            if (bytesused == 0) {
+                std::cerr << "Dequeued empty capture buffer, ending streaming" << std::endl;
+                break;
+            }
             
             promise.set_value(std::make_unique<NVResult>(*this, buf_out[index].planes[0].data,
                 bytesused,
@@ -312,10 +317,16 @@ void NVEncoder::do_dequeue_capture() {
 
 void NVEncoder::do_dequeue_output() {
     while(true) {
-        uint32_t index;
+        uint32_t index, bytesused, flags;
 
-        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index)) {
-            buf_in[index].is_queued = false;
+        if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, &index, &bytesused, &flags)) {
+            if(buf_in[index].is_queued) {
+                buf_in[index].is_queued = false;
+            }
+            else {
+                std::cerr << "Dequeued empty output buffer, ending streaming" << std::endl;
+                break;
+            }
         }
     }
 }

@@ -8,9 +8,9 @@
 #include <map>
 #include <thread>
 #include <future>
+
 #include "nvvisionbuf.h"
-
-
+#include "cereal/visionipc/visionbuf.h"
 
 
 class NVEncoder{
