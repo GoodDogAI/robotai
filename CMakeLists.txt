@@ -95,6 +95,7 @@ include_directories(
     "${CEREAL_INCLUDE_DIRS}/.."
 )
 
+add_compile_options(-Wunused -Werror -Wshadow)
 
 add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS})
 target_link_libraries(
