@@ -34,7 +34,9 @@ TEST_CASE( "Encoder renders a single frame", "[encoder]" ) {
 }
 
 TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, 5 };
+    int test_fps = 5;
+
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, test_fps };
     VisionBuf buf;
 
     auto size = CAMERA_WIDTH * CAMERA_HEIGHT * 3 / 2;
@@ -55,7 +57,7 @@ TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
         
         INFO("frame " << i << " " << result->flags);
 
-        if (i % CAMERA_FPS == 0) {
+        if (i % test_fps == 0) {
             CHECK(result->flags & V4L2_BUF_FLAG_KEYFRAME);
         }  
     }

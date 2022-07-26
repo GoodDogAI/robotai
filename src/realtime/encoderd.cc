@@ -49,9 +49,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    // TODO Do a proper synchronization between the encoder and logger with all the header data needed to restore the video stream
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-
     // Perform the encoding
     while (!do_exit) {
         VisionIpcBufExtra extra;
@@ -76,6 +73,7 @@ int main(int argc, char *argv[])
             auto edat = event.initHeadEncodeData();
             auto edata = edat.initIdx(); 
             edata.setEncodeId(num_frames);
+            edata.setFlags(result->flags);
 
             edat.setData(kj::heapArray<capnp::byte>(result->data, result->len));
 

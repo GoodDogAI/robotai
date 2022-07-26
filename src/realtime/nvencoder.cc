@@ -299,12 +299,12 @@ void NVEncoder::do_dequeue_capture() {
     
         if (dequeue_buffer(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, &index, &bytesused, &flags)) 
         {
-            auto &promise = encoder_promises[frame_read_index];
-
             if (bytesused == 0) {
                 std::cerr << "Dequeued empty capture buffer, ending streaming" << std::endl;
                 break;
             }
+
+            auto &promise = encoder_promises[frame_read_index];
             
             promise.set_value(std::make_unique<NVResult>(*this, buf_out[index].planes[0].data,
                 bytesused,
