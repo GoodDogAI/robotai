@@ -13,3 +13,6 @@ sudo apt-get install -y --no-install-recommends \
     libswresample-dev
 
 pip3 install -r requirements.txt
+
+# For pytorch, with cuda 11.6 support
+pip3 install --extra-index-url https://download.pytorch.org/whl/cu116 torch torchvision torchaudio

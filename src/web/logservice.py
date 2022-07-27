@@ -16,7 +16,7 @@ from cereal import log
 import cereal.messaging as messaging
 
 from .config import RECORD_DIR
-from src.logutil import LogHashes, LogSummary, asha256, validate_log
+from src.logutil import LogHashes, LogSummary, validate_log
 from .video import load_image
 
 app = FastAPI(title="RobotAI Log Service")
@@ -41,6 +41,13 @@ def get_loghashes() -> LogHashes:
     if _loghashes is None:
         _loghashes = LogHashes(RECORD_DIR)
     return _loghashes
+
+
+async def asha256(fp: UploadFile) -> str:
+    sha256_hash = hashlib.sha256()
+    while byte_block := await fp.read(65536):
+        sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
 
 
 @app.get("/logs")

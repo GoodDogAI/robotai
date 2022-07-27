@@ -5,6 +5,8 @@
 #define CAMERA_FPS 15
 
 #define LOG_DURATION_SECONDS 60
+#define LOG_PATH "/media/card"
+#define LOG_SERVICE "jake-training-box:8000"
 
 #define ENCODER_BITRATE 8'000'000
 #define ENCODER_DEV "/dev/nvhost-msenc"

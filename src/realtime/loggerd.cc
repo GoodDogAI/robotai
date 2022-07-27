@@ -23,7 +23,7 @@ namespace fs = std::experimental::filesystem;
 const char *log_name = "alphalog";
 
 const char *service_name = "headEncodeData";
-const fs::path log_path{ "/media/card" };
+const fs::path log_path{ LOG_PATH };
 
 
 fs::path get_log_filename() {
