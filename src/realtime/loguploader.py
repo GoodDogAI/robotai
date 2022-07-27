@@ -4,6 +4,7 @@ import time
 import requests
 
 from typing import Dict, Any
+from inotify_simple import INotify, flags
 
 # Watches for newly completed log files in the logging directory, and uploads them
 
@@ -22,14 +23,21 @@ def load_realtime_config() -> Dict[str, Any]:
 
 CONFIG = load_realtime_config()
 
-lh = LogHashes(CONFIG["LOG_PATH"])
-
-print(lh)
-
 def main():
+    lh = LogHashes(CONFIG["LOG_PATH"])
+
+    inotify = INotify()
+    watch_flags = flags.CREATE | flags.DELETE | flags.MOVED_TO | flags.MOVED_FROM
+    wd = inotify.add_watch(lh.dir, watch_flags)
+
     while True:
-        # TODO watch for changes and upload them
-        time.sleep(1)
+        if any(e.name.endswith(lh.extension) for e in inotify.read(timeout=1000, read_delay=100)):
+            print(f"Got inotify updating lhes")
+            lh.update()
+
+
+    inotify.close()
+    print("DONE")
 
 if __name__ == "__main__":
     main()

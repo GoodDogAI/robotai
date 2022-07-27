@@ -9,7 +9,7 @@ from setproctitle import setproctitle
 # Loosely based on: https://github.com/commaai/openpilot/blob/master/selfdrive/manager
 logger = logging.getLogger(__name__)
 
-def pythonlauncher(name: str, module: str):
+def pythonlauncher(name: str, module: str, func: str):
     # import the process
     logger.info(f"Importing {name} {module}")
     mod = importlib.import_module(module)
@@ -18,8 +18,8 @@ def pythonlauncher(name: str, module: str):
     setproctitle(name)
 
     # exec the process
-    logger.info(f"Launching {name} {module}")
-    getattr(mod, 'main')()
+    logger.info(f"Launching {name} {module}.{func}")
+    getattr(mod, func)()
 
 class ManagerProcess:
     name: str = ""
@@ -40,13 +40,15 @@ class ManagerProcess:
 
 class PythonProcess(ManagerProcess):
     module: str = ""
+    func: str = ""
 
-    def __init__(self, name, module):
+    def __init__(self, name, module, func="main"):
         super().__init__(name)
         self.module = module
+        self.func = func
 
     async def start(self):
-        self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module))
+        self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module, self.func))
         self.running = True
         self.p.start()
 

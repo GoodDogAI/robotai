@@ -6,6 +6,7 @@ import logging
 from typing import List, Dict, BinaryIO
 from functools import total_ordering
 from capnp.lib import capnp
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
 from cereal import log
 
@@ -74,7 +75,7 @@ class LogHashes:
             self.files[file] = LogSummary(filename=file, sha256=sha256(filepath), last_modified=mtime)
 
         with open(path + "_temp", "w") as f:
-            json.dump(self.files, f)
+            json.dump(jsonable_encoder(self.files), f)
 
         if os.path.exists(path):
             os.remove(path)

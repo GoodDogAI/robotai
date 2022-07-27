@@ -21,3 +21,6 @@ pypng
 
 # For keeping process titles neat when running in realtime mode
 setproctitle
+
+# For watching logs being written live
+inotify_simple
