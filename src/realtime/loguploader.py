@@ -28,6 +28,7 @@ print(lh)
 
 def main():
     while True:
+        # TODO watch for changes and upload them
         time.sleep(1)
 
 if __name__ == "__main__":

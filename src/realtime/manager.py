@@ -51,14 +51,15 @@ class PythonProcess(ManagerProcess):
         self.p.start()
 
     async def join(self):
-        while True:
-            self.p.join(timeout=1)
-            yield
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self._do_join)
 
+    def _do_join(self):
+        self.p.join()
         self.running = False
-
+        
     def kill(self):
-        self.p.kill()
+        self.p.terminate()
         self.running = False
 
 class NativeProcess(ManagerProcess):
@@ -79,8 +80,8 @@ class NativeProcess(ManagerProcess):
 
 procs = [
     NativeProcess("camerad"), 
-    # NativeProcess("encoderd"),
-    # NativeProcess("loggerd"),
+    NativeProcess("encoderd"),
+    NativeProcess("loggerd"),
     PythonProcess("loguploader", "src.realtime.loguploader"),
 ]
 
