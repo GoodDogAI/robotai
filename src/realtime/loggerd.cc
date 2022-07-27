@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
                     log_filename = new_log_filename;
 
                     fmt::print("Rotating logs to {}", log_filename.string());
+                    log_start = std::chrono::steady_clock::now();
                     need_to_rotate = false;
                 }
             }
