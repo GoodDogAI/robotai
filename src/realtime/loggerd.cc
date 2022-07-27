@@ -73,15 +73,16 @@ int main(int argc, char *argv[])
                     log.close();
                     auto log_final_filename { log_filename };
                     log_final_filename.replace_extension("");
+                    fmt::print("Renaming {} to {}\n", log_filename.string(), log_final_filename.string());
                     fs::rename(log_filename, log_final_filename);
 
                     auto new_log_filename { get_log_filename().concat(".active") };
                     assert(new_log_filename != log_filename);
-
-                    log.open(log_filename, std::ios::binary);
                     log_filename = new_log_filename;
 
-                    fmt::print("Rotating logs to {}", log_filename.string());
+                    log.open(log_filename, std::ios::binary);
+                    
+                    fmt::print("Rotating logs to {}\n", log_filename.string());
                     log_start = std::chrono::steady_clock::now();
                     need_to_rotate = false;
                 }
