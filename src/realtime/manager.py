@@ -1,4 +1,6 @@
+import os
 import subprocess
+
 
 class ManagerProcess:
     name: str = ""
@@ -26,7 +28,7 @@ if __name__ == "__main__":
 
     for proc in procs:
         print(f"Starting {proc.name}...")
-        proc.p = subprocess.Popen(f"build/{proc.name}")
+        proc.p = subprocess.Popen(os.path.abspath(f"build/{proc.name}"))
 
     for proc in procs:
         proc.p.wait()

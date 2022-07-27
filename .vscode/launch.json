@@ -14,9 +14,9 @@
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Launch C++",
-            "program": "${workspaceRoot}/src/encoderd",
-            "cwd": "${workspaceRoot}/src",
+            "name": "Launch Loggerd",
+            "program": "${workspaceRoot}/build/loggerd",
+            "cwd": "${workspaceRoot}",
             "setupCommands": [
                 {
                     "description": "ignore SIGUSR2 signal",

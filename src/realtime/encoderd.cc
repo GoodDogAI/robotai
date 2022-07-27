@@ -56,10 +56,6 @@ int main(int argc, char *argv[])
         if (buf == nullptr)
             continue;
 
-        if (num_frames % 50 == 0) {
-            std::cout << "Received frame " << extra.frame_id << std::endl;
-        }
-
         // Add the future to be retrieved later
         auto future = encoder.encode_frame(buf, &extra);
         encoder_futures.push_back(std::move(future));
