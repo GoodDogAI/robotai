@@ -24,3 +24,6 @@ setproctitle
 
 # For watching logs being written live
 inotify_simple
+
+# For the realtime stuff to talk to the logservice
+requests
