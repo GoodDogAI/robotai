@@ -24,10 +24,12 @@ def pythonlauncher(name: str, module: str, func: str):
 class ManagerProcess:
     name: str = ""
     running: bool = False
+    nice: int = 0
     p = None
     
-    def __init__(self, name):
+    def __init__(self, name, nice=0):
         self.name = name
+        self.nice = nice
 
     async def start(self):
         raise NotImplementedError()
