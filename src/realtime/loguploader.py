@@ -16,6 +16,8 @@ logger.setLevel(logging.INFO)
 CONFIG = load_realtime_config()
 
 def sync(lh: LogHashes) -> bool:
+    start = time.perf_counter()
+
     try:
         all_logs = requests.get(CONFIG["LOG_SERVICE"] + "/logs")
         if all_logs.status_code != 200:
@@ -34,12 +36,14 @@ def sync(lh: LogHashes) -> bool:
                 
                 logger.info(f"Uploaded {ls} successfully")
 
+        logger.info(f"Took {time.perf_counter() - start:0.3f}s to sync logs")
+
         return True
     except requests.ConnectionError:
         logger.error(f"Could not connect to {CONFIG['LOG_SERVICE']} in order to sync logs, will try again later")
-    finally:
-        return False
-
+    
+    return False
+       
 def main():
     lh = LogHashes(CONFIG["LOG_PATH"])
 
