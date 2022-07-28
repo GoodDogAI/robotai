@@ -78,7 +78,10 @@ function LogTimeline(props) {
     const { isLoading, error, data } = useQuery(["logs", logName], () =>
         axios.get(
           `${backendUrl}/logs/${logName}`
-        ).then((res) => res.data)
+        ).then((res) => res.data),
+        {
+            enabled: !!logName,
+        }
       );
 
     const [index, setIndex] = useState(0);
