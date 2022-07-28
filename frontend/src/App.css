@@ -1,5 +1,19 @@
-.frameContainer {
-  width: 600px;
+.pageContainer {
+  display: flex;
+  flex-direction: row;
+  margin: 1em;
+}
+
+.selected {
+  font-weight: bold;
+}
+
+.logList {
+  margin-right: 1em;
+}
+
+.timeline {
+  flex: 1;
 }
 
 .frameSlider {

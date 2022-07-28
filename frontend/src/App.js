@@ -15,14 +15,18 @@ function App() {
 
     return (
         <QueryClientProvider client={queryClient}>
-          <LogList onLogSelected={(newLog) => setCurrentLog(newLog)} />
-            <LogTimeline logName={currentLog}/>
+            <h1>Robot AI Log Browser</h1>
+
+            <div className="pageContainer">
+                <LogList logName={currentLog} onLogSelected={(newLog) => setCurrentLog(newLog)} />
+                <LogTimeline logName={currentLog}/>
+            </div>
         </QueryClientProvider>
     );
 }
 
 function LogList(props) {
-    const { onLogSelected } = props;
+    const { onLogSelected, logName } = props;
     const { isLoading, error, data } = useQuery("logs", () =>
         axios.get(
           `${backendUrl}/logs`
@@ -34,11 +38,11 @@ function LogList(props) {
   if (error) return "An error has occurred: " + error.message;
 
   return (
-    <div>
-        <h4>Available Logs</h4>
+    <div className="logList">
+        <h4>Available Logs ({ data.length })</h4>
         <ul>
             {data.map(log =>
-                <li key={log.sha256}><button onClick={() => onLogSelected(log.filename)}>{log.filename}</button></li>
+                <li key={log.sha256}><button className={log.filename === logName ? "selected" : null} onClick={() => onLogSelected(log.filename)}>{log.filename}</button></li>
                 )
             }
         </ul>
@@ -54,8 +58,6 @@ function LogTimelineEntry(props) {
 
     const mainKey = Object.keys(rest).pop();
 
-
-    //return (<pre>{JSON.stringify(data, null, 2)}</pre>);
     return (<div>
         {mainKey} @ {logMonoTime}
         <pre>{JSON.stringify(data, null, 2)}</pre>
@@ -94,7 +96,7 @@ function LogTimeline(props) {
     }
 
     return (
-        <div>
+        <div className="timeline">
             <div className="frameContainer">
                 <img width="100%" src={`${backendUrl}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
                 <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
