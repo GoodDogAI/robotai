@@ -161,8 +161,8 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
         .fmt = {
             .pix_mp = {
                 // downscales are free with v4l
-                .width = (unsigned int)out_width,
-                .height = (unsigned int)out_height,
+                .width = static_cast<unsigned int>(out_width),
+                .height = static_cast<unsigned int>(out_height),
                 .pixelformat = V4L2_PIX_FMT_H265,
                 .field = V4L2_FIELD_ANY,
                 .colorspace = V4L2_COLORSPACE_DEFAULT,
@@ -174,16 +174,12 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_out);
     
-
-    //TODO Is it necessary to configure the framerate?
-
-
     struct v4l2_format fmt_in = {
         .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
         .fmt = {
             .pix_mp = {
-                .width = (unsigned int)in_width,
-                .height = (unsigned int)in_height,
+                .width = static_cast<unsigned int>(in_width),
+                .height = static_cast<unsigned int>(in_height),
                 .pixelformat = V4L2_PIX_FMT_NV12M,
                 .field = V4L2_FIELD_ANY,
                 //.colorspace = V4L2_COLORSPACE_470_SYSTEM_BG,
@@ -194,6 +190,21 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
 
+    // Needs to be sent after the output plane itself is configured
+    assert(fps > 0);
+    v4l2_streamparm streamparm = {
+        .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+        .parm = {
+            .output = {
+                .timeperframe = {
+                    .numerator = 1,
+                    .denominator = static_cast<unsigned int>(fps),
+                }
+            }
+        }
+    };
+    checked_v4l2_ioctl(fd, VIDIOC_S_PARM, &streamparm);
+
     std::cout << "in buffer size " << fmt_in.fmt.pix_mp.plane_fmt[0].sizeimage << " out buffer size " << fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage << std::endl;
 
     // Configure Video controls
@@ -203,6 +214,7 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
         struct v4l2_ext_control ctrls[] = {
             // Generic controls
             { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate },
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, .value = bitrate * 2},
             { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
             { .id = V4L2_CID_MPEG_VIDEO_GOP_SIZE, .value = fps },
 
@@ -220,7 +232,6 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
         checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl_data);
     }
-
 
     // Allocate the buffers
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, BUF_OUT_COUNT);
