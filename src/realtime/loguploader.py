@@ -13,6 +13,7 @@ from src.include.config import load_realtime_config
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
 CONFIG = load_realtime_config()
 
 def sync(lh: LogHashes) -> bool:

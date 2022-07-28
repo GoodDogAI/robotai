@@ -174,10 +174,6 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_out);
     
-
-    //TODO Is it necessary to configure the framerate?
-
-
     struct v4l2_format fmt_in = {
         .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
         .fmt = {
@@ -193,6 +189,21 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     fmt_in.fmt.pix_mp.num_planes = 2;
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
+
+    // Needs to be sent after the output plane itself is configured
+    assert(fps > 0);
+    v4l2_streamparm streamparm = {
+        .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+        .parm = {
+            .output = {
+                .timeperframe = {
+                    .numerator = 1,
+                    .denominator = static_cast<unsigned int>(fps),
+                }
+            }
+        }
+    };
+    checked_v4l2_ioctl(fd, VIDIOC_S_PARM, &streamparm);
 
     std::cout << "in buffer size " << fmt_in.fmt.pix_mp.plane_fmt[0].sizeimage << " out buffer size " << fmt_out.fmt.pix_mp.plane_fmt[0].sizeimage << std::endl;
 
@@ -220,7 +231,6 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
         checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl_data);
     }
-
 
     // Allocate the buffers
     request_buffers(fd, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, BUF_OUT_COUNT);
