@@ -34,7 +34,7 @@ CONFIG = load_realtime_config()
 
 DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
 DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
-
+V4L2_BUF_FLAG_KEYFRAME = 0x8
 
 def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     frame_rgb = np.ndarray(shape=(0), dtype=np.uint8)
@@ -60,14 +60,27 @@ def load_image(logpath: str, index: int) -> np.ndarray:
         WEB_VIDEO_DECODE_GPU_ID,
     )
 
-  
     events_sent = 0
     events_recv = 0
+
+    video_events = []
 
     with open(logpath, "rb") as f:
         events = log.Event.read_multiple(f)
 
-        for evt in events:
+        # Get the actual events, starting with a keyframe, which we will need
+        for i, evt in enumerate(events):
+            if evt.which() == "headEncodeData":
+                if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
+                    video_events.clear()
+
+                video_events.append(evt)
+
+            if i >= index and len(video_events) > 1: # Need to send at least two packets to the nv decoder
+                break
+
+        # Now pass those into the decoder
+        for evt in video_events:
             packet = evt.headEncodeData.data
             assert packet[0] == 0 and packet[1] == 0 and packet[2] == 0 and packet[3] == 1
             nalu_type = (packet[4] & 0x1F)
@@ -77,7 +90,7 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             events_sent += 1
 
             if not surface.Empty():
-                if events_recv == index:
+                if events_recv == len(video_events) - 1:
                     return _rgb_from_surface(surface)
 
                 events_recv += 1
@@ -88,8 +101,8 @@ def load_image(logpath: str, index: int) -> np.ndarray:
             if surface.Empty():
                 break
             else:
-                if events_recv == index:
-                    _rgb_from_surface(surface)
+                if events_recv == len(video_events) - 1:
+                    return _rgb_from_surface(surface)
 
                 events_recv += 1
 
