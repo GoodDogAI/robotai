@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { QueryClient, QueryClientProvider, useQuery } from "react-query";
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "react-query";
 import { LogList } from "./LogList.js";
 import { LogTimeline } from "./LogTimeline.js";
 

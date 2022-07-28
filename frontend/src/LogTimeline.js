@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import {  useQuery } from "react-query";
-import { ReactQueryDevtools } from "react-query/devtools";
+import { useQuery } from "react-query";
 import {
     createColumnHelper,
     flexRender,
@@ -10,15 +9,6 @@ import {
 
 import axios from "axios";
 
-function LogTimelineEntry(props) {
-    const { data } = props;
-    const { valid, logMonoTime, ...rest } = data;
-
-    return (<div>
-        {getMessageType(data)} @ {logMonoTime}
-        <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>);
-}
 
 function getMessageType(msg) {
     const { valid, logMonoTime, ...rest } = msg;
@@ -58,18 +48,29 @@ export function LogTimeline(props) {
     const columns = [
         columnHelper.accessor('index', {
             accessorFn: (row, index) => index,
+            cell: ( {row} ) => <span>{row.getIsSelected()}</span>,
         }),
         columnHelper.accessor('which', {
             header: () => <span>type</span>,
             accessorFn: (row, index) => getMessageType(row),
-            cell: info => info.getValue(),
+            cell: row => row.getValue(),
         }),
+        // columnHelper.accessor('json', {
+        //     accessorFn: (row, index) => JSON.stringify(row, null, 0),
+        //     cell: info => <pre>{info.getValue()}</pre>,
+        // }),
     ];
 
     const table = useReactTable({
         data,
         columns,
+        state: {
+            index,
+        },
+        onRowSelectionChange: setIndex,
         getCoreRowModel: getCoreRowModel(),
+        enableRowSelection: true,
+        enableMultiRowSelection: false,
     })
 
 
