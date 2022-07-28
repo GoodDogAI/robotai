@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse, Response
 from cereal import log
 import cereal.messaging as messaging
 
-from .config import RECORD_DIR
+from .config_web import RECORD_DIR
 from src.logutil import LogHashes, LogSummary, validate_log
 from .video import load_image
 

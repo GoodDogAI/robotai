@@ -2,7 +2,7 @@ import unittest
 import os
 
 from src.web.video import load_image
-from src.web.config import RECORD_DIR
+from src.web.config_web import RECORD_DIR
 
 
 class VPFTest(unittest.TestCase):
