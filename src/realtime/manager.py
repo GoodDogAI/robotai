@@ -9,13 +9,16 @@ from setproctitle import setproctitle
 # Loosely based on: https://github.com/commaai/openpilot/blob/master/selfdrive/manager
 logger = logging.getLogger(__name__)
 
-def pythonlauncher(name: str, module: str, func: str):
+def pythonlauncher(name: str, module: str, func: str, nice: int=0):
     # import the process
     logger.info(f"Importing {name} {module}")
     mod = importlib.import_module(module)
 
     # rename the process
     setproctitle(name)
+
+    # set the niceness level
+    os.nice(nice)
 
     # exec the process
     logger.info(f"Launching {name} {module}.{func}")
@@ -24,12 +27,10 @@ def pythonlauncher(name: str, module: str, func: str):
 class ManagerProcess:
     name: str = ""
     running: bool = False
-    nice: int = 0
     p = None
     
-    def __init__(self, name, nice=0):
+    def __init__(self, name: str):
         self.name = name
-        self.nice = nice
 
     async def start(self):
         raise NotImplementedError()
@@ -43,14 +44,16 @@ class ManagerProcess:
 class PythonProcess(ManagerProcess):
     module: str = ""
     func: str = ""
+    nice: int = 0
 
-    def __init__(self, name, module, func="main"):
+    def __init__(self, name: str, module: str, func: str="main", nice: int=0):
         super().__init__(name)
         self.module = module
         self.func = func
+        self.nice = nice
 
     async def start(self):
-        self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module, self.func))
+        self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module, self.func, self.nice))
         self.running = True
         self.p.start()
 
@@ -67,7 +70,7 @@ class PythonProcess(ManagerProcess):
         self.running = False
 
 class NativeProcess(ManagerProcess):
-    def __init__(self, name):
+    def __init__(self, name: str):
         super().__init__(name)
 
     async def start(self):
@@ -86,7 +89,7 @@ procs = [
     NativeProcess("camerad"), 
     NativeProcess("encoderd"),
     NativeProcess("loggerd"),
-    PythonProcess("loguploader", "src.realtime.loguploader"),
+    PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
 ]
 
 async def main():

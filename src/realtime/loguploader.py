@@ -12,6 +12,7 @@ from src.include.config import load_realtime_config
 # Watches for newly completed log files in the logging directory, and uploads them
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 CONFIG = load_realtime_config()
 
 def sync(lh: LogHashes) -> bool:
