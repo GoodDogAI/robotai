@@ -39,6 +39,11 @@ class LogHashesTest(unittest.TestCase):
             logutil.update()
             self.assertNotEqual(logutil.files, logutil2.files)
 
+            # Delete a file and make sure it's removed from the loghashes
+            os.unlink(os.path.join(td, "test.log"))
+            logutil.update()
+            self.assertEqual(len(logutil.files), 0)
+
     def test_validate_log(self):
         with tempfile.TemporaryDirectory() as td:
             with open(os.path.join(td, "test.log"), "wb") as f:

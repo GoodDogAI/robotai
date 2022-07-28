@@ -58,9 +58,11 @@ class LogHashes:
     def update(self):
         path = os.path.join(self.dir, DATA_FILE)
         if os.path.exists(path):
-            self.files = parse_file_as(Dict[str, LogSummary], path)
+            self.existing_files = parse_file_as(Dict[str, LogSummary], path)
         else:
-            self.files = {}
+            self.existing_files = {}
+
+        self.files = {}
 
         for file in os.listdir(self.dir):
             if not file.endswith(self.extension):
@@ -68,7 +70,8 @@ class LogHashes:
             filepath = os.path.join(self.dir, file)
             mtime = round(os.path.getmtime(filepath) * 1e9)
 
-            if file in self.files and self.files[file].last_modified == mtime:
+            if file in self.existing_files and self.existing_files[file].last_modified == mtime:
+                self.files[file] = self.existing_files[file]
                 continue
 
             logger.info(f"Hashing {filepath}")

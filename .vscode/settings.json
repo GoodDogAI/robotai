@@ -68,5 +68,14 @@
         "iomanip": "cpp",
         "typeindex": "cpp",
         "valarray": "cpp"
-    }
+    },
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./src",
+        "-p",
+        "test*.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true
 }
