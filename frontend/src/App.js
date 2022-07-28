@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "react-query";
 import { ReactQueryDevtools } from "react-query/devtools";
 import axios from "axios";
@@ -85,6 +85,11 @@ function LogTimeline(props) {
       );
 
     const [index, setIndex] = useState(0);
+
+    // Reset the frame index back to zero if the logname changes
+    useEffect(() => {
+        setIndex(0);
+    }, [logName]);
 
     if (!logName) {
         return <div>Select a log to view</div>;
