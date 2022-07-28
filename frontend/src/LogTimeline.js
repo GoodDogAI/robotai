@@ -14,12 +14,17 @@ function LogTimelineEntry(props) {
     const { data } = props;
     const { valid, logMonoTime, ...rest } = data;
 
-    const mainKey = Object.keys(rest).pop();
-
     return (<div>
-        {mainKey} @ {logMonoTime}
+        {getMessageType(data)} @ {logMonoTime}
         <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>);
+}
+
+function getMessageType(msg) {
+    const { valid, logMonoTime, ...rest } = msg;
+    const mainKey = Object.keys(rest).pop();
+
+    return mainKey;
 }
 
 function FrameSlider(props) {
@@ -49,6 +54,25 @@ export function LogTimeline(props) {
         setIndex(0);
     }, [logName]);
 
+    const columnHelper = createColumnHelper();
+    const columns = [
+        columnHelper.accessor('index', {
+            accessorFn: (row, index) => index,
+        }),
+        columnHelper.accessor('which', {
+            header: () => <span>type</span>,
+            accessorFn: (row, index) => getMessageType(row),
+            cell: info => info.getValue(),
+        }),
+    ];
+
+    const table = useReactTable({
+        data,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+    })
+
+
     if (!logName) {
         return <div>Select a log to view</div>;
     }
@@ -61,15 +85,42 @@ export function LogTimeline(props) {
         return <div>Loading...</div>;
     }
 
+  
     return (
         <div className="timeline">
             <div className="frameContainer">
                 <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
                 <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
             </div>
-            <div>
-                { data.map(item => <LogTimelineEntry key={item.logMonoTime} data={item}/>) }
-            </div>
+            <table>
+                <thead>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                        <tr key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                            <th key={header.id}>
+                            {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                )}
+                            </th>
+                        ))}
+                        </tr>
+                    ))}
+                </thead>
+                <tbody>
+                    {table.getRowModel().rows.map((row) => (
+                        <tr key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                            <td key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                        ))}
+                        </tr>
+                    ))}
+                    </tbody>
+            </table>
         </div>
     );
 }
