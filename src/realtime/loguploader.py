@@ -16,24 +16,29 @@ logger.setLevel(logging.INFO)
 CONFIG = load_realtime_config()
 
 def sync(lh: LogHashes) -> bool:
-    all_logs = requests.get(CONFIG["LOG_SERVICE"] + "/logs")
-    if all_logs.status_code != 200:
-        logger.warn("Warning, unable to connect to logservice")
+    try:
+        all_logs = requests.get(CONFIG["LOG_SERVICE"] + "/logs")
+        if all_logs.status_code != 200:
+            logger.warn("Warning, unable to connect to logservice")
+            return False
+        all_hashes = set(x["sha256"] for x in all_logs.json())
+
+        for ls in lh.values():
+            if ls.sha256 not in all_hashes:
+                with open(os.path.join(lh.dir, ls.filename), "rb") as f:
+                    result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f})
+
+                if result.status_code != 200:
+                    logger.warn(f"Warning, unable to upload {ls} response code {result.status_code}")
+                    return False
+                
+                logger.info(f"Uploaded {ls} successfully")
+
+        return True
+    except requests.ConnectionError:
+        logger.error(f"Could not connect to {CONFIG['LOG_SERVICE']} in order to sync logs, will try again later")
+    finally:
         return False
-    all_hashes = set(x["sha256"] for x in all_logs.json())
-
-    for ls in lh.values():
-        if ls.sha256 not in all_hashes:
-            with open(os.path.join(lh.dir, ls.filename), "rb") as f:
-                result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f})
-
-            if result.status_code != 200:
-                logger.warn(f"Warning, unable to upload {ls} response code {result.status_code}")
-                return False
-            
-            logger.info(f"Uploaded {ls} successfully")
-
-    return True
 
 def main():
     lh = LogHashes(CONFIG["LOG_PATH"])
