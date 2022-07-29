@@ -128,3 +128,19 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
 
     return response
+
+@app.get("/logs/{logfile}/thumbnail")
+async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with open(os.path.join(RECORD_DIR, logfile), "rb") as f:
+        events = log.Event.read_multiple(f)
+
+        for i, evt in enumerate(events):
+            if evt.which() == "headEncodeData":
+                if evt.headEncodeData.idx.flags & 0x8:
+                    packet = evt.headEncodeData.data
+                    return Response(content=packet, media_type="image/heic")
+
+    raise HTTPException(status_code=500, detail="Unable to find thumbnail")
