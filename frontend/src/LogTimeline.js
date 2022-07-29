@@ -75,15 +75,15 @@ export function LogTimeline(props) {
 
 
     if (!logName) {
-        return <div>Select a log to view</div>;
+        return <div className="timeline">Select a log to view</div>;
     }
 
     if (error) {
-        return <div>Error loading {error}</div>;
+        return <div className="timeline">Error loading {error}</div>;
     }
 
     if (isLoading) {
-        return <div>Loading...</div>;
+        return <div className="timeline">Loading...</div>;
     }
 
   
@@ -91,8 +91,12 @@ export function LogTimeline(props) {
         <div className="timeline">
             <div className="frameContainer">
                 <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
-                <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
+                <div>
+                    <span>Frame {index} / {data.length}</span>
+                    <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
+                </div>
             </div>
+            <div className="logTable">
             <table>
                 <thead>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -122,6 +126,7 @@ export function LogTimeline(props) {
                     ))}
                     </tbody>
             </table>
+            </div>
         </div>
     );
 }
