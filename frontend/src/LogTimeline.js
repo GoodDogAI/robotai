@@ -11,7 +11,7 @@ import axios from "axios";
 
 
 function getMessageType(msg) {
-    const { valid, logMonoTime, ...rest } = msg;
+    const { valid, logMonoTime, _total_size_bytes, ...rest } = msg;
     const mainKey = Object.keys(rest).pop();
 
     return mainKey;
@@ -53,6 +53,11 @@ export function LogTimeline(props) {
         columnHelper.accessor('which', {
             header: () => <span>type</span>,
             accessorFn: (row, index) => getMessageType(row),
+            cell: row => row.getValue(),
+        }),
+        columnHelper.accessor('size', {
+            header: () => <span>size</span>,
+            accessorFn: (row, index) => row["_total_size_bytes"],
             cell: row => row.getValue(),
         }),
         // columnHelper.accessor('json', {

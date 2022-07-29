@@ -102,7 +102,9 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
         events = log.Event.read_multiple(f)
 
         for evt in events:
-            result.append(evt.to_dict())
+            data = evt.to_dict()
+            data["_total_size_bytes"] = evt.total_size.word_count * 8
+            result.append(data)
 
     # Don't try to encode raw data fields in the json,
     # it will just get interpreted as utf-8 text and you will have a bad time
