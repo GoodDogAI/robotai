@@ -17,6 +17,13 @@ function getMessageType(msg) {
     return mainKey;
 }
 
+function formatSize(bytes) {
+    if (bytes < 1024)
+        return `${bytes}B`;
+    else
+        return `${(bytes/1024).toFixed(1)}kB`;
+}
+
 function FrameSlider(props) {
     const { index, max, onChangeIndex } = props;
 
@@ -57,7 +64,7 @@ export function LogTimeline(props) {
         }),
         columnHelper.accessor('size', {
             header: () => <span>size</span>,
-            accessorFn: (row, index) => row["_total_size_bytes"],
+            accessorFn: (row, index) => formatSize(row["_total_size_bytes"]),
             cell: row => row.getValue(),
         }),
         // columnHelper.accessor('json', {
