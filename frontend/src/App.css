@@ -42,6 +42,10 @@ th, td {
   overflow-y: auto;
 }
 
+tr .selected {
+  font-weight: bold;
+}
+
 .logTable th {
   text-align: left;
   top: 0;

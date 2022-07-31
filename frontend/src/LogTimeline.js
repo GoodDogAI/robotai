@@ -55,7 +55,7 @@ export function LogTimeline(props) {
     const columns = [
         columnHelper.accessor('index', {
             accessorFn: (row, index) => index,
-            cell: ( {row} ) => <span>{row.getIsSelected()}</span>,
+            cell: row => <span>{row.getValue()}</span>,
         }),
         columnHelper.accessor('which', {
             header: () => <span>type</span>,
@@ -77,7 +77,7 @@ export function LogTimeline(props) {
         data,
         columns,
         state: {
-            index,
+            rowSelection: index,
         },
         onRowSelectionChange: setIndex,
         getCoreRowModel: getCoreRowModel(),
@@ -128,7 +128,7 @@ export function LogTimeline(props) {
                 </thead>
                 <tbody>
                     {table.getRowModel().rows.map((row) => (
-                        <tr key={row.id}>
+                        <tr key={row.id} className={row.getIsSelected() ? "selected" : null}>
                         {row.getVisibleCells().map((cell) => (
                             <td key={cell.id}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
