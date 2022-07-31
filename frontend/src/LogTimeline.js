@@ -55,17 +55,14 @@ export function LogTimeline(props) {
     const columns = [
         columnHelper.accessor('index', {
             accessorFn: (row, index) => index,
-            cell: row => <span>{row.getValue()}</span>,
         }),
         columnHelper.accessor('which', {
             header: () => <span>type</span>,
             accessorFn: (row, index) => getMessageType(row),
-            cell: row => row.getValue(),
         }),
         columnHelper.accessor('size', {
             header: () => <span>size</span>,
             accessorFn: (row, index) => formatSize(row["_total_size_bytes"]),
-            cell: row => row.getValue(),
         }),
         // columnHelper.accessor('json', {
         //     accessorFn: (row, index) => JSON.stringify(row, null, 0),
@@ -76,13 +73,7 @@ export function LogTimeline(props) {
     const table = useReactTable({
         data,
         columns,
-        state: {
-            rowSelection: index,
-        },
-        onRowSelectionChange: setIndex,
         getCoreRowModel: getCoreRowModel(),
-        enableRowSelection: true,
-        enableMultiRowSelection: false,
     })
 
 
@@ -98,6 +89,7 @@ export function LogTimeline(props) {
         return <div className="timeline">Loading...</div>;
     }
 
+    console.log(index);
   
     return (
         <div className="timeline">
@@ -127,16 +119,17 @@ export function LogTimeline(props) {
                     ))}
                 </thead>
                 <tbody>
-                    {table.getRowModel().rows.map((row) => (
-                        <tr key={row.id} className={row.getIsSelected() ? "selected" : null}>
-                        {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </td>
-                        ))}
-                        </tr>
-                    ))}
-                    </tbody>
+                    {table.getRowModel().rows.map((row) => {
+                        return (
+                            <tr key={row.id} className={row.index === index ? "selected" : null} onClick={() => setIndex(row.index)}>
+                                {row.getVisibleCells().map((cell) => (
+                                    <td key={cell.id}>
+                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </td>
+                                ))}
+                            </tr>);
+                    })}
+                </tbody>
             </table>
             </div>
         </div>
