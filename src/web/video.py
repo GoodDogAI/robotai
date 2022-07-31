@@ -69,6 +69,7 @@ def load_image(logpath: str, index: int) -> np.ndarray:
         events = log.Event.read_multiple(f)
 
         # Get the actual events, starting with a keyframe, which we will need
+        # TODO BUG There is an issue where the first frame after an Iframe is not rendered properly
         for i, evt in enumerate(events):
             if evt.which() == "headEncodeData":
                 if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
