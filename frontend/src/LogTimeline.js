@@ -64,10 +64,13 @@ export function LogTimeline(props) {
             header: () => <span>size</span>,
             accessorFn: (row, index) => formatSize(row["_total_size_bytes"]),
         }),
-        // columnHelper.accessor('json', {
-        //     accessorFn: (row, index) => JSON.stringify(row, null, 0),
-        //     cell: info => <pre>{info.getValue()}</pre>,
-        // }),
+        columnHelper.accessor('json', {
+            accessorFn: (row, index) => JSON.stringify(row, null, 2),
+            cell: info => {
+                if (info.row.index === index) 
+                    return (<pre className="messageData">{info.getValue()}</pre>)
+            }
+        }),
     ];
 
     const table = useReactTable({

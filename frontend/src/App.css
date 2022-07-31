@@ -5,9 +5,6 @@
   margin: 1em;
 }
 
-.selected {
-  font-weight: bold;
-}
 
 .logList {
   margin-right: 1em;
@@ -32,6 +29,7 @@ table {
 tr {
   border-bottom: 1px solid #ccc;
   cursor: pointer;
+  overflow-y: hidden;
 }
 th, td {
   text-align: left;
@@ -39,11 +37,12 @@ th, td {
 }
 
 .logTable {
-  height: 400px;
+  height: 500px;
   overflow-y: auto;
+  
 }
 
-tr .selected {
+.selected {
   font-weight: bold;
 }
 
@@ -52,4 +51,8 @@ tr .selected {
   top: 0;
   position: sticky;
   background-color: white;
+}
+
+.messageData {
+  font-size: smaller;
 }
