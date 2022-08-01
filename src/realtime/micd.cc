@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <array>
 #include <string>
 #include <thread>
@@ -24,7 +23,7 @@ int main(int argc, char *argv[])
 
     for(int retry = 0;; ++retry) {
         int ret = snd_pcm_open(&pcm_handle, AUDIO_DEVICE_NAME, stream_capture, 0);
-        if (ret == EBUSY) {
+        if (ret == -EBUSY) {
             if (retry < 10) {
                 fmt::print(stderr, "Got EBUSY opening PCM device {}, retrying in 1 sec...\n", AUDIO_DEVICE_NAME);
                 std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -35,7 +34,7 @@ int main(int argc, char *argv[])
             }
         }
         else if (ret < 0) {
-            fmt::print(stderr, "Error opening PCM device {} - {}\n", AUDIO_DEVICE_NAME, errno);
+            fmt::print(stderr, "Error opening PCM device {} - {}\n", AUDIO_DEVICE_NAME, ret);
             return EXIT_FAILURE;
         }
         else {
