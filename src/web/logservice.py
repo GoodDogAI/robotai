@@ -57,12 +57,15 @@ async def log_exists(sha256: str, lh: LogHashes = Depends(get_loghashes)):
 
 
 @app.post("/logs")
-async def post_log(logfile: UploadFile, lh: LogHashes = Depends(get_loghashes)):
+async def post_log(logfile: UploadFile, sha256: str, lh: LogHashes = Depends(get_loghashes)):
     # Make sure the hash doesn't exist already
-    sha256 = await asha256(logfile)
+    local_hash = await asha256(logfile)
 
-    if lh.hash_exists(sha256):
+    if lh.hash_exists(local_hash):
         raise HTTPException(status_code=500, detail="Log hash already exists")
+
+    if sha256 != local_hash:
+        raise HTTPException(status_code=400, detail="SHA256 did not match expected value")
 
     logfile.file.seek(0, io.SEEK_END)
     if logfile.file.tell() < 1:
