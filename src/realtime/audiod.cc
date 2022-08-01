@@ -16,6 +16,7 @@ int main(int argc, char *argv[])
 
     constexpr int32_t periods = 1;
     constexpr snd_pcm_uframes_t periodsize = 8192; 
+    int32_t frame_size = snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS;
 
     // Allocate the hw_params struct
     snd_pcm_hw_params_alloca(&hwparams);
@@ -55,7 +56,7 @@ int main(int argc, char *argv[])
     }
 
     // Set number of channels
-    if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, 1) < 0) {
+    if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, AUDIO_CHANNELS) < 0) {
         fmt::print(stderr, "Error setting channels.\n");
         return EXIT_FAILURE;
     }
@@ -78,14 +79,14 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    fmt::print("Audio device {} successfully opened\n", AUDIO_DEVICE_NAME);
+    fmt::print("Audio device {} successfully opened, with frame size {}\n", AUDIO_DEVICE_NAME, frame_size);
 
     int pcmreturn;
-    std::array<uint8_t, periodsize> buf;
+    auto buf = std::make_unique<uint8_t[]>(periodsize);
 
     while ((pcmreturn = snd_pcm_readi(pcm_handle, static_cast<void*>(&buf), periodsize>>2)) < 0) {
         snd_pcm_prepare(pcm_handle);
-        fmt::print("{}", buf);
+        
     }
 
     return EXIT_SUCCESS;
