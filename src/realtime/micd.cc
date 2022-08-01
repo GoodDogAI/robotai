@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     uint32_t sample_rate = AUDIO_SAMPLE_RATE;
 
     int32_t frame_size = snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS;
-    snd_pcm_uframes_t frames = 32;
+    snd_pcm_uframes_t frames = 500;
 
     // Allocate the hw_params struct
     snd_pcm_hw_params_alloca(&hwparams);
