@@ -1,6 +1,8 @@
 #include <cstdlib>
 #include <array>
 #include <string>
+#include <thread>
+#include <chrono>
 #include <alsa/asoundlib.h>
 #include <fmt/core.h>
 #include <fmt/ranges.h>
@@ -20,9 +22,26 @@ int main(int argc, char *argv[])
     // Allocate the hw_params struct
     snd_pcm_hw_params_alloca(&hwparams);
 
-    if (snd_pcm_open(&pcm_handle, AUDIO_DEVICE_NAME, stream_capture, 0) < 0) {
-        fmt::print(stderr, "Error opening PCM device {} - {}\n", AUDIO_DEVICE_NAME, errno);
-        return EXIT_FAILURE;
+    for(int retry = 0;; ++retry) {
+        int ret = snd_pcm_open(&pcm_handle, AUDIO_DEVICE_NAME, stream_capture, 0);
+        if (ret == EBUSY) {
+            if (retry < 10) {
+                fmt::print(stderr, "Got EBUSY opening PCM device {}, retrying in 1 sec...\n", AUDIO_DEVICE_NAME);
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            else {
+                fmt::print(stderr, "Unable to open PCM device {}\n", AUDIO_DEVICE_NAME);
+                return EXIT_FAILURE;
+            }
+        }
+        else if (ret < 0) {
+            fmt::print(stderr, "Error opening PCM device {} - {}\n", AUDIO_DEVICE_NAME, errno);
+            return EXIT_FAILURE;
+        }
+        else {
+            fmt::print(stderr, "Opened PCM device {}\n", AUDIO_DEVICE_NAME);
+            break;
+        }
     }
 
     // Init hwparams with full configuration space 
@@ -64,7 +83,6 @@ int main(int argc, char *argv[])
         fmt::print(stderr, "Error setting period size ({}).\n", frames);
         return EXIT_FAILURE; 
     }
-  
   
     // Actually set the HW parameters
     if (snd_pcm_hw_params(pcm_handle, hwparams) < 0) {
