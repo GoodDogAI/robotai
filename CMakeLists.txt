@@ -75,6 +75,8 @@ find_package(CapnProto 0.8.0 REQUIRED)
 find_package(realsense2 QUIET)
 message("REALSENSE Version: ${realsense2_VERSION}")
 
+find_package(ALSA)
+
 # Build and configure cereal, as an in-place build
 include(ExternalProject)
 ExternalProject_Add(cereal 
@@ -103,6 +105,17 @@ target_link_libraries(
     PRIVATE 
         stdc++fs
         fmt::fmt
+        ${CEREAL_LIBRARIES}
+        zmq
+        CapnProto::capnp
+)
+
+add_executable(audiod src/realtime/audiod.cc)
+target_link_libraries(
+    audiod
+    PRIVATE
+        ALSA::ALSA
+        fmt::fmt   
         ${CEREAL_LIBRARIES}
         zmq
         CapnProto::capnp

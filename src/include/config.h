@@ -11,3 +11,7 @@
 #define ENCODER_BITRATE 8'000'000
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"
+
+#define AUDIO_DEVICE_NAME "hw:tegrasndt19xmob,0"
+#define AUDIO_PCM_FORMAT SND_PCM_FORMAT_S32_LE
+#define AUDIO_SAMPLE_RATE 48'000
