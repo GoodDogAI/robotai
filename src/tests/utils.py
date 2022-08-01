@@ -1,4 +1,5 @@
 import tempfile
+import hashlib
 
 from contextlib import contextmanager
 from cereal import log
@@ -18,6 +19,12 @@ def artificial_logfile(count: int = 1, video: bool = False):
             event.headEncodeData.data = b"\x00\x01\x02\x03\xd0"
 
         event.write(f)
+
+    # Write the sha256 hash for ease of testing
+    f.seek(0)
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(f.read())
+    f.sha256 = sha256_hash.hexdigest()
 
     f.seek(0)
     yield f

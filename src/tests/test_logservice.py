@@ -29,7 +29,7 @@ class LogServiceTest(unittest.TestCase):
 
     def test_post_empty_log(self):
         with tempfile.NamedTemporaryFile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, "invalid")})
             self.assertEqual(resp.status_code, 400)
 
     def test_post_invalid_log(self):
@@ -37,12 +37,12 @@ class LogServiceTest(unittest.TestCase):
             tf.write(b"Invalid Log!")
             tf.flush()
             tf.seek(0)
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
             self.assertEqual(resp.status_code, 400)
 
     def test_post_log(self):
         with artificial_logfile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
             resp = self.client.get("/logs")
@@ -59,9 +59,14 @@ class LogServiceTest(unittest.TestCase):
             resp = self.client.post("/logs", files={"logfile": tf})
             self.assertNotEqual(resp.status_code, 200)
 
+    def test_post_invalid_hash(self):
+        with artificial_logfile() as tf:
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, "Invalidsha256")})
+            self.assertEqual(resp.status_code, 400)
+
     def test_read_log(self):
         with artificial_logfile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
             resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")
@@ -71,7 +76,7 @@ class LogServiceTest(unittest.TestCase):
 
     def test_read_video_log(self):
         with artificial_logfile(video=True) as tf:
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
             resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")

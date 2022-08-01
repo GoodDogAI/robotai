@@ -29,7 +29,7 @@ def sync(lh: LogHashes) -> bool:
         for ls in lh.values():
             if ls.sha256 not in all_hashes:
                 with open(os.path.join(lh.dir, ls.filename), "rb") as f:
-                    result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f})
+                    result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
 
                 if result.status_code != 200:
                     logger.warn(f"Warning, unable to upload {ls} response code {result.status_code}")
