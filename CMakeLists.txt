@@ -110,7 +110,7 @@ target_link_libraries(
         CapnProto::capnp
 )
 
-// Mike D with the master plan
+# Mike D with the master plan
 add_executable(micd src/realtime/micd.cc)
 target_link_libraries(
     micd
