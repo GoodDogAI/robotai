@@ -1,7 +1,58 @@
-.frameContainer {
-  width: 600px;
+.pageContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  margin: 1em;
+}
+
+
+.logList {
+  margin-right: 1em;
+  width: 300px;
+}
+
+.timeline {
+  width: 800px;
+}
+
+.padding {
+  flex: 1;
 }
 
 .frameSlider {
   width: 100%;
+}
+
+table {
+  border-collapse: collapse;
+}
+tr {
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+  overflow-y: hidden;
+}
+th, td {
+  text-align: left;
+  padding: 4px;
+}
+
+.logTable {
+  height: 500px;
+  overflow-y: auto;
+  
+}
+
+.selected {
+  font-weight: bold;
+}
+
+.logTable th {
+  text-align: left;
+  top: 0;
+  position: sticky;
+  background-color: white;
+}
+
+.messageData {
+  font-size: smaller;
 }

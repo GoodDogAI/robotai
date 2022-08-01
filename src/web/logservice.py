@@ -21,14 +21,9 @@ from src.logutil import LogHashes, LogSummary, validate_log
 from .video import load_image
 
 app = FastAPI(title="RobotAI Log Service")
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://jake-training-box:3000",
-]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origin_regex=r"https?://(localhost|jake-training-box)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -107,7 +102,9 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
         events = log.Event.read_multiple(f)
 
         for evt in events:
-            result.append(evt.to_dict())
+            data = evt.to_dict()
+            data["_total_size_bytes"] = evt.total_size.word_count * 8
+            result.append(data)
 
     # Don't try to encode raw data fields in the json,
     # it will just get interpreted as utf-8 text and you will have a bad time
@@ -128,3 +125,19 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
 
     return response
+
+@app.get("/logs/{logfile}/thumbnail")
+async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with open(os.path.join(RECORD_DIR, logfile), "rb") as f:
+        events = log.Event.read_multiple(f)
+
+        for i, evt in enumerate(events):
+            if evt.which() == "headEncodeData":
+                if evt.headEncodeData.idx.flags & 0x8:
+                    packet = evt.headEncodeData.data
+                    return Response(content=packet, media_type="image/heic")
+
+    raise HTTPException(status_code=500, detail="Unable to find thumbnail")
