@@ -8,7 +8,7 @@ import hashlib
 
 from typing import List
 
-from fastapi import FastAPI, Depends, UploadFile, HTTPException
+from fastapi import FastAPI, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -57,7 +57,7 @@ async def log_exists(sha256: str, lh: LogHashes = Depends(get_loghashes)):
 
 
 @app.post("/logs")
-async def post_log(logfile: UploadFile, sha256: str, lh: LogHashes = Depends(get_loghashes)):
+async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depends(get_loghashes)):
     # Make sure the hash doesn't exist already
     local_hash = await asha256(logfile)
 
