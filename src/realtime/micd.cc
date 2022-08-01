@@ -14,9 +14,8 @@ int main(int argc, char *argv[])
     snd_pcm_hw_params_t *hwparams;
     uint32_t sample_rate = AUDIO_SAMPLE_RATE;
 
-    constexpr int32_t periods = 1;
-    constexpr snd_pcm_uframes_t periodsize = 8192; 
     int32_t frame_size = snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS;
+    snd_pcm_uframes_t frames = 32;
 
     // Allocate the hw_params struct
     snd_pcm_hw_params_alloca(&hwparams);
@@ -61,15 +60,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    // Set number of periods. Periods used to be called fragments. 
-    if (snd_pcm_hw_params_set_periods(pcm_handle, hwparams, periods, 0) < 0) {
-        fmt::print(stderr, "Error setting periods.\n");
-        return EXIT_FAILURE;
-    }
-
-    if (snd_pcm_hw_params_set_buffer_size(pcm_handle, hwparams, (periodsize * periods)>>2) < 0) {
-        fmt::print(stderr, "Error setting buffersize.\n");
-        return EXIT_FAILURE;
+    if (snd_pcm_hw_params_set_period_size_near(pcm_handle, hwparams, &frames, 0) < 0) {
+        fmt::print(stderr, "Error setting period size ({}).\n", frames);
+        return EXIT_FAILURE; 
     }
   
   
@@ -79,15 +72,27 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    fmt::print("Audio device {} successfully opened, with frame size {}\n", AUDIO_DEVICE_NAME, frame_size);
+    fmt::print("Audio device {} successfully opened, with {} frames of size {}\n", AUDIO_DEVICE_NAME, frames, frame_size);
 
     int pcmreturn;
-    auto buf = std::make_unique<uint8_t[]>(periodsize);
+    auto buf = std::make_unique<int32_t[]>(frames * AUDIO_CHANNELS);
+  
+    for (;;) {
+        pcmreturn = snd_pcm_readi(pcm_handle, buf.get(), frames);
+        if (pcmreturn == -EPIPE) {
+            fmt::print(stderr, "overrun occurred\n");
+            snd_pcm_prepare(pcm_handle);
+            return EXIT_FAILURE;
+        } else if (pcmreturn < 0) {
+            fmt::print(stderr, "error from read: {}\n", snd_strerror(pcmreturn));    
+            return EXIT_FAILURE;
+        }
 
-    while ((pcmreturn = snd_pcm_readi(pcm_handle, static_cast<void*>(&buf), periodsize>>2)) < 0) {
-        snd_pcm_prepare(pcm_handle);
-        fmt::print("{} {} {} {}\n", buf[0], buf[1], buf[2], buf[3] );
+        fmt::print("read {} frames\n", pcmreturn);
+        fmt::print("{} {} {} {} \n", buf[0], buf[1], buf[2], buf[3]);
     }
 
+    snd_pcm_drain(pcm_handle);
+    snd_pcm_close(pcm_handle);
     return EXIT_SUCCESS;
 }
