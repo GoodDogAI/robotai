@@ -110,9 +110,10 @@ target_link_libraries(
         CapnProto::capnp
 )
 
-add_executable(audiod src/realtime/audiod.cc)
+// Mike D with the master plan
+add_executable(micd src/realtime/micd.cc)
 target_link_libraries(
-    audiod
+    micd
     PRIVATE
         ALSA::ALSA
         fmt::fmt   

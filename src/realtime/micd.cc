@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 
     while ((pcmreturn = snd_pcm_readi(pcm_handle, static_cast<void*>(&buf), periodsize>>2)) < 0) {
         snd_pcm_prepare(pcm_handle);
-        
+        fmt::print("{} {} {} {}\n", buf[0], buf[1], buf[2], buf[3] );
     }
 
     return EXIT_SUCCESS;
