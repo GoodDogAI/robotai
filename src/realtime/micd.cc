@@ -11,6 +11,7 @@
 
 const char *service_name = "micData";
 
+
 int main(int argc, char *argv[])
 {
     PubMaster pm { {service_name} };
@@ -111,7 +112,11 @@ int main(int argc, char *argv[])
         }
 
         fmt::print("read {} frames\n", pcmreturn);
-        fmt::print("{} {} {} {} \n", buf[0], buf[1], buf[2], buf[3]);
+
+        MessageBuilder msg;
+        auto event = msg.initEvent(true);
+        auto mdat = event.initMicData();
+        
     }
 
     snd_pcm_drain(pcm_handle);
