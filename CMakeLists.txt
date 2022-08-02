@@ -82,8 +82,9 @@ include(ExternalProject)
 ExternalProject_Add(cereal 
     SOURCE_DIR "${CMAKE_SOURCE_DIR}/cereal"
     CONFIGURE_COMMAND ""
+    BUILD_ALWAYS TRUE # Needs to be set, because you can modify the log.capnp and the other stuff needs to be updated for it
     BUILD_IN_SOURCE TRUE
-    BUILD_COMMAND "scons"
+    BUILD_COMMAND scons -j6
     INSTALL_COMMAND ""
 )
 

@@ -6,17 +6,22 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include "cereal/messaging/messaging.h"
 #include "config.h"
+
+const char *service_name = "micData";
 
 int main(int argc, char *argv[])
 {
-    snd_pcm_t *pcm_handle;          
-    snd_pcm_stream_t stream_capture = SND_PCM_STREAM_CAPTURE;
-    snd_pcm_hw_params_t *hwparams;
-    uint32_t sample_rate = AUDIO_SAMPLE_RATE;
+    PubMaster pm { {service_name} };
 
-    int32_t frame_size = snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS;
-    snd_pcm_uframes_t frames = 500;
+    snd_pcm_t *pcm_handle {};          
+    snd_pcm_stream_t stream_capture { SND_PCM_STREAM_CAPTURE };
+    snd_pcm_hw_params_t *hwparams {};
+    uint32_t sample_rate { AUDIO_SAMPLE_RATE };
+
+    int32_t frame_size { snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS };
+    snd_pcm_uframes_t frames { 500 };
 
     // Allocate the hw_params struct
     snd_pcm_hw_params_alloca(&hwparams);
