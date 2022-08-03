@@ -10,7 +10,7 @@ from src.logutil import LogHashes
 from src.include.config import load_realtime_config
 
 # Watches for newly completed log files in the logging directory, and uploads them
-
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -22,7 +22,7 @@ def sync(lh: LogHashes) -> bool:
     try:
         all_logs = requests.get(CONFIG["LOG_SERVICE"] + "/logs")
         if all_logs.status_code != 200:
-            logger.warn("Warning, unable to connect to logservice")
+            logger.warning("Warning, unable to connect to logservice")
             return False
         all_hashes = set(x["sha256"] for x in all_logs.json())
 
@@ -32,7 +32,7 @@ def sync(lh: LogHashes) -> bool:
                     result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
 
                 if result.status_code != 200:
-                    logger.warn(f"Warning, unable to upload {ls} response code {result.status_code}")
+                    logger.warning(f"Warning, unable to upload {ls} response code {result.status_code}")
                     return False
                 
                 logger.info(f"Uploaded {ls} successfully")
@@ -56,7 +56,7 @@ def main():
 
     while True:
         if any(e.name.endswith(lh.extension) for e in inotify.read(timeout=1000, read_delay=100)):
-            logger.warn(f"Got inotify updating lhes")
+            logger.warning(f"Got inotify updating lhes")
             lh.update()
             sync(lh)
 
@@ -65,4 +65,7 @@ def main():
     logger.warn("DONE")
 
 if __name__ == "__main__":
-    main()
+    logger.warning("Syncing remaining logs manually")
+    lh = LogHashes(CONFIG["LOG_PATH"])
+    sync(lh)
+    logger.warning("Done with single sync")
