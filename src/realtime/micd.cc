@@ -127,7 +127,6 @@ int main(int argc, char *argv[])
         auto mdat = event.initMicData();
         mdat.setMic(cereal::AudioData::MicrophonePlacement::MAIN_BODY);
         mdat.setChannel(0);
-
         mdat.setData(kj::ArrayPtr<float>(fbuf.begin(), fbuf.end()));
         
         auto words = capnp::messageToFlatArray(msg);
