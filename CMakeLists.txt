@@ -112,16 +112,18 @@ target_link_libraries(
 )
 
 # Mike D with the master plan
-add_executable(micd src/realtime/micd.cc)
-target_link_libraries(
-    micd
-    PRIVATE
-        ALSA::ALSA
-        fmt::fmt   
-        ${CEREAL_LIBRARIES}
-        zmq
-        CapnProto::capnp
-)
+if(${ALSA_FOUND})
+    add_executable(micd src/realtime/micd.cc)
+    target_link_libraries(
+        micd
+        PRIVATE
+            ALSA::ALSA
+            fmt::fmt   
+            ${CEREAL_LIBRARIES}
+            zmq
+            CapnProto::capnp
+    )
+endif()
 
 if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     add_executable(encoderd 
