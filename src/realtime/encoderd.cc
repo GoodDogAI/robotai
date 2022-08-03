@@ -73,8 +73,8 @@ int main(int argc, char *argv[])
 
             edat.setData(kj::heapArray<capnp::byte>(result->data, result->len));
 
-            auto words = new kj::Array<capnp::word>(capnp::messageToFlatArray(msg));
-            auto bytes = words->asBytes();
+            auto words = capnp::messageToFlatArray(msg);
+            auto bytes = words.asBytes();
             pm.send(service_name, bytes.begin(), bytes.size());
           
             encoder_futures.pop_front();
