@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include <unordered_set>
 #include <experimental/filesystem>
 #include <linux/videodev2.h>
 #include <fmt/core.h>
@@ -11,6 +12,7 @@
 #include "config.h"
 #include "util.h"
 
+#include "cereal/services.h"
 #include "cereal/messaging/messaging.h"
 #include "cereal/visionipc/visionbuf.h"
 #include "cereal/visionipc/visionipc.h"
@@ -20,10 +22,7 @@ ExitHandler do_exit;
 
 namespace fs = std::experimental::filesystem;
 
-
-const char *log_name = "alphalog";
-
-const char *service_name = "headEncodeData";
+const char *log_name { "alphalog" };
 const fs::path log_path{ LOG_PATH };
 
 
@@ -38,6 +37,8 @@ static void close_message(Message *m) {
     m->close();
 }
 
+
+
 int main(int argc, char *argv[])
 {
     bool started_logging { false };
@@ -48,8 +49,6 @@ int main(int argc, char *argv[])
     std::unique_ptr<Context> ctx{ Context::create() };
     std::unique_ptr<Poller> poller{ Poller::create() };
 
-    std::unique_ptr<SubSocket> encoder_sock{ SubSocket::create(ctx.get(), service_name) };
-
     auto log_start { std::chrono::steady_clock::now() };
     bool need_to_rotate { false };
     static_assert(LOG_DURATION_SECONDS >= 60, "Logs need to be at least 1 minute long");
@@ -59,10 +58,23 @@ int main(int argc, char *argv[])
 
     std::ofstream log{ log_filename, std::ios::binary };
 
-    poller->registerSocket(encoder_sock.get());
+    // Register all sockets
+    std::unordered_set<std::unique_ptr<SubSocket>> socks;
+
+    for (const auto& it : services) {
+        if (!it.should_log) 
+            continue;
+
+        fmt::print("logging {} (on port {})\n", it.name, it.port);
+
+        auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
+        assert(sock != NULL);
+
+        poller->registerSocket(sock.get());
+        socks.insert(std::move(sock));
+    }
 
     while (!do_exit) {
-
         for (auto sock : poller->poll(1000)) {
             auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
 

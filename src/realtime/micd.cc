@@ -114,8 +114,8 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        fmt::print("read {} frames\n", pcmreturn);
-        fmt::print("{:032b}\n", buf[0]);
+        // fmt::print("read {} frames\n", pcmreturn);
+        // fmt::print("{:032b}\n", buf[0]);
 
         // Convert to float
         for (size_t i { 0 }; i < buf.size(); i++) {

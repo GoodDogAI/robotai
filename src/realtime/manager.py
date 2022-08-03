@@ -89,6 +89,7 @@ procs = [
     NativeProcess("camerad"), 
     NativeProcess("encoderd"),
     NativeProcess("loggerd"),
+    NativeProcess("micd"),
     PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
 ]
 
