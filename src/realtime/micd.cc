@@ -79,6 +79,8 @@ int main(int argc, char *argv[])
     }
 
     // Set number of channels
+    static_assert(AUDIO_CHANNELS == 1, "This code only supports mono audio for now. You'd need to adjust it for stereo.");
+
     if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, AUDIO_CHANNELS) < 0) {
         fmt::print(stderr, "Error setting channels.\n");
         return EXIT_FAILURE;
@@ -98,10 +100,11 @@ int main(int argc, char *argv[])
     fmt::print("Audio device {} successfully opened, with {} frames of size {}\n", AUDIO_DEVICE_NAME, frames, frame_size);
 
     int pcmreturn;
-    auto buf = std::make_unique<int32_t[]>(frames * AUDIO_CHANNELS);
-  
+    auto buf = kj::heapArray<int32_t>(frames * AUDIO_CHANNELS);
+    auto fbuf = kj::heapArray<float>(frames * AUDIO_CHANNELS);
+
     for (;;) {
-        pcmreturn = snd_pcm_readi(pcm_handle, buf.get(), frames);
+        pcmreturn = snd_pcm_readi(pcm_handle, buf.begin(), frames);
         if (pcmreturn == -EPIPE) {
             fmt::print(stderr, "overrun occurred\n");
             snd_pcm_prepare(pcm_handle);
@@ -112,11 +115,24 @@ int main(int argc, char *argv[])
         }
 
         fmt::print("read {} frames\n", pcmreturn);
+        fmt::print("{:032b}\n", buf[0]);
+
+        // Convert to float
+        for (size_t i { 0 }; i < buf.size(); i++) {
+            fbuf[i] = buf[i] / static_cast<float>(std::numeric_limits<int32_t>::max());
+        }
 
         MessageBuilder msg;
         auto event = msg.initEvent(true);
         auto mdat = event.initMicData();
+        mdat.setMic(cereal::AudioData::MicrophonePlacement::MAIN_BODY);
+        mdat.setChannel(0);
+
+        mdat.setData(kj::ArrayPtr<float>(fbuf.begin(), fbuf.end()));
         
+        auto words = capnp::messageToFlatArray(msg);
+        auto bytes = words.asBytes();
+        pm.send(service_name, bytes.begin(), bytes.size());
     }
 
     snd_pcm_drain(pcm_handle);
