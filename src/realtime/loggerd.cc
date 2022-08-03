@@ -3,6 +3,7 @@
 #include <chrono>
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <experimental/filesystem>
 #include <linux/videodev2.h>
 #include <fmt/core.h>
@@ -26,11 +27,15 @@ const char *service_name = "headEncodeData";
 const fs::path log_path{ LOG_PATH };
 
 
-fs::path get_log_filename() {
+static fs::path get_log_filename() {
     const auto log_start = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const std::tm tm{*std::gmtime(&log_start)};
 
     return log_path/fmt::format("{}-{}-{}-{}-{}_{}.log", log_name, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+}
+
+static void close_message(Message *m) {
+    m->close();
 }
 
 int main(int argc, char *argv[])
@@ -57,9 +62,9 @@ int main(int argc, char *argv[])
     poller->registerSocket(encoder_sock.get());
 
     while (!do_exit) {
-        Message *msg = nullptr;
+
         for (auto sock : poller->poll(1000)) {
-            msg = sock->receive(true);
+            auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
 
             capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
             auto event = cmsg.getRoot<cereal::Event>();
