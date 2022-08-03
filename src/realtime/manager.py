@@ -7,6 +7,7 @@ from setproctitle import setproctitle
 
 # Manager script to schedule and run a bunch of workers with various configurations
 # Loosely based on: https://github.com/commaai/openpilot/blob/master/selfdrive/manager
+logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 def pythonlauncher(name: str, module: str, func: str, nice: int=0):

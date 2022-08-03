@@ -10,7 +10,6 @@ from src.logutil import LogHashes
 from src.include.config import load_realtime_config
 
 # Watches for newly completed log files in the logging directory, and uploads them
-logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
@@ -62,9 +61,10 @@ def main():
 
 
     inotify.close()
-    logger.warn("DONE")
+    logger.warning("DONE")
 
 if __name__ == "__main__":
+    logging.basicConfig()
     logger.warning("Syncing remaining logs manually")
     lh = LogHashes(CONFIG["LOG_PATH"])
     sync(lh)
