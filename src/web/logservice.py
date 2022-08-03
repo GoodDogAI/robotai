@@ -106,6 +106,14 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
 
         for evt in events:
             data = evt.to_dict()
+            
+            # Cut out some hard datafields in certain message types that would
+            # otherwise make for huge downloads
+            which = evt.which()
+            if which == "micData":
+                del data["micData"]["data"]
+
+            # Add in some sizing metadata
             data["_total_size_bytes"] = evt.total_size.word_count * 8
             result.append(data)
 
