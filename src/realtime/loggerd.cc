@@ -38,7 +38,6 @@ static void close_message(Message *m) {
 }
 
 
-
 int main(int argc, char *argv[])
 {
     bool started_logging { false };
@@ -81,7 +80,8 @@ int main(int argc, char *argv[])
             capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
             auto event = cmsg.getRoot<cereal::Event>();
 
-            if (event.getHeadEncodeData().getIdx().getFlags() & V4L2_BUF_FLAG_KEYFRAME) {
+            // Log rotation is going to happen only on head encoder events
+            if (event.which() == cereal::Event::HEAD_ENCODE_DATA && event.getHeadEncodeData().getIdx().getFlags() & V4L2_BUF_FLAG_KEYFRAME) {
                 if (!started_logging) {
                     fmt::print("Received first Iframe, starting to log\n");
                     started_logging = true;
