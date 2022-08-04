@@ -58,7 +58,7 @@
 // }
 
 static float send_float_command(Serial &port, const std::string& command) {
-    auto float_re = std::regex("[0-9\\.]+");
+    auto float_re = std::regex("[0-9\\.]+\\s");
     port.write_str(command);
 
     std::string response = port.read_regex(float_re);
@@ -108,7 +108,7 @@ int main(int argc, char **argv)
             float result = send_float_command(port, "r vbus_voltage\n");
 
             if (result > 0) {
-                fmt::print("Successfully started odrive communications\n");
+                fmt::print("Successfully started odrive communications, vbus = {:0.2f}\n", result);
                 break;
             }
         }

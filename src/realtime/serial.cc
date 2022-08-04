@@ -67,7 +67,7 @@ uint8_t Serial::read_byte() {
     return buf;
 }
 
-std::string Serial::read_regex(std::regex &re) {
+std::string Serial::read_regex(const std::regex &re) {
     std::vector<char> buf;
     std::cmatch m;
 
