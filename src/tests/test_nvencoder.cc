@@ -45,7 +45,7 @@ TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
     buf.allocate(size);
     buf.init_yuv(CAMERA_WIDTH, CAMERA_HEIGHT, stride, uv_offset);
 
-    for(uint32_t i = 0; i < 50; i++){
+    for(uint32_t i = 0; i < test_fps * 3; i++){
         VisionIpcBufExtra extra {
                         i + 1, // frame_id
                         0,

@@ -139,7 +139,8 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NV
 }
 
 NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int bitrate, int fps):
-   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps)
+   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps),
+   frame_read_index(0), frame_write_index(0)
 {
     fd = v4l2_open(encoderdev.c_str(), O_RDWR);
 
