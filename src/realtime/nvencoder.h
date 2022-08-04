@@ -37,9 +37,7 @@ class NVEncoder{
 
         std::future<std::unique_ptr<NVResult>> encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra);
 
-        int fd;
-        int in_width, in_height, out_width, out_height, bitrate, fps;
-        int frame_write_index, frame_read_index;
+        const int in_width, in_height, out_width, out_height, bitrate, fps;
 
     private: 
         void do_dequeue_capture();
@@ -50,6 +48,9 @@ class NVEncoder{
 
         std::vector<NVVisionBuf> buf_out;
         std::vector<NVVisionBuf> buf_in;
+        
+        int fd;
+        int frame_write_index, frame_read_index;
     
         std::map<int, std::promise<std::unique_ptr<NVResult>>> encoder_promises;
 };

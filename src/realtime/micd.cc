@@ -114,13 +114,15 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
         }
 
-        // fmt::print("read {} frames\n", pcmreturn);
-        // fmt::print("{:032b}\n", buf[0]);
+        // For now, we only support dealing with full buffers
+        assert(pcmreturn == buf.size());
 
         // Convert to float
         for (size_t i { 0 }; i < buf.size(); i++) {
             fbuf[i] = buf[i] / static_cast<float>(std::numeric_limits<int32_t>::max());
         }
+
+        //fmt::print("{} = {:032b} = {}\n", buf[0], buf[0], fbuf[0]);
 
         MessageBuilder msg;
         auto event = msg.initEvent(true);
