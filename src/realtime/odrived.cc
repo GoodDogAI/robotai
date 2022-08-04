@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <thread>
+#include <chrono>
 
 #include <math.h>
 #include <fmt/core.h>
@@ -55,17 +57,13 @@
 //   return std::stoi(response);
 // }
 
-// float send_float_command(int fd, const std::string& command) {
-//   int write_res = write(fd, command.c_str(), command.length());
+static float send_float_command(Serial &port, const std::string& command) {
+    auto float_re = std::regex("[0-9\\.]+");
+    port.write_str(command);
 
-//   if (write_res != command.length()) {
-//     ROS_ERROR("Error sending float command");
-//     return NAN;
-//   }
-
-//   std::string response = read_string(fd);
-//   return std::stof(response);
-// }
+    std::string response = port.read_regex(float_re);
+    return std::stof(response);
+}
 
 
 // void twistCallback(const geometry_msgs::Twist::ConstPtr& msg)
@@ -104,27 +102,27 @@ int main(int argc, char **argv)
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
-//   // Make the first communication with the ODrive
-//   for (int attempt = 0; attempt < 5; attempt++) {
-//     try {
-//       float result = send_float_command(serial_port, "r vbus_voltage\n");
+    // Make the first communication with the ODrive
+    for (int attempt = 0; attempt < 5; attempt++) {
+        try {
+            float result = send_float_command(port, "r vbus_voltage\n");
 
-//       if (result > 0) {
-//         ROS_INFO("Successfully started odrive communications");
-//         break;
-//       }
-//     }
-//     catch(const std::exception& e) {
-//       if (attempt >= 4) {
-//         ROS_ERROR("Could not communicate with ODrive. Exiting.");
-//         return -1;
-//       }
+            if (result > 0) {
+                fmt::print("Successfully started odrive communications\n");
+                break;
+            }
+        }
+        catch(const std::exception& e) {
+            if (attempt >= 4) {
+                fmt::print(stderr, "Could not communicate with ODrive. Exiting.\n");
+                return EXIT_FAILURE;
+            }
 
-//       ROS_WARN("Error reading from ODrive, retrying");
-//       ros::Duration(0.5).sleep();
-//       continue;
-//     }
-//   }
+            fmt::print(stderr, "Error reading from ODrive, retrying\n");
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            continue;
+        }
+    }
 
 //   while (ros::ok())
 //   {

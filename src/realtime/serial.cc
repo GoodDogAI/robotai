@@ -1,6 +1,7 @@
 #include <string>
 #include <cassert>
 #include <stdexcept>
+#include <regex>
 
 #include <unistd.h>
 #include <termios.h>
@@ -64,6 +65,23 @@ uint8_t Serial::read_byte() {
     assert(num_read == 1);
 
     return buf;
+}
+
+std::string Serial::read_regex(std::regex &re) {
+    std::vector<char> buf;
+    std::cmatch m;
+
+    while (!std::regex_match((const char*)&buf.front(), ((const char *)&buf.back()) + 1, m, re, std::regex_constants::match_default)) {
+        char data;
+        [[maybe_unused]] ssize_t num_read;
+        
+        num_read = read(fd, &data, 1);
+        assert(num_read == 1);
+
+        buf.push_back(data);
+    }
+
+    return m[0].str();
 }
 
 void Serial::write_byte(uint8_t data) {
