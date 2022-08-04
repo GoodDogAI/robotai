@@ -187,6 +187,7 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
             }
         }
     };
+
     fmt_in.fmt.pix_mp.num_planes = 2;
 
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);

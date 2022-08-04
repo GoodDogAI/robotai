@@ -19,6 +19,11 @@ message("Using Python from ${Python3_INCLUDE_DIRS}")
 # Set the default location for the jetson multimedia sdk
 set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
 
+# Enable Clang-tidy for static analysis
+# Note, I found that it wasn't necessarily useful, too many warnings
+# find_program(CLANG_TIDY_EXE NAMES clang-tidy clang-tidy-10 REQUIRED)
+# set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}" -checks=cppcoreguidelines-*)
+
 # Download and compile some lightweight dependencies
 Include(FetchContent)
 
