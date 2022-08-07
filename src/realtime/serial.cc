@@ -1,12 +1,14 @@
 #include <string>
 #include <cassert>
 #include <stdexcept>
+#include <memory>
 #include <regex>
 
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
 #include <fmt/core.h>
+#include <fmt/ranges.h>
 
 #include "serial.h"
 
@@ -71,12 +73,18 @@ std::string Serial::read_regex(const std::regex &re) {
     std::vector<char> buf;
     std::cmatch m;
 
-    while (!std::regex_match((const char*)&buf.front(), ((const char *)&buf.back()) + 1, m, re, std::regex_constants::match_default)) {
+    while (buf.size() == 0 || !std::regex_match(std::addressof(*buf.cbegin()),
+                                                std::addressof(*buf.cend()),
+                                                m, re, std::regex_constants::match_default)) {
         char data;
         [[maybe_unused]] ssize_t num_read;
         
         num_read = read(fd, &data, 1);
         assert(num_read == 1);
+
+        fmt::print("{} - {}\n", buf, std::regex_match(std::addressof(*buf.cbegin()),
+                              std::addressof(*buf.cend()),
+                              m, re, std::regex_constants::match_default));
 
         buf.push_back(data);
     }
