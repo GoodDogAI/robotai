@@ -3,6 +3,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <cassert>
 
 #include <math.h>
 #include <fmt/core.h>
@@ -57,8 +58,12 @@
 //   return std::stoi(response);
 // }
 
+static void send_raw_command(Serial &port, const std::string& command) {
+    port.write_str(command);
+}
+
 static float send_float_command(Serial &port, const std::string& command) {
-    auto float_re = std::regex("([0-9\\.]+)\\s");
+    auto float_re = std::regex("([0-9\\.]+)\r\n");
     port.write_str(command);
 
     auto response = port.read_regex(float_re);
@@ -99,6 +104,9 @@ static float send_float_command(Serial &port, const std::string& command) {
 int main(int argc, char **argv)
 {
     Serial port { ODRIVE_SERIAL_PORT, ODRIVE_BAUD_RATE };
+    auto last_received { std::chrono::steady_clock::now() };
+    bool motors_enabled { false };
+    float vel_left { 0.0 }, vel_right {0.0};
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
@@ -122,6 +130,35 @@ int main(int argc, char **argv)
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
+    }
+
+    for (;;) {
+        auto start_loop { std::chrono::steady_clock::now() };
+
+        if (start_loop - last_received > std::chrono::seconds(1)) {
+            if (motors_enabled) {
+                vel_left = vel_right = 0;
+
+                fmt::print("Disabling motors after inactivity\n");
+                send_raw_command(port, "w axis0.requested_state 1\n");
+                send_raw_command(port, "w axis1.requested_state 1\n");
+                motors_enabled = false;
+            }
+        }
+        else if (!motors_enabled) {
+            fmt::print("Received message, enabling motors\n");
+
+            //Put motors into AXIS_STATE_CLOSED_LOOP_CONTROL
+            send_raw_command(port, "w axis0.requested_state 8\n");
+            send_raw_command(port, "w axis1.requested_state 8\n");
+            motors_enabled = true;
+        }
+
+        float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
+        fmt::print("Vbus = {}\n", vbus_voltage);
+        assert(!std::isnan(vbus_voltage));
+
+        std::this_thread::sleep_until(start_loop + std::chrono::milliseconds(100));
     }
 
 //   while (ros::ok())
@@ -193,9 +230,9 @@ int main(int argc, char **argv)
 //     loop_rate.sleep();
 //   }
 
-//   // Disable motors when we quit the program
-//   send_raw_command(serial_port, "w axis0.requested_state 1\n");
-//   send_raw_command(serial_port, "w axis1.requested_state 1\n");
+  // Disable motors when we quit the program
+  send_raw_command(port, "w axis0.requested_state 1\n");
+  send_raw_command(port, "w axis1.requested_state 1\n");
 
     return EXIT_SUCCESS;
 }

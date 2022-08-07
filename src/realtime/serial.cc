@@ -82,9 +82,9 @@ std::string Serial::read_regex(const std::regex &re) {
         num_read = read(fd, &data, 1);
         assert(num_read == 1);
 
-        fmt::print("{} - {}\n", buf, std::regex_match(std::addressof(*buf.cbegin()),
-                              std::addressof(*buf.cend()),
-                              m, re, std::regex_constants::match_default));
+        // fmt::print("{} - {}\n", buf, std::regex_match(std::addressof(*buf.cbegin()),
+        //                       std::addressof(*buf.cend()),
+        //                       m, re, std::regex_constants::match_default));
 
         buf.push_back(data);
     }
