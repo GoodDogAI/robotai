@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     Serial port { ODRIVE_SERIAL_PORT, ODRIVE_BAUD_RATE };
     auto last_received { std::chrono::steady_clock::now() };
     bool motors_enabled { false };
-    float vel_left { 0.0 }, vel_right {0.0};
+    float vel_left { 0.0 }, vel_right { 0.0 };
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
@@ -230,9 +230,9 @@ int main(int argc, char **argv)
 //     loop_rate.sleep();
 //   }
 
-  // Disable motors when we quit the program
-  send_raw_command(port, "w axis0.requested_state 1\n");
-  send_raw_command(port, "w axis1.requested_state 1\n");
+    // Disable motors when we quit the program
+    send_raw_command(port, "w axis0.requested_state 1\n");
+    send_raw_command(port, "w axis1.requested_state 1\n");
 
     return EXIT_SUCCESS;
 }
