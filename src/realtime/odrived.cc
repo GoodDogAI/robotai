@@ -58,10 +58,10 @@
 // }
 
 static float send_float_command(Serial &port, const std::string& command) {
-    auto float_re = std::regex("[0-9\\.]+\\s");
+    auto float_re = std::regex("([0-9\\.]+)\\s");
     port.write_str(command);
 
-    std::string response = port.read_regex(float_re);
+    auto response = port.read_regex(float_re);
     return std::stof(response);
 }
 
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
                 return EXIT_FAILURE;
             }
 
-            fmt::print(stderr, "Error reading from ODrive, retrying\n");
+            fmt::print(stderr, "Error reading from ODrive {}, retrying\n", e.what());
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             continue;
         }
