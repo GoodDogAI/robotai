@@ -190,6 +190,10 @@ typedef struct __attribute__((__packed__)) {
   uint16_t notes[2];
 } bgc_beep_custom_sound;
 
+typedef struct __attribute__((__packed__)) {
+  uint8_t cmd_id;
+} bgc_execute_menu;
+
 #define INT16_TO_DEG(x) ((x) * 0.02197265625f)
 #define DEG_TO_INT16(x) ((x) / 0.02197265625f)
 

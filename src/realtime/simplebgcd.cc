@@ -253,8 +253,7 @@ int main(int argc, char **argv)
   std::chrono::steady_clock::time_point bgc_last_received {};
 
   // Reset the module, so you have a clean connection to it each time
-  bgc_reset reset_cmd;
-  memset(&reset_cmd, 0, sizeof(bgc_reset));
+  bgc_reset reset_cmd {};
   send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(reset_cmd));
 
   for (int i = 0; i < 8; ++i)
@@ -266,13 +265,17 @@ int main(int argc, char **argv)
   fmt::print("Sending command to start realtime data stream for SimpleBGC\n");
 
   // Register a realtime data stream syncing up with the loop rate
-  bgc_data_stream_interval stream_data;
-  memset(&stream_data, 0, sizeof(bgc_data_stream_interval));
+  bgc_data_stream_interval stream_data {};
   stream_data.cmd_id = CMD_REALTIME_DATA_4;
   stream_data.interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_time).count();
   stream_data.sync_to_data = 0;
-
   send_message(port, CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
+
+  // TOOD THIS DOESN"T WORK
+  // Ask the yaw to be recenretered
+  bgc_execute_menu exe_menu {};
+  exe_menu.cmd_id = SBGC_MENU_CENTER_YAW;
+  send_message(port, CMD_EXECUTE_MENU, reinterpret_cast<uint8_t *>(&exe_menu), sizeof(bgc_execute_menu));
 
   yaw_gyro_state = YawGyroState::WAIT_FOR_CENTER;
   gyro_center_start_time = std::chrono::steady_clock::now();
@@ -283,7 +286,7 @@ int main(int argc, char **argv)
     auto start_loop { std::chrono::steady_clock::now() };
 
     // Make sure that if the GYRO is operating, that we are sending a control command at a minimum frequency
-    if (yaw_gyro_state == YawGyroState::OPERATING) {
+    if (yaw_gyro_state == YawGyroState::OPERATING || yaw_gyro_state == YawGyroState::WAIT_FOR_CENTER) {
       if (start_loop - control_last_sent > std::chrono::milliseconds(50)) {
         bgc_control_data control_data;
         build_control_msg(0.0f, 0.0f, &control_data);
