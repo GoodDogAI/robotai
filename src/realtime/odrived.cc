@@ -7,9 +7,14 @@
 
 #include <math.h>
 #include <fmt/core.h>
+#include <fmt/chrono.h>
 
 #include "config.h"
 #include "serial.h"
+#include "cereal/messaging/messaging.h"
+
+const char *service_name = "odriveFeedback";
+const auto loop_time = std::chrono::milliseconds(100);
 
 // static volatile float MAX_SPEED;
 
@@ -63,11 +68,24 @@ static void send_raw_command(Serial &port, const std::string& command) {
 }
 
 static float send_float_command(Serial &port, const std::string& command) {
-    auto float_re = std::regex("([0-9\\.]+)\r\n");
+    const auto float_re = std::regex("([0-9\\.\\-]+)\r\n");
     port.write_str(command);
 
     auto response = port.read_regex(float_re);
     return std::stof(response);
+}
+
+static std::pair<float, float> request_feedback(Serial &port, int motor_index) {
+    const auto feedback_re = std::regex("([0-9\\.\\-]+) ([0-9\\.\\-]+)\r\n");
+
+    assert(motor_index == 0 || motor_index == 1);
+    port.write_str(fmt::format("f {} \n", motor_index));
+    auto result = port.read_regex(feedback_re);
+    std::smatch match;
+    
+    std::regex_match(result, match, feedback_re);
+
+    return std::make_pair(std::stof(match[1].str()), std::stof(match[2].str()));
 }
 
 
@@ -103,10 +121,12 @@ static float send_float_command(Serial &port, const std::string& command) {
  */
 int main(int argc, char **argv)
 {
+    PubMaster pm { {service_name} };
     Serial port { ODRIVE_SERIAL_PORT, ODRIVE_BAUD_RATE };
     auto last_received { std::chrono::steady_clock::now() };
     bool motors_enabled { false };
     float vel_left { 0.0 }, vel_right { 0.0 };
+
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
@@ -154,11 +174,55 @@ int main(int argc, char **argv)
             motors_enabled = true;
         }
 
+        // Send motor commands
+        send_raw_command(port, fmt::format("v 0 {}\n", vel_left));
+        send_raw_command(port, fmt::format("v 1 {}\n", vel_right));
+
+        // Read and update vbus voltage
         float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
         fmt::print("Vbus = {}\n", vbus_voltage);
         assert(!std::isnan(vbus_voltage));
 
-        std::this_thread::sleep_until(start_loop + std::chrono::milliseconds(100));
+        MessageBuilder vmsg;
+        auto vevent = vmsg.initEvent(true);
+        auto vdat = vevent.initVoltage();
+        vdat.setVolts(vbus_voltage);
+        vdat.setType(cereal::Voltage::Type::MAIN_BATTERY);
+        
+        auto vwords = capnp::messageToFlatArray(vmsg);
+        auto vbytes = vwords.asBytes();
+        pm.send(service_name, vbytes.begin(), vbytes.size());
+
+        // Read and update motor feedback
+        MessageBuilder fmsg;
+        auto fevent = fmsg.initEvent(true);
+        auto fdat = fevent.initOdriveFeedback();
+        auto left = fdat.initLeftMotor();
+        auto right = fdat.initRightMotor();
+
+        auto left_data = request_feedback(port, 0);
+        left.setPos(left_data.first);
+        left.setVel(left_data.second);
+
+        auto right_data = request_feedback(port, 1);
+        right.setPos(right_data.first);
+        right.setVel(right_data.second);
+
+        left.setCurrent(send_float_command(port, "r axis0.motor.current_control.Iq_setpoint\n"));
+        right.setCurrent(send_float_command(port, "r axis1.motor.current_control.Iq_setpoint\n"));
+
+        auto fwords = capnp::messageToFlatArray(fmsg);
+        auto fbytes = fwords.asBytes();
+        pm.send(service_name, fbytes.begin(), fbytes.size());
+
+        //fmt::print("Loop took {}\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_loop));
+
+        if (std::chrono::steady_clock::now() - start_loop > loop_time) {
+            fmt::print(stderr, "Could not keep up with realtime loop in ODrive\n");
+            return EXIT_FAILURE;
+        }
+
+        std::this_thread::sleep_until(start_loop + loop_time);
     }
 
 //   while (ros::ok())
