@@ -91,6 +91,7 @@ procs = [
     NativeProcess("encoderd"),
     NativeProcess("loggerd"),
     NativeProcess("micd"),
+    NativeProcess("odrived"),
     PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
 ]
 

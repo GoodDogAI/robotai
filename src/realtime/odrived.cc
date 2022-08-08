@@ -16,52 +16,6 @@
 const char *service_name = "odriveFeedback";
 const auto loop_time = std::chrono::milliseconds(100);
 
-// static volatile float MAX_SPEED;
-
-// static volatile bool motors_enabled;
-// static volatile float vel_left, vel_right;
-// ros::Time last_received;
-
-// std::string read_string(int fd) {
-//   std::string response = "";
-//   char buf;
-//   int num_read;
-
-//   while(num_read = read(fd, &buf, 1)) {
-//     // Make sure to read full lines of \r\n
-//     if (buf == '\r')
-//       continue;
-
-//     if (isspace(buf))
-//       break;
-
-//     response += buf;
-//   }
-
-//   //Useful for debugging
-//   //std::cout << "read_string: '" << response << "'" << std::endl;
-//   return response;
-// }
-
-// void send_raw_command(int fd, const std::string& command) {
-//   int write_res = write(fd, command.c_str(), command.length());
-
-//   if (write_res != command.length()) {
-//     ROS_ERROR("Error sending float command");
-//   }
-// }
-
-// int send_int_command(int fd, const std::string& command) {
-//   int write_res = write(fd, command.c_str(), command.length());
-
-//   if (write_res != command.length()) {
-//     ROS_ERROR("Error sending int command");
-//     return -1;
-//   }
-
-//   std::string response = read_string(fd);
-//   return std::stoi(response);
-// }
 
 static void send_raw_command(Serial &port, const std::string& command) {
     port.write_str(command);
@@ -112,7 +66,6 @@ static std::pair<float, float> request_feedback(Serial &port, int motor_index) {
 
 //   last_received = ros::Time::now();
 // }
-
 
 
 /**
@@ -180,7 +133,6 @@ int main(int argc, char **argv)
 
         // Read and update vbus voltage
         float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
-        fmt::print("Vbus = {}\n", vbus_voltage);
         assert(!std::isnan(vbus_voltage));
 
         MessageBuilder vmsg;
@@ -224,75 +176,6 @@ int main(int argc, char **argv)
 
         std::this_thread::sleep_until(start_loop + loop_time);
     }
-
-//   while (ros::ok())
-//   {
-//     ros::Time start = ros::Time::now();
-
-//     // If you haven't received a message in the last second, then stop the motors
-//     if (ros::Time::now() - last_received > ros::Duration(1)) {
-//       if (motors_enabled) {
-//         ROS_WARN("Didn't receive a message for the past second, shutting down motors");
-//         vel_left = vel_right = 0;
-
-//         send_raw_command(serial_port, "w axis0.requested_state 1\n");
-//         send_raw_command(serial_port, "w axis1.requested_state 1\n");
-//         motors_enabled = false;
-//       }
-//     } 
-//     else {
-//       if (!motors_enabled) {
-//         ROS_INFO("Received message, enabling motors");
-
-//         //Put motors into AXIS_STATE_CLOSED_LOOP_CONTROL
-//         send_raw_command(serial_port, "w axis0.requested_state 8\n");
-//         send_raw_command(serial_port, "w axis1.requested_state 8\n");
-//         motors_enabled = true;
-//       }
-//     }
-
-
-//     //ROS_INFO("Sending motor vels %f %f", vel_left, vel_right);
-//     std::string cmd;
-//     cmd = "v 0 " + std::to_string(vel_left) + "\n";
-//     send_raw_command(serial_port, cmd.c_str());
-
-//     cmd = "v 1 " + std::to_string(vel_right) + "\n";
-//     send_raw_command(serial_port, cmd.c_str());
-
-
-//     // Read and publish the vbus main voltage
-//     float vbus_voltage = send_float_command(serial_port, "r vbus_voltage\n");
-
-//     if (!std::isnan(vbus_voltage)) {
-//       std_msgs::Float32 vbus_msg;
-//       vbus_msg.data = vbus_voltage;
-//       vbus_pub.publish(vbus_msg);
-//     }
-
-//     // Read and publish the motor feedback values
-//     bumble::ODriveFeedback feedback_msg;
-//     send_raw_command(serial_port, "f 0\n"); 
-//     feedback_msg.motor_pos_actual_0 = std::stof(read_string(serial_port));
-//     feedback_msg.motor_vel_actual_0 = std::stof(read_string(serial_port));
-//     feedback_msg.motor_vel_cmd_0 = vel_left;
-
-//     send_raw_command(serial_port, "f 1\n");
-//     feedback_msg.motor_pos_actual_1 = std::stof(read_string(serial_port));
-//     feedback_msg.motor_vel_actual_1 = std::stof(read_string(serial_port));
-//     feedback_msg.motor_vel_cmd_1 = vel_right;
-
-//     feedback_msg.motor_current_actual_0 = send_float_command(serial_port, "r axis0.motor.current_control.Iq_setpoint\n");
-//     feedback_msg.motor_current_actual_1 = send_float_command(serial_port, "r axis1.motor.current_control.Iq_setpoint\n");
-
-//     feedback_msg.header.stamp = ros::Time::now();
-//     feedback_pub.publish(feedback_msg);
-
-//     //std::cout << "Took " << ros::Time::now() - start << std::endl;     
-
-//     ros::spinOnce();
-//     loop_rate.sleep();
-//   }
 
     // Disable motors when we quit the program
     send_raw_command(port, "w axis0.requested_state 1\n");
