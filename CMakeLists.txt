@@ -127,6 +127,17 @@ target_link_libraries(
         CapnProto::capnp
 )
 
+add_executable(simplebgcd src/realtime/simplebgcd.cc src/realtime/serial.cc)
+target_link_libraries(
+    simplebgcd 
+    PRIVATE 
+        stdc++fs
+        fmt::fmt
+        ${CEREAL_LIBRARIES}
+        zmq
+        CapnProto::capnp
+)
+
 # Mike D with the master plan
 if(${ALSA_FOUND})
     add_executable(micd src/realtime/micd.cc)

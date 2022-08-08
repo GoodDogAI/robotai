@@ -13,6 +13,7 @@ class Serial {
         std::string read_regex(const std::regex &re);
 
         void write_byte(uint8_t);
+        void write_bytes(const void *data, size_t len);
         void write_str(const std::string &data);
 
         const std::string device;

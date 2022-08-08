@@ -101,6 +101,14 @@ void Serial::write_byte(uint8_t data) {
     assert(num_write == 1);
 }
 
+void Serial::write_bytes(const void *data, size_t len) {
+    [[maybe_unused]] ssize_t num_writen;
+    
+    num_writen = write(fd, data, len);
+
+    assert(num_writen == len);
+}
+
 void Serial::write_str(const std::string &data) {
     [[maybe_unused]] ssize_t num_write;
     
