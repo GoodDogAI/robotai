@@ -15,26 +15,14 @@
 const char *service_name = "simpleBGC";
 const auto loop_time = std::chrono::milliseconds(100);
 
-// ros::Time bgc_last_received;
-// ros::Time control_last_sent;
-// ros::Time ros_last_received;
-// ros::Time last_sound;
-
-
-
-enum YawGyroState {
-  GYRO_INIT,
-  GYRO_WAIT_FOR_REBOOT,
-  GYRO_WAIT_FOR_CENTER,
-  GYRO_OPERATING,
+enum class YawGyroState {
+  INIT,
+  WAIT_FOR_REBOOT,
+  WAIT_FOR_CENTER,
+  OPERATING,
 };
 
-int8_t yaw_gyro_state = GYRO_INIT;
-//bumble::HeadCommand last_head_cmd;
-
-
-
-void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
+static void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
   uint16_t counter;
   uint16_t polynom = 0x8005;
   uint16_t crc_register = (uint16_t)crc[0] | ((uint16_t)crc[1] << 8);
@@ -54,12 +42,12 @@ void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
   crc[1] = (crc_register >> 8);
 }
 
-void crc16_calculate(uint16_t length, uint8_t *data, uint8_t crc[2]) {
+static void crc16_calculate(uint16_t length, uint8_t *data, uint8_t crc[2]) {
   crc[0] = 0; crc[1] = 0;
   crc16_update(length, data, crc);
 }
 
-void send_message(Serial &port, uint8_t cmd, uint8_t *payload, uint16_t payload_size) {
+static void send_message(Serial &port, uint8_t cmd, uint8_t *payload, uint16_t payload_size) {
   bgc_msg *cmd_msg = (bgc_msg *)malloc(sizeof(bgc_msg) + payload_size);
   cmd_msg->command_id = cmd;
   cmd_msg->payload_size = payload_size;
@@ -75,7 +63,7 @@ void send_message(Serial &port, uint8_t cmd, uint8_t *payload, uint16_t payload_
   port.write_bytes(crc, 2);
 }
 
-int16_t degree_to_int16(float angle) {
+static int16_t degree_to_int16(float angle) {
    float result = round(DEG_TO_INT16(angle));
 
    if (result <= -32768)
@@ -86,18 +74,18 @@ int16_t degree_to_int16(float angle) {
      return result;
 }
 
-// void build_control_msg(const bumble::HeadCommand &head_cmd, bgc_control_data *control_data) {
-//     memset(control_data, 0, sizeof(control_data));
+static void build_control_msg(float pitch, float yaw, bgc_control_data *control_data) {
+    memset(control_data, 0, sizeof(bgc_control_data));
 
-//     control_data->control_mode_roll = CONTROL_MODE_IGNORE;
-//     control_data->control_mode_pitch = CONTROL_MODE_ANGLE_REL_FRAME;
-//     control_data->control_mode_yaw = CONTROL_MODE_ANGLE_REL_FRAME;
-//     control_data->angle_pitch = degree_to_int16(head_cmd.cmd_angle_pitch);
-//     control_data->angle_yaw = degree_to_int16(head_cmd.cmd_angle_yaw);
+    control_data->control_mode_roll = CONTROL_MODE_IGNORE;
+    control_data->control_mode_pitch = CONTROL_MODE_ANGLE_REL_FRAME;
+    control_data->control_mode_yaw = CONTROL_MODE_ANGLE_REL_FRAME;
+    control_data->angle_pitch = degree_to_int16(pitch);
+    control_data->angle_yaw = degree_to_int16(yaw);
 
-//     control_data->speed_pitch = round(200.0f / CONTROL_SPEED_DEG_PER_SEC_PER_UNIT); 
-//     control_data->speed_yaw = round(200.0f / CONTROL_SPEED_DEG_PER_SEC_PER_UNIT); 
-// }
+    control_data->speed_pitch = round(200.0f / CONTROL_SPEED_DEG_PER_SEC_PER_UNIT); 
+    control_data->speed_yaw = round(200.0f / CONTROL_SPEED_DEG_PER_SEC_PER_UNIT); 
+}
 
 // void head_cmd_callback(const bumble::HeadCommand& msg)
 // {
@@ -231,7 +219,7 @@ class SimpleBGC {
           else
           {
             if (result != nullptr) {
-              fmt::print(stderr, "Message of type {} dropped\n", cur_msg.command_id);
+              fmt::print(stderr, "Message of type {} dropped\n", result->command_id);
             }
 
             result = std::make_unique<bgc_msg>(cur_msg);
@@ -258,8 +246,11 @@ int main(int argc, char **argv)
   PubMaster pm{{service_name}};
   Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
   SimpleBGC bgc{port};
+  YawGyroState yaw_gyro_state;
+  auto gyro_center_start_time {std::chrono::steady_clock::now()};
 
-  auto gyro_center_start_time{std::chrono::steady_clock::now()};
+  std::chrono::steady_clock::time_point control_last_sent {};
+  std::chrono::steady_clock::time_point bgc_last_received {};
 
   // Reset the module, so you have a clean connection to it each time
   bgc_reset reset_cmd;
@@ -283,12 +274,36 @@ int main(int argc, char **argv)
 
   send_message(port, CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
 
+  yaw_gyro_state = YawGyroState::WAIT_FOR_CENTER;
+  gyro_center_start_time = std::chrono::steady_clock::now();
+  bgc_last_received = std::chrono::steady_clock::now();
+
   for (;;)
   {
+    auto start_loop { std::chrono::steady_clock::now() };
+
+    // Make sure that if the GYRO is operating, that we are sending a control command at a minimum frequency
+    if (yaw_gyro_state == YawGyroState::OPERATING) {
+      if (start_loop - control_last_sent > std::chrono::milliseconds(50)) {
+        bgc_control_data control_data;
+        build_control_msg(0.0f, 0.0f, &control_data);
+
+        send_message(port, CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(control_data));
+        control_last_sent = start_loop;
+      }
+    }
+
+    if (start_loop - bgc_last_received > std::chrono::seconds(1)) {
+        fmt::print("No messages received in past 1 second, shutting down BGC subsystem");
+        return EXIT_FAILURE;
+    }
+
     auto msg = bgc.read_msg_nonblocking();
 
     if (msg)
     {
+      bgc_last_received = start_loop;
+
       if (msg->command_id == CMD_REALTIME_DATA_4)
       {
         bgc_realtime_data_4 *realtime_data = reinterpret_cast<bgc_realtime_data_4 *>(msg->payload);
@@ -300,21 +315,21 @@ int main(int argc, char **argv)
           return EXIT_FAILURE;
         }
 
-        fmt::print("Yaw {:0.4f} {:0.4f} {:0.4f}\n",
-                   INT16_TO_DEG(realtime_data->imu_angle_yaw),
-                   INT16_TO_DEG(realtime_data->target_angle_yaw),
-                   INT16_TO_DEG(realtime_data->stator_angle_yaw));
+        // fmt::print("Yaw {:0.4f} {:0.4f} {:0.4f}\n",
+        //            INT16_TO_DEG(realtime_data->imu_angle_yaw),
+        //            INT16_TO_DEG(realtime_data->target_angle_yaw),
+        //            INT16_TO_DEG(realtime_data->stator_angle_yaw));
 
-        fmt::print("Pitch {:0.4f} {:0.4f} {:0.4f}\n",
-                   INT16_TO_DEG(realtime_data->imu_angle_pitch),
-                   INT16_TO_DEG(realtime_data->target_angle_pitch),
-                   INT16_TO_DEG(realtime_data->stator_angle_pitch));
+        // fmt::print("Pitch {:0.4f} {:0.4f} {:0.4f}\n",
+        //            INT16_TO_DEG(realtime_data->imu_angle_pitch),
+        //            INT16_TO_DEG(realtime_data->target_angle_pitch),
+        //            INT16_TO_DEG(realtime_data->stator_angle_pitch));
 
-        if (yaw_gyro_state == GYRO_WAIT_FOR_CENTER)
+        if (yaw_gyro_state == YawGyroState::WAIT_FOR_CENTER)
         {
           if (std::abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0)
           {
-            yaw_gyro_state = GYRO_OPERATING;
+            yaw_gyro_state = YawGyroState::OPERATING;
             fmt::print("YAW Gyro centered, angle {0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
           }
           else
@@ -330,13 +345,17 @@ int main(int argc, char **argv)
         }
 
         // Publish a feedback message with the data
-        // bumble::HeadFeedback feedback_msg;
-        // feedback_msg.cur_angle_pitch = INT16_TO_DEG(realtime_data->stator_angle_pitch);
-        // feedback_msg.cur_angle_yaw = INT16_TO_DEG(realtime_data->stator_angle_yaw);
-        // feedback_msg.motor_power_pitch = realtime_data->motor_power_pitch / 255.0f;
-        // feedback_msg.motor_power_yaw = realtime_data->motor_power_yaw / 255.0f;
-        // feedback_msg.header.stamp = ros::Time::now();
-        // feedback_pub.publish(feedback_msg);
+        MessageBuilder pmsg;
+        auto event = pmsg.initEvent(true);
+        auto dat = event.initHeadFeedback();
+        dat.setPitchAngle(INT16_TO_DEG(realtime_data->stator_angle_pitch));
+        dat.setYawAngle(INT16_TO_DEG(realtime_data->stator_angle_yaw));
+        dat.setPitchMotorPower(realtime_data->motor_power_pitch / 255.0f);
+        dat.setYawMotorPower(realtime_data->motor_power_yaw / 255.0f);
+        
+        auto words = capnp::messageToFlatArray(pmsg);
+        auto bytes = words.asBytes();
+        pm.send(service_name, bytes.begin(), bytes.size());
       }
       else if (msg->command_id == CMD_GET_ANGLES_EXT)
       {
