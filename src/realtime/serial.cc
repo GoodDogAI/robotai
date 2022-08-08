@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <termios.h>
 #include <fcntl.h>
+#include <poll.h>
+
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
@@ -67,6 +69,23 @@ uint8_t Serial::read_byte() {
     assert(num_read == 1);
 
     return buf;
+}
+
+std::optional<std::vector<uint8_t>> Serial::read_bytes_nonblocking() {
+    pollfd serial_port_poll = {fd, POLLIN, 0};
+    std::vector<uint8_t> buf(1024);
+
+    int ret = poll(&serial_port_poll, 1, 0);
+
+    assert(ret >= 0);
+
+    if (ret == 1) {
+        ssize_t bytes_read = read(fd, buf.data(), std::size(buf));
+        buf.resize(bytes_read);
+        return buf;
+    }
+
+    return std::nullopt;
 }
 
 std::string Serial::read_regex(const std::regex &re) {

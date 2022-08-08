@@ -150,364 +150,221 @@ int16_t degree_to_int16(float angle) {
 //   ros_last_received = ros::Time::now();
 // }
 
+class SimpleBGC {
+  enum class ReadState {
+      WAITING_FOR_START_BYTE,
+      READ_COMMAND_ID,
+      READ_PAYLOAD_SIZE,
+      READ_HEADER_CHECKSUM,
+      READ_PAYLOAD,
+      READ_CRC_0,
+      READ_CRC_1,
+  };
 
+  public:
+    SimpleBGC(Serial &p): port(p), bgc_state(ReadState::WAITING_FOR_START_BYTE), bgc_payload_counter(0), bgc_payload_crc{ 0, 0 }, cur_msg() {}
 
-int main(int argc, char **argv)
-{
-    PubMaster pm { {service_name} };
-    Serial port { SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE };
-    auto gyro_center_start_time { std::chrono::steady_clock::now() };
-    
-    // Reset the module, so you have a clean connection to it each time
-    bgc_reset reset_cmd;
-    memset(&reset_cmd, 0, sizeof(bgc_reset));
-    send_message(port, CMD_RESET, (uint8_t *)&reset_cmd, sizeof(reset_cmd));
+    std::unique_ptr<bgc_msg> read_msg_nonblocking() {
+      std::unique_ptr<bgc_msg> result = nullptr;
+      auto read = port.read_bytes_nonblocking();
 
-    fmt::print("Waiting for SimpleBGC to Reboot\n");
-    std::this_thread::sleep_for(std::chrono::seconds(8));
-
-    fmt::print("Sending command to start realtime data stream for SimpleBGC\n");
-
-    // Register a realtime data stream syncing up with the loop rate
-    bgc_data_stream_interval stream_data;
-    memset(&stream_data, 0, sizeof(bgc_data_stream_interval));
-    stream_data.cmd_id = CMD_REALTIME_DATA_4;
-    stream_data.interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_time).count();
-    stream_data.sync_to_data = 0;
-
-    send_message(port, CMD_DATA_STREAM_INTERVAL, (uint8_t *)&stream_data, sizeof(stream_data));
-
-    // bgc_last_received = ros::Time::now();
-    // gyro_center_start_time = ros::Time::now();
-    // yaw_gyro_state = GYRO_WAIT_FOR_CENTER;
-
-    // yaw_gyro_state = GYRO_WAIT_FOR_REBOOT;
-
-    uint8_t bgc_state = BGC_WAITING_FOR_START_BYTE;
-    uint8_t bgc_payload_counter = 0;
-    uint8_t bgc_payload_crc[2];
-    uint8_t bgc_rx_buffer[BGC_RX_BUFFER_SIZE];
-    bgc_msg *const bgc_rx_msg = (bgc_msg *)bgc_rx_buffer;
-
-    for (;;)
-    {
-      uint8_t data = port.read_byte();
-
-      //fmt::print("Read {:0x}\n", data);
-
-      if (bgc_state == BGC_WAITING_FOR_START_BYTE && data == simplebgc_start_byte)
-      {
-        bgc_state = BGC_READ_COMMAND_ID;
+      if (!read) {
+        return nullptr;
       }
-      else if (bgc_state == BGC_READ_COMMAND_ID)
-      {
-        bgc_rx_msg->command_id = data;
-        bgc_state = BGC_READ_PAYLOAD_SIZE;
-      }
-      else if (bgc_state == BGC_READ_PAYLOAD_SIZE)
-      {
-        bgc_rx_msg->payload_size = data;
-        bgc_state = BGC_READ_HEADER_CHECKSUM;
-      }
-      else if (bgc_state == BGC_READ_HEADER_CHECKSUM)
-      {
-        bgc_rx_msg->header_checksum = data;
 
-        if (bgc_rx_msg->header_checksum != bgc_rx_msg->command_id + bgc_rx_msg->payload_size)
+      for (uint8_t data : read.value()) {
+        if (bgc_state == ReadState::WAITING_FOR_START_BYTE && data == BGC_V2_START_BYTE)
         {
-          fmt::print(stderr, "Header checksum failed\n");
-          bgc_state = BGC_WAITING_FOR_START_BYTE;
+          bgc_state = ReadState::READ_COMMAND_ID;
         }
-        else
+        else if (bgc_state == ReadState::READ_COMMAND_ID)
         {
-          bgc_state = BGC_READ_PAYLOAD;
-          bgc_payload_counter = 0;
+          cur_msg.command_id = data;
+          bgc_state = ReadState::READ_PAYLOAD_SIZE;
         }
-      }
-      else if (bgc_state == BGC_READ_PAYLOAD)
-      {
-        bgc_rx_msg->payload[bgc_payload_counter] = data;
-        bgc_payload_counter++;
-
-        if (bgc_payload_counter == bgc_rx_msg->payload_size)
+        else if (bgc_state == ReadState::READ_PAYLOAD_SIZE)
         {
-          bgc_state = BGC_READ_CRC_0;
+          cur_msg.payload_size = data;
+          bgc_state = ReadState::READ_HEADER_CHECKSUM;
         }
-      }
-      else if (bgc_state == BGC_READ_CRC_0)
-      {
-        bgc_payload_crc[0] = data;
-        bgc_state = BGC_READ_CRC_1;
-      }
-      else if (bgc_state == BGC_READ_CRC_1)
-      {
-        bgc_payload_crc[1] = data;
-
-        uint8_t crc[2];
-        crc16_calculate(sizeof(bgc_msg) + bgc_rx_msg->payload_size, bgc_rx_buffer, crc);
-
-        if (crc[0] != bgc_payload_crc[0] || crc[1] != bgc_payload_crc[1])
+        else if (bgc_state == ReadState::READ_HEADER_CHECKSUM)
         {
-          fmt::print(stderr, "Payload checksum failed\n");
-        }
-        else
-        {
-          fmt::print("Recieved valid message of type {}\n", bgc_rx_msg->command_id);
-          // bgc_last_received = ros::Time::now();
+          cur_msg.header_checksum = data;
 
-          if (bgc_rx_msg->command_id == CMD_REALTIME_DATA_4)
+          if (cur_msg.header_checksum != cur_msg.command_id + cur_msg.payload_size)
           {
-            bgc_realtime_data_4 *realtime_data = (bgc_realtime_data_4 *)bgc_rx_msg->payload;
-
-            if (realtime_data->system_error)
-            {
-              fmt::print(stderr, "BGC Error {:02x}\n", realtime_data->system_error);
-              fmt::print(stderr, "Shutting down BGC\n");
-              return EXIT_FAILURE;
-            }
-
-            //  ROS_INFO("Pitch %0.4f %0.4f %0.4f",
-            //       INT16_TO_DEG(realtime_data->imu_angle_pitch),
-            //       INT16_TO_DEG(realtime_data->target_angle_pitch),
-            //       INT16_TO_DEG(realtime_data->stator_angle_pitch));
-            //  ROS_INFO("Yaw %0.4f %0.4f %0.4f",
-            //     INT16_TO_DEG(realtime_data->imu_angle_yaw),
-            //     INT16_TO_DEG(realtime_data->target_angle_yaw),
-            //     INT16_TO_DEG(realtime_data->stator_angle_yaw));
-
-            if (yaw_gyro_state == GYRO_WAIT_FOR_CENTER)
-            {
-              if (std::abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0)
-              {
-                yaw_gyro_state = GYRO_OPERATING;
-                fmt::print("YAW Gyro centered, angle {0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
-              }
-              else
-              {
-                if (std::chrono::steady_clock::now() - gyro_center_start_time > std::chrono::seconds(5))
-                {
-                  fmt::print(stderr, "YAW Gyro failed to center, resetting BGC\n");
-                  return EXIT_FAILURE;
-                }
-
-                fmt::print("Waiting for YAW angle to center, please leave robot still, angle {}\n", INT16_TO_DEG(realtime_data->stator_angle_yaw));
-              }
-            }
-
-            // Publish a feedback message with the data
-            // bumble::HeadFeedback feedback_msg;
-            // feedback_msg.cur_angle_pitch = INT16_TO_DEG(realtime_data->stator_angle_pitch);
-            // feedback_msg.cur_angle_yaw = INT16_TO_DEG(realtime_data->stator_angle_yaw);
-            // feedback_msg.motor_power_pitch = realtime_data->motor_power_pitch / 255.0f;
-            // feedback_msg.motor_power_yaw = realtime_data->motor_power_yaw / 255.0f;
-            // feedback_msg.header.stamp = ros::Time::now();
-            // feedback_pub.publish(feedback_msg);
-          }
-          else if (bgc_rx_msg->command_id == CMD_GET_ANGLES_EXT)
-          {
-            bgc_angles_ext *angles_ext = (bgc_angles_ext *)bgc_rx_msg->payload;
-            fmt::print("Yaw {:0.4f} {:0.4} {0.4f}\n",
-                      INT16_TO_DEG(angles_ext->imu_angle_yaw),
-                      INT16_TO_DEG(angles_ext->target_angle_yaw),
-                      INT16_TO_DEG(angles_ext->stator_angle_yaw));
-
-            fmt::print("Pitch {:0.4f} {:0.4} {0.4f}\n",
-                      INT16_TO_DEG(angles_ext->imu_angle_pitch),
-                      INT16_TO_DEG(angles_ext->target_angle_pitch),
-                      INT16_TO_DEG(angles_ext->stator_angle_pitch));
-          }
-          else if (bgc_rx_msg->command_id == CMD_ERROR)
-          {
-            fmt::print(stderr, "Received CMD_ERROR from BGC\n");
-          }
-          else if (bgc_rx_msg->command_id == CMD_CONFIRM)
-          {
-            // No need to do anything
+            fmt::print(stderr, "Header checksum failed\n");
+            bgc_state = ReadState::WAITING_FOR_START_BYTE;
           }
           else
           {
-            fmt::print(stderr, "Received unknown message of type {}", bgc_rx_msg->command_id);
+            bgc_state = ReadState::READ_PAYLOAD;
+            bgc_payload_counter = 0;
+          }
+        }
+        else if (bgc_state == ReadState::READ_PAYLOAD)
+        {
+          cur_msg.payload[bgc_payload_counter] = data;
+          bgc_payload_counter++;
+
+          if (bgc_payload_counter == cur_msg.payload_size)
+          {
+            bgc_state = ReadState::READ_CRC_0;
+          }
+        }
+        else if (bgc_state == ReadState::READ_CRC_0)
+        {
+          bgc_payload_crc[0] = data;
+          bgc_state = ReadState::READ_CRC_1;
+        }
+        else if (bgc_state == ReadState::READ_CRC_1)
+        {
+          bgc_payload_crc[1] = data;
+
+          uint8_t crc[2];
+          crc16_calculate(BGC_HEADER_SIZE + cur_msg.payload_size, reinterpret_cast<uint8_t *>(&cur_msg), crc);
+
+          if (crc[0] != bgc_payload_crc[0] || crc[1] != bgc_payload_crc[1])
+          {
+            fmt::print(stderr, "Payload checksum failed\n");
+          }
+          else
+          {
+            if (result != nullptr) {
+              fmt::print(stderr, "Message of type {} dropped\n", cur_msg.command_id);
+            }
+
+            result = std::make_unique<bgc_msg>(cur_msg);
+          }
+
+          bgc_state = ReadState::WAITING_FOR_START_BYTE;  
+        }
+      }
+
+      return std::move(result);
+    }
+
+  private:
+    Serial &port;
+
+    ReadState bgc_state;
+    uint8_t bgc_payload_counter;
+    uint8_t bgc_payload_crc[2];
+    bgc_msg cur_msg;
+};
+
+int main(int argc, char **argv)
+{
+  PubMaster pm{{service_name}};
+  Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
+  SimpleBGC bgc{port};
+
+  auto gyro_center_start_time{std::chrono::steady_clock::now()};
+
+  // Reset the module, so you have a clean connection to it each time
+  bgc_reset reset_cmd;
+  memset(&reset_cmd, 0, sizeof(bgc_reset));
+  send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(reset_cmd));
+
+  for (int i = 0; i < 8; ++i)
+  {
+    fmt::print("Waiting for SimpleBGC to Reboot.{:.>{}}\n", "", i);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+
+  fmt::print("Sending command to start realtime data stream for SimpleBGC\n");
+
+  // Register a realtime data stream syncing up with the loop rate
+  bgc_data_stream_interval stream_data;
+  memset(&stream_data, 0, sizeof(bgc_data_stream_interval));
+  stream_data.cmd_id = CMD_REALTIME_DATA_4;
+  stream_data.interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_time).count();
+  stream_data.sync_to_data = 0;
+
+  send_message(port, CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
+
+  for (;;)
+  {
+    auto msg = bgc.read_msg_nonblocking();
+
+    if (msg)
+    {
+      if (msg->command_id == CMD_REALTIME_DATA_4)
+      {
+        bgc_realtime_data_4 *realtime_data = reinterpret_cast<bgc_realtime_data_4 *>(msg->payload);
+
+        if (realtime_data->system_error)
+        {
+          fmt::print(stderr, "BGC Error {:02x}\n", realtime_data->system_error);
+          fmt::print(stderr, "Shutting down BGC\n");
+          return EXIT_FAILURE;
+        }
+
+        fmt::print("Yaw {:0.4f} {:0.4f} {:0.4f}\n",
+                   INT16_TO_DEG(realtime_data->imu_angle_yaw),
+                   INT16_TO_DEG(realtime_data->target_angle_yaw),
+                   INT16_TO_DEG(realtime_data->stator_angle_yaw));
+
+        fmt::print("Pitch {:0.4f} {:0.4f} {:0.4f}\n",
+                   INT16_TO_DEG(realtime_data->imu_angle_pitch),
+                   INT16_TO_DEG(realtime_data->target_angle_pitch),
+                   INT16_TO_DEG(realtime_data->stator_angle_pitch));
+
+        if (yaw_gyro_state == GYRO_WAIT_FOR_CENTER)
+        {
+          if (std::abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0)
+          {
+            yaw_gyro_state = GYRO_OPERATING;
+            fmt::print("YAW Gyro centered, angle {0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
+          }
+          else
+          {
+            if (std::chrono::steady_clock::now() - gyro_center_start_time > std::chrono::seconds(5))
+            {
+              fmt::print(stderr, "YAW Gyro failed to center, resetting BGC\n");
+              return EXIT_FAILURE;
+            }
+
+            fmt::print("Waiting for YAW angle to center, please leave robot still, angle {}\n", INT16_TO_DEG(realtime_data->stator_angle_yaw));
           }
         }
 
-        bgc_state = BGC_WAITING_FOR_START_BYTE;
+        // Publish a feedback message with the data
+        // bumble::HeadFeedback feedback_msg;
+        // feedback_msg.cur_angle_pitch = INT16_TO_DEG(realtime_data->stator_angle_pitch);
+        // feedback_msg.cur_angle_yaw = INT16_TO_DEG(realtime_data->stator_angle_yaw);
+        // feedback_msg.motor_power_pitch = realtime_data->motor_power_pitch / 255.0f;
+        // feedback_msg.motor_power_yaw = realtime_data->motor_power_yaw / 255.0f;
+        // feedback_msg.header.stamp = ros::Time::now();
+        // feedback_pub.publish(feedback_msg);
+      }
+      else if (msg->command_id == CMD_GET_ANGLES_EXT)
+      {
+        bgc_angles_ext *angles_ext = reinterpret_cast<bgc_angles_ext *>(msg->payload);
+        fmt::print("Yaw {:0.4f} {:0.4f} {:0.4f}\n",
+                   INT16_TO_DEG(angles_ext->imu_angle_yaw),
+                   INT16_TO_DEG(angles_ext->target_angle_yaw),
+                   INT16_TO_DEG(angles_ext->stator_angle_yaw));
+
+        fmt::print("Pitch {:0.4f} {:0.4f} {:0.4f}\n",
+                   INT16_TO_DEG(angles_ext->imu_angle_pitch),
+                   INT16_TO_DEG(angles_ext->target_angle_pitch),
+                   INT16_TO_DEG(angles_ext->stator_angle_pitch));
+      }
+      else if (msg->command_id == CMD_ERROR)
+      {
+        fmt::print(stderr, "Received CMD_ERROR from BGC\n");
+      }
+      else if (msg->command_id == CMD_CONFIRM)
+      {
+        // No need to do anything
+      }
+      else
+      {
+        fmt::print(stderr, "Received unknown message of type {}\n", msg->command_id);
       }
     }
+  }
 
-    // pollfd serial_port_poll = {serial_port, POLLIN, 0};
-
-    // while (ros::ok())
-    // {
-    //   if (yaw_gyro_state == GYRO_WAIT_FOR_REBOOT) {
-    //     if (ros::Time::now() - bgc_last_received > ros::Duration(8.0)) {
-    //       ROS_INFO("Sending command to start realtime data stream for SimpleBGC");
-
-    //       // Register a realtime data stream syncing up with the loop rate
-    //       bgc_data_stream_interval stream_data;
-    //       memset(&stream_data, 0, sizeof(bgc_data_stream_interval));
-    //       stream_data.cmd_id = CMD_REALTIME_DATA_4;
-    //       stream_data.interval_ms = loop_rate.expectedCycleTime().toSec() * 1000;
-    //       stream_data.sync_to_data = 0;
-
-    //       send_message(serial_port, CMD_DATA_STREAM_INTERVAL, (uint8_t *)&stream_data, sizeof(stream_data));
-
-    //       bgc_last_received = ros::Time::now();
-    //       gyro_center_start_time = ros::Time::now();
-    //       yaw_gyro_state = GYRO_WAIT_FOR_CENTER;
-    //     }
-    //   }
-    //   else {
-    //     // Exit with an error if you haven't received a message in a while
-    //     if (ros::Time::now() - bgc_last_received > ros::Duration(1.0)) {
-    //       ROS_ERROR("No messages received in 1 seconds, shutting down BGC subsystem");
-    //       return 1;
-    //     }
-    //   }
-
-    //   // Make sure that if the GYRO is operating, that we are sending a control command at a minimum frequency
-    //   if (yaw_gyro_state == GYRO_OPERATING) {
-    //     if (ros::Time::now() - control_last_sent > ros::Duration(0.05)) {
-    //       bgc_control_data control_data;
-    //       build_control_msg(last_head_cmd, &control_data);
-
-    //       send_message(serial_port, CMD_CONTROL, (uint8_t *)&control_data, sizeof(control_data));
-    //       control_last_sent = ros::Time::now();
-    //     }
-    //   }
-
-    //   int ret = poll(&serial_port_poll, 1, 5);
-      
-    //   if (serial_port_poll.revents & POLLIN) {
-    //     uint8_t buf[1024];
-    //     ssize_t bytes_read = read(serial_port, buf, sizeof(buf));
-
-    //     if (bytes_read < 0) {
-    //       ROS_ERROR("Error %i from read: %s\n", errno, strerror(errno));
-    //       return errno;
-    //     }
-
-    //     for (ssize_t i = 0; i < bytes_read; i++) {
-    //       if (bgc_state == BGC_WAITING_FOR_START_BYTE && buf[i] == simplebgc_start_byte) {
-    //         bgc_state = BGC_READ_COMMAND_ID;
-    //       }
-    //       else if (bgc_state == BGC_READ_COMMAND_ID) {
-    //         bgc_rx_msg->command_id = buf[i];
-    //         bgc_state = BGC_READ_PAYLOAD_SIZE;
-    //       }
-    //       else if (bgc_state == BGC_READ_PAYLOAD_SIZE) {
-    //         bgc_rx_msg->payload_size = buf[i];
-    //         bgc_state = BGC_READ_HEADER_CHECKSUM;
-    //       }
-    //       else if (bgc_state == BGC_READ_HEADER_CHECKSUM) {
-    //         bgc_rx_msg->header_checksum = buf[i];
-
-    //         if (bgc_rx_msg->header_checksum != bgc_rx_msg->command_id + bgc_rx_msg->payload_size) {
-    //           ROS_ERROR("Header checksum failed");
-    //           bgc_state = BGC_WAITING_FOR_START_BYTE;
-    //         }
-    //         else {
-    //           bgc_state = BGC_READ_PAYLOAD;
-    //           bgc_payload_counter = 0;
-    //         }
-    //       }
-    //       else if (bgc_state == BGC_READ_PAYLOAD) {
-    //         bgc_rx_msg->payload[bgc_payload_counter] = buf[i];
-    //         bgc_payload_counter++;
-
-    //         if (bgc_payload_counter == bgc_rx_msg->payload_size) {
-    //           bgc_state = BGC_READ_CRC_0;
-    //         }
-    //       }
-    //       else if (bgc_state == BGC_READ_CRC_0) {
-    //         bgc_payload_crc[0] = buf[i];
-    //         bgc_state = BGC_READ_CRC_1;
-    //       }
-    //       else if (bgc_state == BGC_READ_CRC_1) {
-    //         bgc_payload_crc[1] = buf[i];
-
-    //         uint8_t crc[2];
-    //         crc16_calculate(sizeof(bgc_msg) + bgc_rx_msg->payload_size, bgc_rx_buffer, crc);
-
-    //         if (crc[0] != bgc_payload_crc[0] || crc[1] != bgc_payload_crc[1]) {
-    //           ROS_ERROR("Payload checksum failed");
-    //         }
-    //         else {
-    //           //ROS_INFO("Recieved valid message of type %d", bgc_rx_msg->command_id);
-    //           bgc_last_received = ros::Time::now();
-
-    //           if (bgc_rx_msg->command_id == CMD_REALTIME_DATA_4) {
-    //             bgc_realtime_data_4 *realtime_data = (bgc_realtime_data_4 *)bgc_rx_msg->payload;
-
-    //             if (realtime_data->system_error) {
-    //               ROS_ERROR("BGC Error %02x", realtime_data->system_error);
-    //               ROS_ERROR("Shutting down BGC");
-    //               return realtime_data->system_error;
-    //             }
-
-    //           //  ROS_INFO("Pitch %0.4f %0.4f %0.4f", 
-    //           //       INT16_TO_DEG(realtime_data->imu_angle_pitch),
-    //           //       INT16_TO_DEG(realtime_data->target_angle_pitch),
-    //           //       INT16_TO_DEG(realtime_data->stator_angle_pitch));
-    //             //  ROS_INFO("Yaw %0.4f %0.4f %0.4f", 
-    //             //     INT16_TO_DEG(realtime_data->imu_angle_yaw),
-    //             //     INT16_TO_DEG(realtime_data->target_angle_yaw),
-    //             //     INT16_TO_DEG(realtime_data->stator_angle_yaw));
-
-    //             if (yaw_gyro_state == GYRO_WAIT_FOR_CENTER) {
-    //               if (abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0) {
-    //                 yaw_gyro_state = GYRO_OPERATING;
-    //                 ROS_INFO("YAW Gyro centered, angle %f", INT16_TO_DEG(realtime_data->stator_angle_yaw));
-    //               }
-    //               else {
-    //                 if (ros::Time::now() - gyro_center_start_time > ros::Duration(5.0)) {
-    //                   ROS_ERROR("YAW Gyro failed to center, resetting BGC");
-    //                   return 1;
-    //                 } 
-
-    //                 ROS_WARN("Waiting for YAW angle to center, please leave robot still, angle %f", INT16_TO_DEG(realtime_data->stator_angle_yaw));
-    //               }
-    //             } 
-            
-    //             // Publish a feedback message with the data
-    //             bumble::HeadFeedback feedback_msg;
-    //             feedback_msg.cur_angle_pitch = INT16_TO_DEG(realtime_data->stator_angle_pitch);
-    //             feedback_msg.cur_angle_yaw = INT16_TO_DEG(realtime_data->stator_angle_yaw);
-    //             feedback_msg.motor_power_pitch = realtime_data->motor_power_pitch / 255.0f;
-    //             feedback_msg.motor_power_yaw = realtime_data->motor_power_yaw / 255.0f;
-    //             feedback_msg.header.stamp = ros::Time::now();
-    //             feedback_pub.publish(feedback_msg);
-    //           }
-    //           else if (bgc_rx_msg->command_id == CMD_GET_ANGLES_EXT) {
-    //             bgc_angles_ext *angles_ext = (bgc_angles_ext *)bgc_rx_msg->payload;
-    //             ROS_INFO("Yaw %0.4f %0.4f %0.4f", 
-    //                 INT16_TO_DEG(angles_ext->imu_angle_yaw),
-    //                 INT16_TO_DEG(angles_ext->target_angle_yaw),
-    //                 INT16_TO_DEG(angles_ext->stator_angle_yaw));
-
-    //              ROS_INFO("Pitch %0.4f %0.4f %0.4f", 
-    //                 INT16_TO_DEG(angles_ext->imu_angle_pitch),
-    //                 INT16_TO_DEG(angles_ext->target_angle_pitch),
-    //                 INT16_TO_DEG(angles_ext->stator_angle_pitch));
-    //           }
-    //           else if (bgc_rx_msg->command_id == CMD_ERROR) {
-    //              ROS_ERROR("Received CMD_ERROR from BGC");
-    //           }
-    //           else if (bgc_rx_msg->command_id == CMD_CONFIRM) {
-    //              // No need to do anything
-    //           }
-    //           else {
-    //             ROS_INFO("Received unknown message of type %d", bgc_rx_msg->command_id);
-    //           }
-    //         }
-
-    //         bgc_state = BGC_WAITING_FOR_START_BYTE;
-    //       }
-    //     }
-    //   }
-
-    //   ros::spinOnce();
-    //   loop_rate.sleep();
-    // }
-
-    return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }

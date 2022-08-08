@@ -3,24 +3,13 @@
 #include <stdint.h>
 
 #define BGC_V2_START_BYTE 0x24
-static const uint8_t simplebgc_start_byte = BGC_V2_START_BYTE;
-
-#define BGC_WAITING_FOR_START_BYTE 0
-#define BGC_READ_COMMAND_ID 1
-#define BGC_READ_PAYLOAD_SIZE 2
-#define BGC_READ_HEADER_CHECKSUM 3
-#define BGC_READ_PAYLOAD 4
-#define BGC_READ_CRC_0 5
-#define BGC_READ_CRC_1 6
-
-#define BGC_RX_BUFFER_SIZE 256
-
+#define BGC_HEADER_SIZE 3
 
 typedef struct {
   uint8_t command_id;
   uint8_t payload_size;
   uint8_t header_checksum;
-  uint8_t payload[];
+  uint8_t payload[256];
 } bgc_msg;
 
 typedef struct __attribute__((__packed__)){

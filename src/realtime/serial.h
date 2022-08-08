@@ -10,6 +10,7 @@ class Serial {
         ~Serial();
 
         uint8_t read_byte();
+        std::optional<std::vector<uint8_t>> read_bytes_nonblocking();
         std::string read_regex(const std::regex &re);
 
         void write_byte(uint8_t);
