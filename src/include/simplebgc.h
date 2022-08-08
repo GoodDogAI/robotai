@@ -158,6 +158,9 @@ typedef struct __attribute__((__packed__)) {
   uint16_t delay_ms;
 } bgc_reset;
 
+#define RESET_FLAGS_CONFIRM (1<<0)
+#define RESET_FLAGS_BACKUP_STATE (1<<1)
+
 typedef struct __attribute__((__packed__)) {
   uint8_t num_params; // Set to 1 for now
   uint8_t param_id;

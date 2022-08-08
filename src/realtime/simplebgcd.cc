@@ -48,18 +48,19 @@ static void crc16_calculate(uint16_t length, uint8_t *data, uint8_t crc[2]) {
 }
 
 static void send_message(Serial &port, uint8_t cmd, uint8_t *payload, uint16_t payload_size) {
-  bgc_msg *cmd_msg = (bgc_msg *)malloc(sizeof(bgc_msg) + payload_size);
-  cmd_msg->command_id = cmd;
-  cmd_msg->payload_size = payload_size;
-  cmd_msg->header_checksum = cmd_msg->command_id + cmd_msg->payload_size;
+  bgc_msg cmd_msg = {
+    .command_id = cmd,
+    .payload_size = static_cast<uint8_t>(payload_size),
+    .header_checksum = static_cast<uint8_t>(cmd + payload_size),
+  };
 
-  memcpy(cmd_msg->payload, payload, payload_size);
+  std::copy(payload, payload + payload_size, cmd_msg.payload);
   
   uint8_t crc[2];
-  crc16_calculate(sizeof(bgc_msg) + payload_size, (uint8_t *)cmd_msg, crc);
+  crc16_calculate(BGC_HEADER_SIZE + payload_size, reinterpret_cast<uint8_t*>(&cmd_msg), crc);
 
   port.write_byte(BGC_V2_START_BYTE);
-  port.write_bytes(cmd_msg, sizeof(bgc_msg) + payload_size);
+  port.write_bytes(&cmd_msg, BGC_HEADER_SIZE + payload_size);
   port.write_bytes(crc, 2);
 }
 
@@ -75,7 +76,7 @@ static int16_t degree_to_int16(float angle) {
 }
 
 static void build_control_msg(float pitch, float yaw, bgc_control_data *control_data) {
-    memset(control_data, 0, sizeof(bgc_control_data));
+    *control_data = {};
 
     control_data->control_mode_roll = CONTROL_MODE_IGNORE;
     control_data->control_mode_pitch = CONTROL_MODE_ANGLE_REL_FRAME;
@@ -253,8 +254,11 @@ int main(int argc, char **argv)
   std::chrono::steady_clock::time_point bgc_last_received {};
 
   // Reset the module, so you have a clean connection to it each time
+
   bgc_reset reset_cmd {};
-  send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(reset_cmd));
+  send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(bgc_reset));
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
 
   for (int i = 0; i < 8; ++i)
   {
@@ -291,7 +295,7 @@ int main(int argc, char **argv)
         bgc_control_data control_data;
         build_control_msg(0.0f, 0.0f, &control_data);
 
-        send_message(port, CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(control_data));
+        send_message(port, CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
         control_last_sent = start_loop;
       }
     }
@@ -333,7 +337,7 @@ int main(int argc, char **argv)
           if (std::abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0)
           {
             yaw_gyro_state = YawGyroState::OPERATING;
-            fmt::print("YAW Gyro centered, angle {0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
+            fmt::print("YAW Gyro centered, angle {:0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
           }
           else
           {
