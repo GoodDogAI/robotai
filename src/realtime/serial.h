@@ -2,6 +2,7 @@
 
 #include <string>
 #include <regex>
+#include <chrono>
 #include <termios.h>
 
 class Serial {
@@ -10,7 +11,7 @@ class Serial {
         ~Serial();
 
         uint8_t read_byte();
-        std::optional<std::vector<uint8_t>> read_bytes_nonblocking();
+        std::optional<std::vector<uint8_t>> read_bytes(std::chrono::milliseconds timeout = std::chrono::milliseconds(100));
         std::string read_regex(const std::regex &re);
 
         void write_byte(uint8_t);

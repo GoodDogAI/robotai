@@ -116,21 +116,27 @@ target_link_libraries(
         CapnProto::capnp
 )
 
-add_executable(odrived src/realtime/odrived.cc src/realtime/serial.cc)
+add_library(serial src/realtime/serial.cc)
+target_link_libraries(serial PUBLIC fmt::fmt)
+
+add_executable(odrived src/realtime/odrived.cc)
 target_link_libraries(
     odrived 
-    PRIVATE 
+    PRIVATE
+        serial 
         stdc++fs
         fmt::fmt
         ${CEREAL_LIBRARIES}
         zmq
         CapnProto::capnp
+        
 )
 
-add_executable(simplebgcd src/realtime/simplebgcd.cc src/realtime/serial.cc)
+add_executable(simplebgcd src/realtime/simplebgcd.cc)
 target_link_libraries(
     simplebgcd 
-    PRIVATE 
+    PRIVATE
+        serial 
         stdc++fs
         fmt::fmt
         ${CEREAL_LIBRARIES}

@@ -71,11 +71,11 @@ uint8_t Serial::read_byte() {
     return buf;
 }
 
-std::optional<std::vector<uint8_t>> Serial::read_bytes_nonblocking() {
+std::optional<std::vector<uint8_t>> Serial::read_bytes(std::chrono::milliseconds timeout) {
     pollfd serial_port_poll = {fd, POLLIN, 0};
     std::vector<uint8_t> buf(1024);
 
-    int ret = poll(&serial_port_poll, 1, 0);
+    int ret = poll(&serial_port_poll, 1, timeout.count());
 
     assert(ret >= 0);
 

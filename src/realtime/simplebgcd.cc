@@ -151,11 +151,14 @@ class SimpleBGC {
   };
 
   public:
-    SimpleBGC(Serial &p): port(p), bgc_state(ReadState::WAITING_FOR_START_BYTE), bgc_payload_counter(0), bgc_payload_crc{ 0, 0 }, cur_msg() {}
+    SimpleBGC(Serial &p): port(p), bgc_state(ReadState::WAITING_FOR_START_BYTE),
+     bgc_payload_counter(0), bgc_payload_crc{ 0, 0 }, cur_msg() {
 
-    std::unique_ptr<bgc_msg> read_msg_nonblocking() {
+    }
+
+    std::unique_ptr<bgc_msg> read_msg(std::chrono::milliseconds timeout) {
       std::unique_ptr<bgc_msg> result = nullptr;
-      auto read = port.read_bytes_nonblocking();
+      auto read = port.read_bytes(timeout);
 
       if (!read) {
         return nullptr;
@@ -254,11 +257,9 @@ int main(int argc, char **argv)
   std::chrono::steady_clock::time_point bgc_last_received {};
 
   // Reset the module, so you have a clean connection to it each time
-
   bgc_reset reset_cmd {};
   send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(bgc_reset));
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
 
   for (int i = 0; i < 8; ++i)
   {
@@ -275,7 +276,6 @@ int main(int argc, char **argv)
   stream_data.sync_to_data = 0;
   send_message(port, CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
 
-  // TOOD THIS DOESN"T WORK
   // Ask the yaw to be recenretered
   bgc_execute_menu exe_menu {};
   exe_menu.cmd_id = SBGC_MENU_CENTER_YAW;
@@ -305,7 +305,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    auto msg = bgc.read_msg_nonblocking();
+    auto msg = bgc.read_msg(std::chrono::duration_cast<std::chrono::milliseconds>(loop_time));
 
     if (msg)
     {
@@ -337,7 +337,7 @@ int main(int argc, char **argv)
           if (std::abs(INT16_TO_DEG(realtime_data->stator_angle_yaw)) < 1.0)
           {
             yaw_gyro_state = YawGyroState::OPERATING;
-            fmt::print("YAW Gyro centered, angle {:0.2f}", INT16_TO_DEG(realtime_data->stator_angle_yaw));
+            fmt::print("YAW Gyro centered, angle {:0.2f}\n", INT16_TO_DEG(realtime_data->stator_angle_yaw));
           }
           else
           {
