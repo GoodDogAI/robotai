@@ -142,7 +142,17 @@ TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
     CHECK(frame->linesize[1] == CAMERA_WIDTH / 2);
     CHECK(frame->linesize[2] == CAMERA_WIDTH / 2);
 
-    REQUIRE(frame->data[0][0] == 0);
-    REQUIRE(frame->data[0][1] == 255);
-    REQUIRE(frame->data[0][2] == 0);
+    for (int row = 0; row < CAMERA_HEIGHT; row++) {
+        INFO("row " << row);
+
+        if (row < CAMERA_HEIGHT / 2)
+            REQUIRE(frame->data[0][row * frame->linesize[0]] == 255);
+        
+        if (row > CAMERA_HEIGHT / 2)
+            REQUIRE(frame->data[0][row * frame->linesize[0]] == 128);
+
+        REQUIRE(frame->data[1][row * frame->linesize[1]] == 0);
+        REQUIRE(frame->data[2][row * frame->linesize[2]] == 0);
+    }
+    
 }
