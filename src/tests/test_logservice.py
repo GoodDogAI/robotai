@@ -25,7 +25,7 @@ class LogServiceTest(unittest.TestCase):
     def test_empty_logs(self):
         resp = self.client.get("/logs")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [])
+        self.assertEqual(resp.json(), [[]])
 
     def test_post_empty_log(self):
         with tempfile.NamedTemporaryFile() as tf:
@@ -52,7 +52,7 @@ class LogServiceTest(unittest.TestCase):
             sha256_hash = hashlib.sha256()
             b = tf.read()
             sha256_hash.update(b)
-            self.assertEqual(resp.json()[0]["sha256"], sha256_hash.hexdigest())
+            self.assertEqual(resp.json()[0][0]["sha256"], sha256_hash.hexdigest())
 
             # Posting the same log again should error out
             tf.seek(0)

@@ -57,8 +57,12 @@ async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSumm
 
     for log in sorted(lh.values()):
         m = logname_re.match(log.filename)
-        d = datetime(year=int(m[2]), month=int(m[3]), day=int(m[4]), hour=int(m[5]), minute=int(m[6]))
-
+        
+        if m:
+            d = datetime(year=int(m[2]), month=int(m[3]), day=int(m[4]), hour=int(m[5]), minute=int(m[6]))
+        else:
+            d = None
+    
         if (last_d is None or d - last_d > timedelta(minutes=1)) and cur_group != []:
             groups.append(cur_group)
             cur_group = []
