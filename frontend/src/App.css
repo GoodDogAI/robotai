@@ -42,6 +42,13 @@ th, td {
   
 }
 
+button.link {
+  background: none;
+  border: none;
+  color: darkblue;
+  cursor: pointer;
+}
+
 .selected {
   font-weight: bold;
 }
