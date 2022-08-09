@@ -22,29 +22,7 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
   return AV_PIX_FMT_YUV420P;
 }
 
-TEST_CASE( "Encoder renders a single frame", "[encoder]" ) {
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
-    VisionBuf buf;
 
-    VisionIpcBufExtra extra {
-                        1, // frame_id
-                        0,
-                        0,
-        };
-
-    auto size = CAMERA_WIDTH * CAMERA_HEIGHT * 3 / 2;
-    auto stride = CAMERA_WIDTH;
-    auto uv_offset = CAMERA_WIDTH * CAMERA_HEIGHT;
-    buf.allocate(size);
-    buf.init_yuv(CAMERA_WIDTH, CAMERA_HEIGHT, stride, uv_offset);
-
-    auto future = encoder.encode_frame(&buf, &extra);
-    auto result = future.get();
-
-    INFO("Got result from encoder len " << result->len);
-    REQUIRE(result->len > 0);
-    REQUIRE(result->flags & V4L2_BUF_FLAG_KEYFRAME);
-}
 
 TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
     int test_fps = 5;
@@ -101,6 +79,10 @@ TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
     auto future = encoder.encode_frame(&buf, &extra);
     auto result = future.get();
 
+    INFO("Got result from encoder len " << result->len);
+    REQUIRE(result->len > 0);
+    REQUIRE(result->flags & V4L2_BUF_FLAG_KEYFRAME);
+
     // Required in ffmpeg < 4 in order to see all decoders
     av_register_all();
 
@@ -142,17 +124,17 @@ TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
     CHECK(frame->linesize[1] == CAMERA_WIDTH / 2);
     CHECK(frame->linesize[2] == CAMERA_WIDTH / 2);
 
+
+    double avgdiff = 0.0f;
     for (int row = 0; row < CAMERA_HEIGHT; row++) {
-        INFO("row " << row);
-
-        if (row < CAMERA_HEIGHT / 2)
-            REQUIRE(frame->data[0][row * frame->linesize[0]] == 255);
-        
-        if (row > CAMERA_HEIGHT / 2)
-            REQUIRE(frame->data[0][row * frame->linesize[0]] == 128);
-
-        REQUIRE(frame->data[1][row * frame->linesize[1]] == 0);
-        REQUIRE(frame->data[2][row * frame->linesize[2]] == 0);
+        for (int col = 0; col < CAMERA_WIDTH; col++) {
+            avgdiff += std::abs(frame->data[0][row * frame->linesize[0] + col] - buf.y[row * CAMERA_WIDTH + col]);
+            avgdiff += std::abs(frame->data[1][row / 2 * frame->linesize[1] + col / 2] - buf.uv[row / 2 * CAMERA_WIDTH + col / 2]);
+            avgdiff += std::abs(frame->data[2][row / 2 * frame->linesize[2] + col / 2] - buf.uv[row / 2 * CAMERA_WIDTH + col / 2 + 1]);
+        }
     }
+    avgdiff /= CAMERA_WIDTH * CAMERA_HEIGHT;
+
+    CHECK(avgdiff < 1.0);
     
 }
