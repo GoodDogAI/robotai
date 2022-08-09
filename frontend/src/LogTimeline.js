@@ -91,8 +91,6 @@ export function LogTimeline(props) {
     if (isLoading) {
         return <div className="timeline">Loading...</div>;
     }
-
-    console.log(index);
   
     return (
         <div className="timeline">
@@ -103,6 +101,7 @@ export function LogTimeline(props) {
                     <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
                 </div>
             </div>
+            <h5>{logName}</h5>
             <div className="logTable">
             <table>
                 <thead>

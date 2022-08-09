@@ -2,6 +2,7 @@
 
 #include <string>
 #include <regex>
+#include <optional>
 #include <chrono>
 #include <termios.h>
 
