@@ -22,7 +22,7 @@ export function LogList(props) {
       <h4>Available Logs ({data.length})</h4>
       <ul>
         {data.map((logs, index) =>
-          <LogListEntry key={index} index={index} logs={logs} isOpen={openIndex === index} onOpen={setOpenIndex} onLogSelected={onLogSelected} />
+          <LogListEntry key={index} index={index} logs={logs} isOpen={openIndex === index} selectedLog={logName} onOpen={setOpenIndex} onLogSelected={onLogSelected} />
         )
         }
       </ul>
@@ -33,7 +33,7 @@ export function LogList(props) {
 }
 
 function LogListEntry(props) {
-  const { logs, index, isOpen, onOpen, onLogSelected } = props;
+  const { logs, index, isOpen, selectedLog, onOpen, onLogSelected } = props;
 
   const name = logs[0].filename.replace(".log", "");
   const onNameClick = useCallback(() => {
@@ -43,12 +43,20 @@ function LogListEntry(props) {
 
   return (
     <React.Fragment>
-      <li> <button className={"link"} onClick={onNameClick}>{name}</button>
+      <li> 
+        
+        <button className={"link"} onClick={onNameClick}>
+          {isOpen ? (<strong>{name}</strong>) : <span>{name}</span> }
+        </button>
 
         {isOpen && (
           <ul>
             {logs.map(log =>
-              <li key={log.sha256}><button className={"link"} onClick={() => onLogSelected(log.filename)}>{log.filename}</button></li>
+              <li key={log.sha256}>
+                <button className={"link"} onClick={() => onLogSelected(log.filename)}>
+                  {selectedLog === log.filename ? (<em>{log.filename}</em>) : <span>{log.filename}</span> }
+                </button>
+              </li>
             )}
           </ul>
         )}
