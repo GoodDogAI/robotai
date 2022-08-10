@@ -82,6 +82,17 @@ message("REALSENSE Version: ${realsense2_VERSION}")
 
 find_package(ALSA)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
+    libavdevice
+    libavfilter
+    libavformat
+    libavcodec
+    libswresample
+    libswscale
+    libavutil
+)
+
 # Build and configure cereal, as an in-place build
 include(ExternalProject)
 ExternalProject_Add(cereal 
@@ -129,7 +140,6 @@ target_link_libraries(
         ${CEREAL_LIBRARIES}
         zmq
         CapnProto::capnp
-        
 )
 
 add_executable(simplebgcd src/realtime/simplebgcd.cc)
@@ -173,7 +183,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
             v4l2
             CapnProto::capnp
     )
-
+    
     add_executable(encoderd_tests 
         src/tests/test_nvencoder.cc 
         src/realtime/nvencoder.cc 
@@ -188,7 +198,9 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
             v4l2
             CapnProto::capnp
             Catch2::Catch2WithMain
+            PkgConfig::LIBAV
     )
+
     catch_discover_tests(encoderd_tests)
 endif()
 
