@@ -115,7 +115,7 @@ class VPFTest(unittest.TestCase):
 
         frame_rgb = frame_rgb.reshape((height, -1))
 
-        np.testing.assert_array_almost_equal(frame_rgb, red_img)
+        np.testing.assert_array_almost_equal(frame_rgb / 255.0, red_img / 255.0, decimal=1)
 
 
 
