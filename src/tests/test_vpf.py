@@ -18,33 +18,43 @@ class VPFTest(unittest.TestCase):
         img = load_image(test_path, 20)
         self.assertEqual(img.shape, (720, 1280 * 3))
 
-    # TODO This will spin forver, need some sort of workaround
-    # def test_decode_single_frame(self):
-    #     test_path = os.path.join(RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
+    def test_decode_single_frame(self):
+        test_path = os.path.join(RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
         
-    #     nv_dec = nvc.PyNvDecoder(
-    #         1280,
-    #         720,
-    #         nvc.PixelFormat.NV12,
-    #         nvc.CudaVideoCodec.HEVC,
-    #         WEB_VIDEO_DECODE_GPU_ID,
-    #     )
+        nv_dec = nvc.PyNvDecoder(
+            1280,
+            720,
+            nvc.PixelFormat.NV12,
+            nvc.CudaVideoCodec.HEVC,
+            WEB_VIDEO_DECODE_GPU_ID,
+        )
 
-    #     with open(test_path, "rb") as f:
-    #         events = log.Event.read_multiple(f)
+        with open(test_path, "rb") as f:
+            events = log.Event.read_multiple(f)
             
-    #         first = next(events)
-    #         packet = first.headEncodeData.data
+            first = next(events)
+            packet = first.headEncodeData.data
 
+            packet = np.frombuffer(packet, dtype=np.uint8)
 
-    #         packet = np.frombuffer(packet, dtype=np.uint8)
-    #         surface = nv_dec.DecodeSurfaceFromPacket(packet)
-    #         print(surface.Empty())
+            # Important note, the library has a bug, where sending a single packet will
+            # never cause the video frame to be decoded
+            # The solution is to send a single IDR packet twice if that's the case
+            surface = nv_dec.DecodeSurfaceFromPacket(packet)
+            self.assertTrue(surface.Empty())
 
-    #         while surface.Empty():
-    #             surface = nv_dec.FlushSingleSurface()
+            surface = nv_dec.DecodeSurfaceFromPacket(packet)
+            self.assertTrue(surface.Empty())
+            
+            surface = nv_dec.FlushSingleSurface()
+            self.assertFalse(surface.Empty())
 
-    #         print("DONE!", surface)
+            surface = nv_dec.FlushSingleSurface()
+            self.assertFalse(surface.Empty())
+            
+            surface = nv_dec.FlushSingleSurface()
+            self.assertTrue(surface.Empty())
+
 
            
 

@@ -69,7 +69,6 @@ def load_image(logpath: str, index: int) -> np.ndarray:
         events = log.Event.read_multiple(f)
 
         # Get the actual events, starting with a keyframe, which we will need
-        # TODO BUG There is an issue where the first frame after an Iframe is not rendered properly
         for i, evt in enumerate(events):
             if evt.which() == "headEncodeData":
                 if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
@@ -77,8 +76,13 @@ def load_image(logpath: str, index: int) -> np.ndarray:
 
                 video_events.append(evt)
 
-            if i >= index and len(video_events) > 1: # Need to send at least two packets to the nv decoder
+            if i == index:
                 break
+
+        # Workaround a bug in the nvidia library, where sending a single packet will never get decoded
+        # That can only happen if we have a single iframe, so just send it twice
+        if len(video_events) == 1:
+            video_events.append(video_events[0])
 
         # Now pass those into the decoder
         for evt in video_events:
