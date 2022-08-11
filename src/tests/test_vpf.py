@@ -1,10 +1,11 @@
+from struct import pack
 import unittest
 import os
 from webbrowser import get
 import numpy as np
 
 from src.tests.utils import get_test_image
-from src.web.video import load_image, create_video
+from src.web.video import load_image, create_video, decode_last_frame
 from src.web.config_web import RECORD_DIR
 import src.PyNvCodec as nvc
 from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
@@ -64,41 +65,17 @@ class VPFTest(unittest.TestCase):
         green_img = get_test_image((0, 255, 0), width, height)
         blue_img = get_test_image((0, 0, 255), width, height)
 
-        nv_cc = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
-        nv_n122yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
-        nv_yuv2rgb = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
-        nv_dl = nvc.PySurfaceDownloader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
-
         packets = create_video([red_img, green_img, blue_img], width, height)
+        self.assertEqual(len(packets), 3)
 
-        nv_dec = nvc.PyNvDecoder(
-            1280,
-            720,
-            nvc.PixelFormat.NV12,
-            nvc.CudaVideoCodec.HEVC,
-            WEB_VIDEO_DECODE_GPU_ID,
-        )
-
-        packet = packets[0]
-        packet = np.frombuffer(packet, dtype=np.uint8)
-        
-        result = nv_dec.DecodeSurfaceFromPacket(packet)
-        result = nv_dec.DecodeSurfaceFromPacket(packet)
-        print(result)
-        result = nv_dec.FlushSingleSurface()
-        print(result)
-        result = nv_dec.FlushSingleSurface()
-        print(result)
-
-        result = nv_n122yuv.Execute(result, nv_cc)
-        result = nv_yuv2rgb.Execute(result, nv_cc)
-        frame_rgb = np.ndarray(shape=(0), dtype=np.uint8)
-        nv_dl.DownloadSingleSurface(result, frame_rgb)
-
-        frame_rgb = frame_rgb.reshape((height, -1))
-
+        frame_rgb = decode_last_frame([packets[0]], nvc.PixelFormat.RGB, width, height)
         np.testing.assert_array_almost_equal(frame_rgb / 255.0, red_img / 255.0, decimal=1)
 
+        frame_rgb = decode_last_frame([packets[0], packets[1]], nvc.PixelFormat.RGB, width, height)
+        np.testing.assert_array_almost_equal(frame_rgb / 255.0, green_img / 255.0, decimal=1)
+
+        frame_rgb = decode_last_frame([packets[0], packets[1], packets[2]], nvc.PixelFormat.RGB, width, height)
+        np.testing.assert_array_almost_equal(frame_rgb / 255.0, blue_img / 255.0, decimal=1)
 
 
            
