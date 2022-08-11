@@ -18,7 +18,7 @@ DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
     """
-    Converts an NV12 surface to cuda float tensor.
+    Converts an NV12 surface to cuda float YUV tensor.
     """
     if surface.Format() != nvc.PixelFormat.NV12:
         raise RuntimeError('Surface shall be of NV12 pixel format')
@@ -54,6 +54,10 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
             0, # TODO Set the GPU ID dynamically or something
         )
 
+        self.nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
+                                                     color_range=nvc.ColorRange.MPEG)
+                                           
+
     def __iter__(self) -> Iterator[torch.Tensor]:
          for path, file in self.source_datapipe:
             # Read the events from the log file
@@ -73,7 +77,13 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                     if not surface.Empty():
                         yield surface_to_tensor(surface)
 
-            # TODO Flush the decoder
+            while True:
+                surface = self.nv_dec.FlushSingleSurface()
+
+                if surface.Empty():
+                    break
+                else:
+                    yield surface_to_tensor(surface)
 
 def build_datapipe(root_dir=RECORD_DIR):
     datapipe = dp.iter.FileLister(root_dir)
