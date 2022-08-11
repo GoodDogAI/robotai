@@ -18,26 +18,33 @@ DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
     """
-    Converts an NV12 surface to cuda float YUV tensor.
+    Converts an NV12 surface to cuda float Y,UV tensor.
     """
     if surface.Format() != nvc.PixelFormat.NV12:
         raise RuntimeError('Surface shall be of NV12 pixel format')
 
     surf_plane = surface.PlanePtr()
+    height = surf_plane.Height()
     img_tensor = pnvc.DptrToTensor(surf_plane.GpuMem(),
                                    surf_plane.Width(),
-                                   surf_plane.Height(),
+                                   height,
                                    surf_plane.Pitch(),
                                    surf_plane.ElemSize())
     if img_tensor is None:
         raise RuntimeError('Can not export to tensor.')
 
-    img_tensor.resize_(3, int(surf_plane.Height()/3), surf_plane.Width())
-    img_tensor = img_tensor.type(dtype=torch.cuda.FloatTensor)
-    img_tensor = torch.divide(img_tensor, 255.0)
-    img_tensor = torch.clamp(img_tensor, 0.0, 1.0)
 
-    return img_tensor
+    y_tensor = img_tensor[:height]
+    uv_tensor = img_tensor[height:]
+    uv_tensor = uv_tensor.repeat_interleave(2, dim=0)
+
+    merged_tensor = torch.stack((y_tensor, uv_tensor)) 
+    
+    merged_tensor = merged_tensor.type(dtype=torch.cuda.FloatTensor)
+    merged_tensor = torch.divide(merged_tensor, 255.0)
+    merged_tensor = torch.clamp(merged_tensor, 0.0, 1.0)
+
+    return merged_tensor
 
 
 @dp.functional_datapipe("decode_log_frames")
@@ -53,9 +60,6 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
             nvc.CudaVideoCodec.HEVC,
             0, # TODO Set the GPU ID dynamically or something
         )
-
-        self.nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
-                                                     color_range=nvc.ColorRange.MPEG)
                                            
 
     def __iter__(self) -> Iterator[torch.Tensor]:
