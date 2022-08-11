@@ -1,5 +1,8 @@
+from ast import Bytes
 import os
 import numpy as np
+
+from typing import List
 import src.PyNvCodec as nvc
 from src.include.config import load_realtime_config
 from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
@@ -112,5 +115,32 @@ def load_image(logpath: str, index: int) -> np.ndarray:
                 events_recv += 1
 
         raise ValueError("Unable to decode video stream to desired packet")
+
+def create_video(frames: List[np.ndarray], width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> List[Bytes]:
+    result = []
+
+    nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
+                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
+
+    nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
+                                                    color_range=nvc.ColorRange.MPEG)
+
+    nv_ul = nvc.PyFrameUploader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
+    nv_rgb2yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
+    nv_yuv2n12 = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, WEB_VIDEO_DECODE_GPU_ID)
+
+    packet = np.ndarray(shape=(0), dtype=np.uint8)
+
+    for frame in frames:
+        surface = nv_ul.UploadSingleFrame(frame)
+        surface = nv_rgb2yuv.Execute(surface, nv_cc)
+        surface = nv_yuv2n12.Execute(surface, nv_cc)
+
+        success = nv_enc.EncodeSingleSurface(surface, packet, sync=True)
+        assert(success)
+
+        result.append(packet.tobytes())
+
+    return result
 
 

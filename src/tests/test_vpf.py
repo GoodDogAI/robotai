@@ -4,7 +4,7 @@ from webbrowser import get
 import numpy as np
 
 from src.tests.utils import get_test_image
-from src.web.video import load_image
+from src.web.video import load_image, create_video
 from src.web.config_web import RECORD_DIR
 import src.PyNvCodec as nvc
 from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
@@ -59,38 +59,17 @@ class VPFTest(unittest.TestCase):
 
     def test_encode_decode(self):
         width, height = 1280, 720
-        nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
-                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
 
-        nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
-                                                      color_range=nvc.ColorRange.MPEG)
+        red_img = get_test_image((255, 0, 0), width, height)
+        green_img = get_test_image((0, 255, 0), width, height)
+        blue_img = get_test_image((0, 0, 255), width, height)
 
-        nv_ul = nvc.PyFrameUploader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
-        nv_dl = nvc.PySurfaceDownloader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
-        nv_rgb2yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
-        nv_yuv2n12 = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, WEB_VIDEO_DECODE_GPU_ID)
+        nv_cc = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
         nv_n122yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
         nv_yuv2rgb = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
+        nv_dl = nvc.PySurfaceDownloader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
 
-        red_img = get_test_image((255, 0, 0), 1280, 720)
-        green_img = get_test_image((0, 255, 0), 1280, 720)
-        blue_img = get_test_image((0, 0, 255), 1280, 720)
-
-        packet = np.ndarray(shape=(0), dtype=np.uint8)
-
-        surface = nv_ul.UploadSingleFrame(red_img)
-        print(surface)
-
-        surface = nv_rgb2yuv.Execute(surface, nv_cc)
-        print(surface)
-
-        surface = nv_yuv2n12.Execute(surface, nv_cc)
-        print(surface)
-
-        success = nv_enc.EncodeSingleSurface(surface, packet, sync=True)
-        self.assertTrue(success)
-
-        print(packet.shape)
+        packets = create_video([red_img, green_img, blue_img], width, height)
 
         nv_dec = nvc.PyNvDecoder(
             1280,
@@ -100,6 +79,9 @@ class VPFTest(unittest.TestCase):
             WEB_VIDEO_DECODE_GPU_ID,
         )
 
+        packet = packets[0]
+        packet = np.frombuffer(packet, dtype=np.uint8)
+        
         result = nv_dec.DecodeSurfaceFromPacket(packet)
         result = nv_dec.DecodeSurfaceFromPacket(packet)
         print(result)
