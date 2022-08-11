@@ -60,7 +60,7 @@ function LogListEntry(props) {
             {logs.map(log =>
               <li key={log.sha256}>
                 <button className={"link"} onClick={() => onLogSelected(log.filename)}>
-                  {selectedLog === log.filename ? (<em>{cleanLogName(log.filename)}</em>) : <span>{cleanLogName(log.filename)}</span> }
+                  {selectedLog === log.filename ? (<strong>{cleanLogName(log.filename)}</strong>) : <span>{cleanLogName(log.filename)}</span> }
                 </button>
               </li>
             )}
