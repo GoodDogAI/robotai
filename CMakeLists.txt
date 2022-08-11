@@ -67,6 +67,8 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
     install(FILES $<TARGET_FILE:TC_CORE> DESTINATION src)
     install(FILES $<TARGET_FILE:TC>	DESTINATION src)
+
+    install(FILES "${vpf_SOURCE_DIR}/PytorchNvCodec/src/PytorchNvCodec.${Python3_SOABI}.so"	DESTINATION src)
 endif()
 
 

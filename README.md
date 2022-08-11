@@ -24,4 +24,7 @@ Configure cmake
 Build the code
 `cmake --build .`
 
+Install the python libraries into their proper places
+`cmake --install . --prefix /home/jake/robotai`
+
 
