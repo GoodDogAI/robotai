@@ -31,7 +31,7 @@ static std::string get_log_identifier() {
     
     std::uniform_int_distribution<uint64_t> pick(std::numeric_limits<int64_t>::max() / 4, std::numeric_limits<int64_t>::max());
 
-    return fmt::format("{:08x}", pick(rg));
+    return fmt::format("{:08x}", pick(rg)).substr(0, 8);
 }
 
 
