@@ -17,7 +17,7 @@ export function LogList(props) {
 
   if (error) return "An error has occurred: " + error.message;
 
-  if (data.length == 0) return "No logs...";
+  if (data.length === 0) return "No logs...";
 
   return (
     <div className="logList">
@@ -34,12 +34,16 @@ export function LogList(props) {
   );
 }
 
+function cleanLogName(filename) {
+  return "..." + filename.substring(filename.indexOf("-", filename.indexOf("-") + 1) + 1).replace(".log", "");
+}
+
 function LogListEntry(props) {
   const { logs, index, isOpen, selectedLog, onOpen, onLogSelected } = props;
 
   const onNameClick = useCallback(() => {
     onOpen(index);
-  }, [index]);
+  }, [index, onOpen]);
 
   const name = logs[0].filename.replace(".log", "");
 
@@ -56,7 +60,7 @@ function LogListEntry(props) {
             {logs.map(log =>
               <li key={log.sha256}>
                 <button className={"link"} onClick={() => onLogSelected(log.filename)}>
-                  {selectedLog === log.filename ? (<em>{log.filename}</em>) : <span>{log.filename}</span> }
+                  {selectedLog === log.filename ? (<em>{cleanLogName(log.filename)}</em>) : <span>{cleanLogName(log.filename)}</span> }
                 </button>
               </li>
             )}
