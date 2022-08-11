@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <chrono>
+#include <random>
 #include <iostream>
 #include <fstream>
 #include <functional>
@@ -25,12 +26,20 @@ namespace fs = std::experimental::filesystem;
 const char *log_name { "alphalog" };
 const fs::path log_path{ LOG_PATH };
 
+static std::string get_log_identifier() {
+    static std::mt19937 rg{std::random_device{}()};
+    
+    std::uniform_int_distribution<uint64_t> pick(std::numeric_limits<int64_t>::max() / 4, std::numeric_limits<int64_t>::max());
 
-static fs::path get_log_filename() {
+    return fmt::format("{:08x}", pick(rg));
+}
+
+
+static fs::path get_log_filename(const std::string &identifier) {
     const auto log_start = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const std::tm tm{*std::gmtime(&log_start)};
 
-    return log_path/fmt::format("{}-{}-{}-{}-{}_{}.log", log_name, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+    return log_path/fmt::format("{}-{}-{}-{}-{}-{}_{}.log", log_name, identifier, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 }
 
 static void close_message(Message *m) {
@@ -52,7 +61,8 @@ int main(int argc, char *argv[])
     bool need_to_rotate { false };
     static_assert(LOG_DURATION_SECONDS >= 60, "Logs need to be at least 1 minute long");
 
-    auto log_filename { get_log_filename().concat(".active") };
+    auto log_identifier { get_log_identifier() };
+    auto log_filename { get_log_filename(log_identifier).concat(".active") };
     fmt::print("Opening log {}\n", log_filename.string());
 
     std::ofstream log{ log_filename, std::ios::binary };
@@ -93,7 +103,7 @@ int main(int argc, char *argv[])
                     fmt::print("Renaming {} to {}\n", log_filename.string(), log_final_filename.string());
                     fs::rename(log_filename, log_final_filename);
 
-                    auto new_log_filename { get_log_filename().concat(".active") };
+                    auto new_log_filename { get_log_filename(log_identifier).concat(".active") };
                     assert(new_log_filename != log_filename);
                     log_filename = new_log_filename;
 

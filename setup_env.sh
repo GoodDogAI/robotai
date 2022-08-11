@@ -10,7 +10,9 @@ sudo apt-get install -y --no-install-recommends \
     libavcodec-dev \
     libavutil-dev \
     libavformat-dev \
-    libswresample-dev
+    libswresample-dev \
+    libavfilter-dev \
+    libswscale-dev
 
 pip3 install -r requirements.txt
 
