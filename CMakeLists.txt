@@ -55,8 +55,7 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
 
     set(GENERATE_PYTHON_BINDINGS 1 CACHE BOOL "Override for generating python bindings for VPF" FORCE)
-    # TODO Enabling this would need to override some install locations
-    #set(GENERATE_PYTORCH_EXTENSION 1)
+    set(GENERATE_PYTORCH_EXTENSION 1 CACHE BOOL "Override for generating pytorch bindings for VPF" FORCE)
 
     FetchContent_Declare(vpf
             GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
