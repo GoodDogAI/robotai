@@ -24,16 +24,15 @@ def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
         raise RuntimeError('Surface shall be of NV12 pixel format')
 
     surf_plane = surface.PlanePtr()
-    height = surf_plane.Height()
     img_tensor = pnvc.DptrToTensor(surf_plane.GpuMem(),
                                    surf_plane.Width(),
-                                   height,
+                                   surf_plane.Height(),
                                    surf_plane.Pitch(),
                                    surf_plane.ElemSize())
     if img_tensor is None:
         raise RuntimeError('Can not export to tensor.')
 
-
+    height = surf_plane.Height() * 2 // 3
     y_tensor = img_tensor[:height]
     uv_tensor = img_tensor[height:]
     uv_tensor = uv_tensor.repeat_interleave(2, dim=0)
