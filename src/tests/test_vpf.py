@@ -5,7 +5,7 @@ from webbrowser import get
 import numpy as np
 
 from src.tests.utils import get_test_image
-from src.web.video import load_image, create_video, decode_last_frame
+from src.video import load_image, create_video, decode_last_frame
 from src.web.config_web import RECORD_DIR
 import src.PyNvCodec as nvc
 from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
