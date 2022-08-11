@@ -52,25 +52,26 @@ async def asha256(fp: UploadFile) -> str:
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSummary]]:
     groups = []
     cur_group = []
-    logname_re = re.compile(r"([a-z]+)-(\d{4})-(\d{1,2})-(\d{1,2})-(\d{1,2})_(\d{1,2}).log")
+    logname_re = re.compile(r"([a-z]+)-([a-f0-9]+)-(\d{4})-(\d{1,2})-(\d{1,2})-(\d{1,2})_(\d{1,2}).log")
     last_d = None
 
     for log in sorted(lh.values()):
         m = logname_re.match(log.filename)
         
         if m:
-            d = datetime(year=int(m[2]), month=int(m[3]), day=int(m[4]), hour=int(m[5]), minute=int(m[6]))
+            d = m[2]
         else:
             d = None
     
-        if (last_d is None or d - last_d > timedelta(minutes=1)) and cur_group != []:
+        if (last_d is None or d != last_d) and cur_group != []:
             groups.append(cur_group)
             cur_group = []
 
         cur_group.append(log)
         last_d = d
 
-    groups.append(cur_group)
+    if cur_group != []:
+        groups.append(cur_group)
 
     return groups
 

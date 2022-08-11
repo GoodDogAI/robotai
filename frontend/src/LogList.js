@@ -17,6 +17,8 @@ export function LogList(props) {
 
   if (error) return "An error has occurred: " + error.message;
 
+  if (data.length == 0) return "No logs...";
+
   return (
     <div className="logList">
       <h4>Available Logs ({data.length})</h4>
@@ -35,11 +37,11 @@ export function LogList(props) {
 function LogListEntry(props) {
   const { logs, index, isOpen, selectedLog, onOpen, onLogSelected } = props;
 
-  const name = logs[0].filename.replace(".log", "");
   const onNameClick = useCallback(() => {
     onOpen(index);
   }, [index]);
 
+  const name = logs[0].filename.replace(".log", "");
 
   return (
     <React.Fragment>
