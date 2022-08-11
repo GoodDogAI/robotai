@@ -55,18 +55,7 @@ def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
 
 
 def load_image(logpath: str, index: int) -> np.ndarray:
-    nv_dec = nvc.PyNvDecoder(
-        DECODE_WIDTH,
-        DECODE_HEIGHT,
-        nvc.PixelFormat.NV12,
-        nvc.CudaVideoCodec.HEVC,
-        WEB_VIDEO_DECODE_GPU_ID,
-    )
-
-    events_sent = 0
-    events_recv = 0
-
-    video_events = []
+    video_packets = []
 
     with open(logpath, "rb") as f:
         events = log.Event.read_multiple(f)
@@ -75,47 +64,62 @@ def load_image(logpath: str, index: int) -> np.ndarray:
         for i, evt in enumerate(events):
             if evt.which() == "headEncodeData":
                 if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
-                    video_events.clear()
+                    video_packets.clear()
 
-                video_events.append(evt)
+                video_packets.append(evt.headEncodeData.data)
 
             if i == index:
                 break
+            
+    return decode_last_frame(video_packets)
+   
 
-        # Workaround a bug in the nvidia library, where sending a single packet will never get decoded
-        # That can only happen if we have a single iframe, so just send it twice
-        if len(video_events) == 1:
-            video_events.append(video_events[0])
+# Returns the last frame from a list of video packets as an image
+def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.PixelFormat.RGB, width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> np.ndarray:
+    nv_dec = nvc.PyNvDecoder(
+        width,
+        height,
+        nvc.PixelFormat.NV12, # All actual decodes must be NV12 format
+        nvc.CudaVideoCodec.HEVC,
+        WEB_VIDEO_DECODE_GPU_ID,
+    )
+    packets_sent = 0
+    packets_recv = 0
 
-        # Now pass those into the decoder
-        for evt in video_events:
-            packet = evt.headEncodeData.data
-            assert packet[0] == 0 and packet[1] == 0 and packet[2] == 0 and packet[3] == 1
-            nalu_type = (packet[4] & 0x1F)
+    assert(len(packets) > 0, "Need to have some packets")
+    assert(pixel_format == nvc.PixelFormat.RGB, "Other formats Not implemented yet")
 
-            packet = np.frombuffer(packet, dtype=np.uint8)
-            surface = nv_dec.DecodeSurfaceFromPacket(packet)
-            events_sent += 1
+    # Workaround a bug in the nvidia library, where sending a single packet will never get decoded
+    # That can only happen if we have a single iframe, so just send it twice
+    if len(packets) == 1:
+        packets.append(packets[0])
 
-            if not surface.Empty():
-                if events_recv == len(video_events) - 1:
-                    return _rgb_from_surface(surface)
+    for packet in packets:
+        packet = np.frombuffer(packet, dtype=np.uint8)
+        surface = nv_dec.DecodeSurfaceFromPacket(packet)
+        packets_sent += 1
 
-                events_recv += 1
+        if not surface.Empty():
+            if packets_recv == len(packets) - 1:
+                return _rgb_from_surface(surface)   
 
-        while True:
-            surface = nv_dec.FlushSingleSurface()
+            packets_recv += 1
 
-            if surface.Empty():
-                break
-            else:
-                if events_recv == len(video_events) - 1:
-                    return _rgb_from_surface(surface)
+    
+    while True:
+        surface = nv_dec.FlushSingleSurface()
 
-                events_recv += 1
+        if surface.Empty():
+            break
+        else:
+            if packets_recv == len(packets) - 1:
+                return _rgb_from_surface(surface)
 
-        raise ValueError("Unable to decode video stream to desired packet")
+            packets_recv += 1
 
+    raise ValueError("Unable to decode video stream to desired packet")
+
+# Takes in frames as (HEIGHT, RGBRGBRGB...) shape ndarrays and returns HEVC output packets
 def create_video(frames: List[np.ndarray], width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> List[Bytes]:
     result = []
 
