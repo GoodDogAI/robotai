@@ -3,6 +3,8 @@
 
 build/
 bin/
+MNIST/
+lightning_logs/
 
 cereal/tmp/
 
