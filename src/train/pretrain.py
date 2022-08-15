@@ -1,6 +1,8 @@
 import os
 import pytorch_lightning as pl
 import torch
+import wandb
+
 from src.train.model_unet import UNet
 from src.train.videoloader import build_datapipe
 from torch.utils.data import DataLoader
@@ -24,7 +26,8 @@ rootdir = os.path.join(os.path.dirname(__name__), "..", "..", "_pretrain_logs")
 model = UNet()
 
 if __name__ == '__main__':
-    wandb_logger = WandbLogger(project="unet_video1", log_model="all", )
+    wandb.init(dir=rootdir, project="unet_video1")
+    wandb_logger = WandbLogger()
     trainer = pl.Trainer(gpus=1, max_epochs=1, default_root_dir=rootdir, logger=wandb_logger, val_check_interval=100, limit_val_batches=10)
 
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)

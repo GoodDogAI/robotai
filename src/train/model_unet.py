@@ -55,6 +55,7 @@ class Decoder(nn.Module):
         return x
 
 
+
 class UNet(pl.LightningModule):
     def __init__(self, enc_chs=[2,64,128,256,512,1024], dec_chs=[1024, 512, 256, 128, 64], lr=1e-3):
         super().__init__()
@@ -93,5 +94,8 @@ class UNet(pl.LightningModule):
         self.log('val_loss', loss)
 
         if batch_idx == 0 and isinstance(self.logger, WandbLogger):
-            images = wandb.Image(x_hat[0, 0], caption="xhat from validation")
-            self.logger.experiment.log({"examples": images, "global_step": self.trainer.global_step})
+            test_table = wandb.Table(columns=["guess", "truth"])
+            test_table.add_data(wandb.Image(x_hat[0, 0], caption="xhat from validation"),
+                                wandb.Image(self.crop(x)[0, 0], caption="x from validation"))
+
+            self.logger.experiment.log({"examples": test_table, "global_step": self.trainer.global_step})
