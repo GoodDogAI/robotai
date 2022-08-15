@@ -5,6 +5,7 @@ build/
 bin/
 
 _train_logs/
+_pretrain_logs/
 MNIST/
 lightning_logs/
 
