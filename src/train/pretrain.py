@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 import torch
 import wandb
 
-from src.train.model_unet import UNet
+from src.train.model_vae import VanillaVAE
 from src.train.videoloader import build_datapipe
 from torch.utils.data import DataLoader
 from pytorch_lightning.loggers import WandbLogger
@@ -23,10 +23,10 @@ valid_loader = DataLoader(dataset=valid_datapipe, batch_size=4)
 
 rootdir = os.path.join(os.path.dirname(__name__), "..", "..", "_pretrain_logs")
 
-model = UNet()
+model = VanillaVAE(in_channels=2, latent_dim=64, hidden_dims = [32, 64, 64, 64, 128, 128, 128, 128, 128])
 
 if __name__ == '__main__':
-    wandb.init(dir=rootdir, project="unet_video1")
+    wandb.init(dir=rootdir, project="vae_video1")
     wandb_logger = WandbLogger()
     trainer = pl.Trainer(gpus=1, max_epochs=1, default_root_dir=rootdir, logger=wandb_logger, val_check_interval=100, limit_val_batches=10)
 
