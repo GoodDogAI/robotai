@@ -88,18 +88,20 @@ sweep_config = {
 
 
 def sweep_iteration():
+	rootdir = os.path.join(os.path.dirname(__name__), "..", "..", "_train_logs")
+
 	# set up W&B logger
-	wandb.init()  # required to have access to `wandb.config`
+	wandb.init(dir=rootdir)  # required to have access to `wandb.config`
 	wandb_logger = WandbLogger(log_model='all')  # log final model
 
 	# data
-	dataset = MNIST('', train=True, download=True, transform=transforms.ToTensor())
+	dataset = MNIST(rootdir, train=True, download=True, transform=transforms.ToTensor())
 	mnist_train, mnist_val = random_split(dataset, [55000, 5000])
 
 	train_loader = DataLoader(mnist_train, batch_size=wandb.config.batch_size)
 	val_loader = DataLoader(mnist_val, batch_size=64)
 
-	trainer = pl.Trainer(gpus=1, max_epochs=wandb.config.epoch, logger=wandb_logger)
+	trainer = pl.Trainer(gpus=1, max_epochs=wandb.config.epoch, logger=wandb_logger, default_root_dir=rootdir)
 
 	model = LitAutoEncoder(wandb.config.lr)
 

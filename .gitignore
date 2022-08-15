@@ -3,6 +3,8 @@
 
 build/
 bin/
+
+_train_logs/
 MNIST/
 lightning_logs/
 
