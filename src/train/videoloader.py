@@ -3,7 +3,7 @@ import numpy as np
 import src.PyNvCodec as nvc
 import PytorchNvCodec as pnvc
 
-from typing import Iterator, List
+from typing import Iterator, List, Literal
 
 from cereal import log
 from src.video import V4L2_BUF_FLAG_KEYFRAME
@@ -88,9 +88,20 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                 else:
                     yield surface_to_tensor(surface)
 
-def build_datapipe(root_dir=RECORD_DIR):
+
+def build_datapipe(root_dir=RECORD_DIR, train_or_valid: Literal["train", "valid"]="train", split: float=0.90):
     datapipe = dp.iter.FileLister(root_dir)
     datapipe = datapipe.filter(filter_fn=lambda filename: filename.endswith('.log'))
+    datapipe = datapipe.shuffle()
+
+    train, valid = datapipe.demux(num_instances=2, classifier_fn=lambda x: 0 if torch.rand(1).item() < split else 1)
+
+    if train_or_valid == "train":
+        datapipe = train
+    else:
+        datapipe = valid
+
+    datapipe = datapipe.sharding_filter()
     datapipe = datapipe.open_files(mode='rb')
     datapipe = datapipe.decode_log_frames()
 
