@@ -86,8 +86,8 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
     packets_sent = 0
     packets_recv = 0
 
-    assert(len(packets) > 0, "Need to have some packets")
-    assert(pixel_format == nvc.PixelFormat.RGB, "Other formats Not implemented yet")
+    assert len(packets) > 0, "Need to have some packets"
+    assert pixel_format == nvc.PixelFormat.RGB, "Other formats Not implemented yet"
 
     # Workaround a bug in the nvidia library, where sending a single packet will never get decoded
     # That can only happen if we have a single iframe, so just send it twice
@@ -120,15 +120,19 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
     raise ValueError("Unable to decode video stream to desired packet")
 
 # Takes in frames as (HEIGHT, RGBRGBRGB...) shape ndarrays and returns HEVC output packets
-def create_video(frames: List[np.ndarray], width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> List[Bytes]:
+def create_video(frames: List[np.ndarray]) -> List[Bytes]:
+    width: int=DECODE_WIDTH
+    height: int=DECODE_HEIGHT
+
     result = []
 
-    assert(len(frames) > 0, "Need to send at least one frame")
-    assert(frames[0].shape[0] == height, "First dimension must be the height")
-    assert(frames[0].shape[1] == width * 3, "Second dimension must be width * 3 (RGBRGBRGB...)")
+    assert len(frames) > 0, "Need to send at least one frame"
+    assert frames[0].shape[0] == height, "First dimension must be the height"
+    assert frames[0].shape[1] == width * 3, "Second dimension must be width * 3 (RGBRGBRGB...)"
 
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
-                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
+                                'fps': '15', 'rc': 'vbr', 'gop': '15', 'bf': '0',
+                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M', 'maxbitrate': '20M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
 
     nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
                                                     color_range=nvc.ColorRange.MPEG)

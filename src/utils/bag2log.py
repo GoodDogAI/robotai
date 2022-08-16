@@ -3,8 +3,14 @@ import rosbag
 import numpy as np
 from cereal import log
 from src.video import create_video
+from src.include.config import load_realtime_config
+from skimage.transform import rescale
 
 camera_topic = ["/camera/rgb/image_rect_raw"]
+CONFIG = load_realtime_config()
+
+DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
+DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 def convert(bag_file: str, logfile: str):
     all_frames = []
@@ -21,12 +27,32 @@ def convert(bag_file: str, logfile: str):
                 if video_width is None or video_height is None:
                     video_width, video_height = msg.width, msg.height
                 else:
-                    assert(msg.width == video_width, "Video dims must be consistent")
-                    assert(msg.height == video_height, "Video dims must be consistent")
+                    assert msg.width == video_width, "Video dims must be consistent"
+                    assert msg.height == video_height, "Video dims must be consistent"
 
                 all_frames.append(image_np)
 
-        video_packets = create_video(all_frames, width=video_width, height=video_height)
+        # Rescale and center crop the images so that they match the usual decoding width/height
+        resized_frames = []
+        scale = max(DECODE_WIDTH / video_width, DECODE_HEIGHT / video_height)
+
+        all_frames = all_frames[:10]
+
+        for frame in all_frames:
+            frame = frame.reshape((video_height, video_width, -1))
+            resized = rescale(frame, scale, channel_axis=2)
+            if resized.shape[0] != DECODE_HEIGHT:
+                l = (resized.shape[0] - DECODE_HEIGHT) // 2
+                resized = resized[l:resized.shape[0] - l,]
+            if resized.shape[1] != DECODE_WIDTH:
+                l = (resized.shape[1] - DECODE_WIDTH) // 2
+                resized = resized[:, l:resized.shape[1] - l]
+
+            resized = resized.reshape((resized.shape[0], -1))
+            resized = np.round(resized * 255).astype(np.uint8)
+            resized_frames.append(resized)
+
+        video_packets = create_video(resized_frames)
 
         for packet in video_packets:
             evt = log.Event.new_message()
