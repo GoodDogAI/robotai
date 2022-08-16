@@ -123,6 +123,10 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
 def create_video(frames: List[np.ndarray], width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> List[Bytes]:
     result = []
 
+    assert(len(frames) > 0, "Need to send at least one frame")
+    assert(frames[0].shape[0] == height, "First dimension must be the height")
+    assert(frames[0].shape[1] == width * 3, "Second dimension must be width * 3 (RGBRGBRGB...)")
+
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
                                  'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
 

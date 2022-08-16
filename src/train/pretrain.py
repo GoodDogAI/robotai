@@ -18,8 +18,8 @@ torch.backends.cudnn.allow_tf32 = True
 train_datapipe = build_datapipe(train_or_valid="train", split=0.9)
 valid_datapipe = build_datapipe(train_or_valid="valid", split=0.9)
 
-train_loader = DataLoader(dataset=train_datapipe, batch_size=4)
-valid_loader = DataLoader(dataset=valid_datapipe, batch_size=4)
+train_loader = DataLoader(dataset=train_datapipe, batch_size=8)
+valid_loader = DataLoader(dataset=valid_datapipe, batch_size=8)
 
 rootdir = os.path.join(os.path.dirname(__file__), "..", "..", "_pretrain_logs")
 
@@ -28,6 +28,6 @@ model = VanillaVAE(in_channels=2, latent_dim=64, hidden_dims = [32, 64, 64, 64, 
 if __name__ == '__main__':
     wandb.init(dir=rootdir, project="vae_video1")
     wandb_logger = WandbLogger()
-    trainer = pl.Trainer(gpus=1, max_epochs=1, default_root_dir=rootdir, logger=wandb_logger, val_check_interval=100, limit_val_batches=10)
+    trainer = pl.Trainer(gpus=1, max_epochs=4, default_root_dir=rootdir, logger=wandb_logger, val_check_interval=100, limit_val_batches=10, accumulate_grad_batches=4)
 
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
