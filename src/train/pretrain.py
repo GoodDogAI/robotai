@@ -21,7 +21,7 @@ valid_datapipe = build_datapipe(train_or_valid="valid", split=0.9)
 train_loader = DataLoader(dataset=train_datapipe, batch_size=4)
 valid_loader = DataLoader(dataset=valid_datapipe, batch_size=4)
 
-rootdir = os.path.join(os.path.dirname(__name__), "..", "..", "_pretrain_logs")
+rootdir = os.path.join(os.path.dirname(__file__), "..", "..", "_pretrain_logs")
 
 model = VanillaVAE(in_channels=2, latent_dim=64, hidden_dims = [32, 64, 64, 64, 128, 128, 128, 128, 128])
 

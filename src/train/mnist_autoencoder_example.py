@@ -88,7 +88,7 @@ sweep_config = {
 
 
 def sweep_iteration():
-	rootdir = os.path.join(os.path.dirname(__name__), "..", "..", "_train_logs")
+	rootdir = os.path.join(os.path.dirname(__file__), "..", "..", "_train_logs")
 
 	# set up W&B logger
 	wandb.init(dir=rootdir)  # required to have access to `wandb.config`

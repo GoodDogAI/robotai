@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import src.PyNvCodec as nvc
-import PytorchNvCodec as pnvc
+import src.PytorchNvCodec as pnvc
 
 from typing import Iterator, List, Literal
 
