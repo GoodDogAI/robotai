@@ -36,8 +36,6 @@ def convert(bag_file: str, logfile: str):
         resized_frames = []
         scale = max(DECODE_WIDTH / video_width, DECODE_HEIGHT / video_height)
 
-        all_frames = all_frames[:10]
-
         for frame in all_frames:
             frame = frame.reshape((video_height, video_width, -1))
             resized = rescale(frame, scale, channel_axis=2)
