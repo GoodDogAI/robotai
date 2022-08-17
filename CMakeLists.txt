@@ -59,7 +59,7 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
 
     FetchContent_Declare(vpf
             GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
-            GIT_TAG origin/pybind_cmake
+            GIT_TAG origin/master
             )
     FetchContent_MakeAvailable(vpf)
 
