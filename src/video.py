@@ -149,7 +149,7 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
         surface = nv_yuv2n12.Execute(surface, nv_cc)
 
         success = nv_enc.EncodeSingleSurface(surface, packet, sync=True)
-        assert(success)
+        assert success
 
         result.append(packet.tobytes())
 

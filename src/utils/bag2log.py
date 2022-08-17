@@ -3,7 +3,7 @@ import glob
 import rosbag
 import numpy as np
 from cereal import log
-from src.video import create_video
+from src.video import create_video, V4L2_BUF_FLAG_KEYFRAME
 from src.include.config import load_realtime_config
 import PIL
 from PIL import Image
@@ -57,10 +57,14 @@ def convert(bag_file: str, logfile: str):
 
         video_packets = create_video(resized_frames)
 
-        for packet in video_packets:
+        for idx, packet in enumerate(video_packets):
             evt = log.Event.new_message()
             dat = evt.init("headEncodeData")
             dat.data = packet
+
+            if idx == 0:
+                dat.idx.flags = V4L2_BUF_FLAG_KEYFRAME
+                
             evt.write(lf)
 
 def _do_convert(path: str):

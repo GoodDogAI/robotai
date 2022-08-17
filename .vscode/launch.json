@@ -9,7 +9,7 @@
             "name": "Python: Module",
             "type": "python",
             "request": "launch",
-            "module": "src.utils.bag2log",
+            "module": "src.utils.bag2png",
             "justMyCode": true
         },
         {
