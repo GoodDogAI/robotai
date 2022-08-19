@@ -71,7 +71,8 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
             for evt in events:
                 if evt.which() == "headEncodeData":
                     if first:
-                        assert(evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME)
+                        # TODO PUT THIS BACK
+                        # assert evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME
                         first = False
 
                     packet = np.frombuffer(evt.headEncodeData.data, dtype=np.uint8)

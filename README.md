@@ -12,6 +12,16 @@ Then, install the basic system dependencies, this will work on Ubuntu generally
 This command will also install the python environment dependencies via a requirements.txt file
 `./setup_env.sh`
 
+# TensorRT
+You will need TensorRT 8.4, which is only available after signing a license with NVIDIA.
+
+```
+cd ~/Downloads
+tar -xvzf TensorRT-8.4.2.4.Linux.x86_64-gnu.cuda-11.6.cudnn8.4.tar.gz
+export TRT_LIBPATH=`pwd`/TensorRT-8.4.2.4
+
+pip install TensorRT-8.4.2.4/python/tensorrt-8.4.2.4-cp39-none-linux_x86_64.whl
+```
 
 # Building
 Make a new build Directory

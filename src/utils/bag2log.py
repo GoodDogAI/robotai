@@ -64,6 +64,8 @@ def convert(bag_file: str, logfile: str):
 
             if idx == 0:
                 dat.idx.flags = V4L2_BUF_FLAG_KEYFRAME
+            else:
+                dat.idx.flags = 0
                 
             evt.write(lf)
 

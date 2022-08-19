@@ -43,7 +43,7 @@ FetchContent_Declare(fmt
         )
 FetchContent_MakeAvailable(fmt)
 
-# If we are not on the Jetson platform, then we need to build the VPF
+# If we are not on the Jetson platform, then we need to build the VPF and get TensorRT specially
 if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     FetchContent_Declare(VideoCodecSDK
         URL https://storage.googleapis.com/robotai_public/Video_Codec_SDK_11.1.5.zip
