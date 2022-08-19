@@ -4,6 +4,7 @@ import time
 import requests
 import logging
 
+from itertools import chain
 from typing import Dict, Any
 from inotify_simple import INotify, flags
 from src.logutil import LogHashes
@@ -23,7 +24,7 @@ def sync(lh: LogHashes) -> bool:
         if all_logs.status_code != 200:
             logger.warning("Warning, unable to connect to logservice")
             return False
-        all_hashes = set(x["sha256"] for x in all_logs.json())
+        all_hashes = set(x["sha256"] for x in chain.from_iterable(all_logs.json()))
 
         for ls in lh.values():
             if ls.sha256 not in all_hashes:
