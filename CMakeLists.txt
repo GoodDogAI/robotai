@@ -43,7 +43,7 @@ FetchContent_Declare(fmt
         )
 FetchContent_MakeAvailable(fmt)
 
-# If we are not on the Jetson platform, then we need to build the VPF
+# If we are not on the Jetson platform, then we need to build the VPF and get TensorRT specially
 if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     FetchContent_Declare(VideoCodecSDK
         URL https://storage.googleapis.com/robotai_public/Video_Codec_SDK_11.1.5.zip
@@ -55,12 +55,11 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     set(VIDEO_CODEC_SDK_DIR ${VIDEO_CODEC_SDK_DIR} CACHE PATH "NVIDIA SDK Location" FORCE)
 
     set(GENERATE_PYTHON_BINDINGS 1 CACHE BOOL "Override for generating python bindings for VPF" FORCE)
-    # TODO Enabling this would need to override some install locations
-    #set(GENERATE_PYTORCH_EXTENSION 1)
+    set(GENERATE_PYTORCH_EXTENSION 1 CACHE BOOL "Override for generating pytorch bindings for VPF" FORCE)
 
     FetchContent_Declare(vpf
             GIT_REPOSITORY https://github.com/jakepoz/VideoProcessingFramework.git
-            GIT_TAG origin/pybind_cmake
+            GIT_TAG origin/master
             )
     FetchContent_MakeAvailable(vpf)
 
@@ -68,6 +67,8 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     install(FILES $<TARGET_FILE:PyNvCodec> DESTINATION src)
     install(FILES $<TARGET_FILE:TC_CORE> DESTINATION src)
     install(FILES $<TARGET_FILE:TC>	DESTINATION src)
+
+    install(FILES "${vpf_SOURCE_DIR}/PytorchNvCodec/src/PytorchNvCodec.${Python3_SOABI}.so"	DESTINATION src)
 endif()
 
 

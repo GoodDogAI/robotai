@@ -25,7 +25,7 @@ class LogServiceTest(unittest.TestCase):
     def test_empty_logs(self):
         resp = self.client.get("/logs")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), [[]])
+        self.assertEqual(resp.json(), [])
 
     def test_post_empty_log(self):
         with tempfile.NamedTemporaryFile() as tf:

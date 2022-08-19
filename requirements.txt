@@ -27,3 +27,6 @@ inotify_simple
 
 # For the realtime stuff to talk to the logservice
 requests
+
+# To log the reuslts of training runs
+wandb
