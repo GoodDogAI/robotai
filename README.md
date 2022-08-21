@@ -1,6 +1,3 @@
-from msilib.schema import Directory
-
-
 This is the main brains behind the robotai system.
 
 # Setup
@@ -13,7 +10,7 @@ This command will also install the python environment dependencies via a require
 `./setup_env.sh`
 
 # TensorRT
-You will need TensorRT 8.4, which is only available after signing a license with NVIDIA.
+You will need TensorRT 8.4, which is only available from NVIDIA.
 
 ```
 cd ~/Downloads
