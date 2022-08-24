@@ -1,9 +1,10 @@
 This is the main brains behind the robotai system.
 
 # Setup
-Make sure that you have a python environment setup,  I like to install miniconda, and
-setup a "robotai" environment for it.
+Make sure that you have a python environment setup. If you are on a regular PC, I like to install miniconda, and setup a "robotai" environment for it.
 `conda create -n robotai python=3.9`
+
+But if you are on a Jetson Xavier, I prefer to just use the native system python.
 
 Be sure that you checkout all the git submodules
 `git submodule update --init`
@@ -12,7 +13,10 @@ Then, install the basic system dependencies, this will work on Ubuntu generally
 This command will also install the python environment dependencies via a requirements.txt file
 `./setup_env.sh`
 
-# Compiling librealsense
+## Compiling librealsense
+
+You'll need to make sure to get the latest librealsense. I build from sources,
+which won't work fully without the custom kernel modules, but it's good enough for now.
 
 ```
 git clone https://github.com/IntelRealSense/librealsense/
@@ -25,7 +29,7 @@ sudo make install
 
 ```
 
-# TensorRT
+## TensorRT
 You will need TensorRT 8.4, which is only available from NVIDIA.
 
 ```
