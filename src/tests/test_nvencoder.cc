@@ -83,8 +83,10 @@ TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
     REQUIRE(result->len > 0);
     REQUIRE(result->flags & V4L2_BUF_FLAG_KEYFRAME);
 
-    // Required in ffmpeg < 4 in order to see all decoders
-    av_register_all();
+    #if LIBAVFORMAT_VERSION_MAJOR < 58
+        // Required in ffmpeg < 4 in order to see all decoders
+        av_register_all();
+    #endif
 
     AVPacket *pkt = av_packet_alloc();
     REQUIRE(pkt);

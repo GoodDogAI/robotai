@@ -13,7 +13,7 @@ set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 
 # Locate Python
 set(Python_FIND_VIRTUALENV FIRST)
-find_package(Python3 COMPONENTS Interpreter Development)
+find_package(Python3 3.9 COMPONENTS Interpreter Development REQUIRED)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
 
 # Set the default location for the jetson multimedia sdk
@@ -73,7 +73,7 @@ endif()
 
 
 # Find any dependencies that must be installed on the system
-find_package(CapnProto 0.8.0 REQUIRED)
+find_package(CapnProto 0.7.0 REQUIRED)
 
 # TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
 # find_package(ZeroMQ REQUIRED)

@@ -5,6 +5,9 @@ Make sure that you have a python environment setup,  I like to install miniconda
 setup a "robotai" environment for it.
 `conda create -n robotai python=3.9`
 
+Be sure that you checkout all the git submodules
+`git submodule update --init`
+
 Then, install the basic system dependencies, this will work on Ubuntu generally
 This command will also install the python environment dependencies via a requirements.txt file
 `./setup_env.sh`
