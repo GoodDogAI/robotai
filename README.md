@@ -12,6 +12,19 @@ Then, install the basic system dependencies, this will work on Ubuntu generally
 This command will also install the python environment dependencies via a requirements.txt file
 `./setup_env.sh`
 
+# Compiling librealsense
+
+```
+git clone https://github.com/IntelRealSense/librealsense/
+git checkout v2.51.1 
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=false
+make -j4
+sudo make install
+
+```
+
 # TensorRT
 You will need TensorRT 8.4, which is only available from NVIDIA.
 
