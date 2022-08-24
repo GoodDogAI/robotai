@@ -1,6 +1,7 @@
 #include <array>
 #include <string>
 #include <thread>
+#include <algorithm>
 #include <chrono>
 #include <alsa/asoundlib.h>
 #include <fmt/core.h>
@@ -55,7 +56,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    // We can do interleaved access, in case we ever go to stereo, but for now it doesn't matter
+    // We can do interleaved access, which is the more common way to use ALSA
     if (snd_pcm_hw_params_set_access(pcm_handle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED) < 0) {
         fmt::print(stderr, "Error setting access.\n");
         return EXIT_FAILURE;
@@ -79,8 +80,6 @@ int main(int argc, char *argv[])
     }
 
     // Set number of channels
-    static_assert(AUDIO_CHANNELS == 1, "This code only supports mono audio for now. You'd need to adjust it for stereo.");
-
     if (snd_pcm_hw_params_set_channels(pcm_handle, hwparams, AUDIO_CHANNELS) < 0) {
         fmt::print(stderr, "Error setting channels.\n");
         return EXIT_FAILURE;
@@ -100,8 +99,11 @@ int main(int argc, char *argv[])
     fmt::print("Audio device {} successfully opened, with {} frames of size {}\n", AUDIO_DEVICE_NAME, frames, frame_size);
 
     int pcmreturn;
+    bool firstcheck = true;
     auto buf = kj::heapArray<int32_t>(frames * AUDIO_CHANNELS);
-    auto fbuf = kj::heapArray<float>(frames * AUDIO_CHANNELS);
+    auto ch0 = kj::heapArray<float>(frames);
+
+    std::fill(ch0.begin(), ch0.end(), 0.0f);
 
     for (;;) {
         pcmreturn = snd_pcm_readi(pcm_handle, buf.begin(), frames);
@@ -113,23 +115,38 @@ int main(int argc, char *argv[])
             fmt::print(stderr, "error from read: {}\n", snd_strerror(pcmreturn));    
             return EXIT_FAILURE;
         }
-
-        // For now, we only support dealing with full buffers
-        assert(pcmreturn == buf.size());
-
-        // Convert to float
-        for (size_t i { 0 }; i < buf.size(); i++) {
-            fbuf[i] = buf[i] / static_cast<float>(std::numeric_limits<int32_t>::max());
+        else if (pcmreturn != frames) {
+            // For now, we only support dealing with full buffers
+            fmt::print(stderr, "read incomplete buffer: size {} / {}\n", pcmreturn, frames);    
+            return EXIT_FAILURE; 
         }
 
-        //fmt::print("{} = {:032b} = {}\n", buf[0], buf[0], fbuf[0]);
+        // Convert only channel 0 to float
+        for (size_t frame { 0 }; frame < pcmreturn; ++frame) {
+            ch0[frame] = buf[frame * 2] / static_cast<float>(std::numeric_limits<int32_t>::max());
+        }
+
+        // Assert that the first frame has correct looking data
+        if (firstcheck) {
+            firstcheck = false;
+
+            auto count = std::count_if(ch0.begin(), ch0.end(), [](float s) { return s != 0.0f; });
+            fmt::print("Non zero count {}\n", count);
+            
+            if (count < frames * 0.90) {
+                fmt::print(stderr, "microphone does not appear to be connected\n");    
+                return EXIT_FAILURE; 
+            }
+        }
+
+        //fmt::print("{} = {:032b} = {}\n", buf[0], buf[0], ch0[0]);
 
         MessageBuilder msg;
         auto event = msg.initEvent(true);
         auto mdat = event.initMicData();
         mdat.setMic(cereal::AudioData::MicrophonePlacement::MAIN_BODY);
         mdat.setChannel(0);
-        mdat.setData(kj::ArrayPtr<float>(fbuf.begin(), fbuf.end()));
+        mdat.setData(kj::ArrayPtr<float>(ch0.begin(), ch0.end()));
         
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();

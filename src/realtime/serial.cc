@@ -1,5 +1,4 @@
 #include <string>
-#include <cassert>
 #include <stdexcept>
 #include <memory>
 #include <regex>
@@ -66,7 +65,10 @@ uint8_t Serial::read_byte() {
     [[maybe_unused]] ssize_t num_read;
     
     num_read = read(fd, &buf, 1);
-    assert(num_read == 1);
+    
+    if (num_read != 0) {
+        throw std::runtime_error("Could not read serial byte");
+    }
 
     return buf;
 }
@@ -77,12 +79,13 @@ std::optional<std::vector<uint8_t>> Serial::read_bytes(std::chrono::milliseconds
 
     int ret = poll(&serial_port_poll, 1, timeout.count());
 
-    assert(ret >= 0);
-
     if (ret == 1) {
         ssize_t bytes_read = read(fd, buf.data(), std::size(buf));
         buf.resize(bytes_read);
         return buf;
+    }
+    else if (ret < 0) {
+        throw std::runtime_error("Could not poll serial device");
     }
 
     return std::nullopt;
@@ -99,8 +102,11 @@ std::string Serial::read_regex(const std::regex &re) {
         [[maybe_unused]] ssize_t num_read;
         
         num_read = read(fd, &data, 1);
-        assert(num_read == 1);
 
+        if (num_read != 1){
+            throw std::runtime_error("Could not read serial byte");
+        }
+        
         // fmt::print("{} - {}\n", buf, std::regex_match(std::addressof(*buf.cbegin()),
         //                       std::addressof(*buf.cend()),
         //                       m, re, std::regex_constants::match_default));
@@ -113,25 +119,31 @@ std::string Serial::read_regex(const std::regex &re) {
 
 void Serial::write_byte(uint8_t data) {
     uint8_t buf = data;
-    [[maybe_unused]] ssize_t num_write;
+    ssize_t num_writen;
     
-    num_write = write(fd, &buf, 1);
+    num_writen = write(fd, &buf, 1);
 
-    assert(num_write == 1);
+    if (num_writen != 1) {
+        throw std::runtime_error("Could not write serial byte");
+    }
 }
 
 void Serial::write_bytes(const void *data, size_t len) {
-    [[maybe_unused]] ssize_t num_writen;
+   ssize_t num_writen;
     
     num_writen = write(fd, data, len);
 
-    assert(num_writen == len);
+    if (num_writen != len) {
+        throw std::runtime_error("Could not write serial bytes");
+    }
 }
 
 void Serial::write_str(const std::string &data) {
-    [[maybe_unused]] ssize_t num_write;
+    ssize_t num_writen;
     
-    num_write = write(fd, data.c_str(), data.length());
+    num_writen = write(fd, data.c_str(), data.length());
 
-    assert(num_write == data.length());
+    if (num_writen != data.length()) {
+        throw std::runtime_error("Could not write serial bytes");
+    }
 }

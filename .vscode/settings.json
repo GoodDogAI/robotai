@@ -67,7 +67,9 @@
         "regex": "cpp",
         "iomanip": "cpp",
         "typeindex": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "bit": "cpp",
+        "shared_mutex": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

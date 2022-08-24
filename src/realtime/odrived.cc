@@ -133,7 +133,9 @@ int main(int argc, char **argv)
 
         // Read and update vbus voltage
         float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
-        assert(!std::isnan(vbus_voltage));
+        if (std::isnan(vbus_voltage)) {
+            throw std::runtime_error("Got unexpected NaN voltage from Odrive");
+        }
 
         MessageBuilder vmsg;
         auto vevent = vmsg.initEvent(true);

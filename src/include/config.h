@@ -12,10 +12,10 @@
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"
 
-#define AUDIO_DEVICE_NAME "hw:tegrasndt19xmob,0"
+#define AUDIO_DEVICE_NAME "hw:APE,0"
 #define AUDIO_PCM_FORMAT SND_PCM_FORMAT_S32_LE
 #define AUDIO_SAMPLE_RATE 48'000
-#define AUDIO_CHANNELS 1
+#define AUDIO_CHANNELS 2
 
 #define ODRIVE_SERIAL_PORT "/dev/ttyACM0"
 #define ODRIVE_BAUD_RATE B115200
