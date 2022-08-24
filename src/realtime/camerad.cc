@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     {
         rs2::video_frame color_frame = queue.wait_for_frame();
 
-        if (color_frame.get_frame_number() != frame_id + 1)
+        if (color_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
         {
             std::cerr << "Frame number mismatch" << std::endl;
             std::cerr << "Got " << color_frame.get_frame_number() << " expected " << frame_id + 1 << std::endl;
@@ -81,12 +81,14 @@ int main(int argc, char *argv[])
         // TODO To get proper frame metadata, it will be necessary to patch the kernel and bypass the UVC stuff
         // For now, it will be best to just go with UVC, and maybe by the time I finish coding, they will have
         // discontinued realsense anyways...
-        //auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
-        //std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << std::endl;
+        auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
+        std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
+
+        std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
 
         VisionIpcBufExtra extra {
                         frame_id,
-                        0,
+                        static_cast<uint64_t>(start_of_frame),
                         0,
         };
         cur_yuv_buf->set_frame_id(frame_id);
