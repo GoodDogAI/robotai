@@ -69,7 +69,8 @@
         "typeindex": "cpp",
         "valarray": "cpp",
         "bit": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "strstream": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

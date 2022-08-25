@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <cassert>
 
+#include <fmt/core.h>
+#include <fmt/chrono.h>
+
 #include <librealsense2/rs.hpp>
 
 #include "cereal/messaging/messaging.h"
@@ -27,15 +30,15 @@ int main(int argc, char *argv[])
     size_t device_count{ devices_list.size() };
     if (!device_count)
     {
-        std::cout << "No device detected. Is it plugged in?\n";
+        fmt::print(stderr, "No device detected. Is it plugged in?\n");
         return EXIT_SUCCESS;
     }
 
-    std::cout << "Found " << device_count << " devices\n";
+    fmt::print("Found {} devices\n", device_count);
 
     rs2::device device = devices_list.front();
 
-    std::cout << "Device Name: " << device.get_info(RS2_CAMERA_INFO_NAME) << std::endl;
+    fmt::print("Device Name: {}\n", device.get_info(RS2_CAMERA_INFO_NAME) );
 
     auto depth_sens{ device.first<rs2::depth_sensor>() };
     auto color_sens{ device.first<rs2::color_sensor>() };
@@ -49,7 +52,7 @@ int main(int argc, char *argv[])
 
     if (!stream_profile)
     {
-        std::cerr << "No matching camera configuration found\n";
+        fmt::print(stderr, "No matching camera configuration found\n");
         return EXIT_FAILURE;
     }
 
@@ -61,6 +64,7 @@ int main(int argc, char *argv[])
     uint32_t frame_id{ 0 };
     auto start {std::chrono::steady_clock::now()};
     rs2_metadata_type last_start_of_frame {};
+    constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
     while (true)
     {
@@ -68,8 +72,8 @@ int main(int argc, char *argv[])
 
         if (color_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
         {
-            std::cerr << "Frame number mismatch" << std::endl;
-            std::cerr << "Got " << color_frame.get_frame_number() << " expected " << frame_id + 1 << std::endl;
+            fmt::print(stderr, "Frame number mismatch\n");
+            fmt::print(stderr, "Got {} expected {}\n", color_frame.get_frame_number(), frame_id + 1);
             break;
         }
         else
@@ -82,12 +86,16 @@ int main(int argc, char *argv[])
         // TODO To get proper frame metadata, it will be necessary to patch the kernel and bypass the UVC stuff
         // For now, it will be best to just go with UVC, and maybe by the time I finish coding, they will have
         // discontinued realsense anyways...
-        auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
-        std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
+        rs2_metadata_type start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
+        //std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
 
         //std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
-        std::cout << "Took " << start_of_frame - last_start_of_frame << std::endl;
-        last_start_of_frame = start_of_frame;
+        
+        // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
+        if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
+            fmt::print(stderr, "Got unexpected frame jitter of {} vs expected {} usec\n", start_of_frame - last_start_of_frame, expected_frame_time);
+            throw std::runtime_error("Unexpectedly high jitter");
+        }
 
         VisionIpcBufExtra extra {
                         frame_id,
@@ -119,11 +127,12 @@ int main(int argc, char *argv[])
         if (frame_id % 100 == 0)
         {
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;
-            std::cout << "100 Frames "
-                      << " took " << duration.count() << "ms" << std::endl;
+            fmt::print("100 frames took {}ms\n", duration);
 
             start = std::chrono::steady_clock::now();
         }
+
+        last_start_of_frame = start_of_frame;
     }
 
     return EXIT_SUCCESS;
