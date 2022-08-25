@@ -21,4 +21,6 @@ pip3 install -r requirements.txt
 # on Xavier platforms, you'll have to install pytorch manually
 if [[ $(dpkg --print-architecture) = amd64 ]]; then
   pip3 install --extra-index-url https://download.pytorch.org/whl/cu116 torch torchvision torchaudio torchdata
+
+  conda install -c conda-forge opencv
 fi

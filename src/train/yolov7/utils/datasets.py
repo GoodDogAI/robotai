@@ -12,8 +12,7 @@ from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from threading import Thread
 
-# TODO install this with GPU acceleration
-#import cv2
+import cv2
 
 import numpy as np
 import torch

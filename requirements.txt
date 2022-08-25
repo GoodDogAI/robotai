@@ -30,3 +30,6 @@ requests
 
 # To log the reuslts of training runs
 wandb
+
+# For yolov7 plotting
+seaborn
