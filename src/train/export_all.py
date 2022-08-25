@@ -4,6 +4,7 @@ sys.path.insert(0, "src/train/yolov7")
 
 import torch
 import onnx
+import tensorrt as trt
 
 from src.train.yolov7.models.experimental import attempt_load
 from src.train.yolov7.utils.activations import Hardswish, SiLU
@@ -45,5 +46,8 @@ onnx.checker.check_model(onnx_model)  # check onnx model
 print("Confirmed ONNX model is valid")
     
 # Convert the ONNX to TensorRT
+print('\nStarting TensorRT export with onnx %s...' % onnx.__version__)
+
+
 
 # Run both on the same random input and make sure
