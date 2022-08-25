@@ -60,6 +60,7 @@ int main(int argc, char *argv[])
 
     uint32_t frame_id{ 0 };
     auto start {std::chrono::steady_clock::now()};
+    rs2_metadata_type last_start_of_frame {};
 
     while (true)
     {
@@ -84,7 +85,9 @@ int main(int argc, char *argv[])
         auto start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
         std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
 
-        std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
+        //std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
+        std::cout << "Took " << start_of_frame - last_start_of_frame << std::endl;
+        last_start_of_frame = start_of_frame;
 
         VisionIpcBufExtra extra {
                         frame_id,
