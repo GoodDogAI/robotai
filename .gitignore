@@ -4,6 +4,7 @@
 build/
 bin/
 
+_checkpoints
 _train_logs/
 _pretrain_logs/
 MNIST/

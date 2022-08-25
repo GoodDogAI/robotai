@@ -33,3 +33,6 @@ wandb
 
 # For yolov7 plotting
 seaborn
+
+# For exporting models to ONNX, as preparation for TensorRT export
+onnx
