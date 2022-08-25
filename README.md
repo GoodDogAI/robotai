@@ -26,7 +26,6 @@ cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_EXAMPLES=false
 make -j4
 sudo make install
-
 ```
 
 ## TensorRT
