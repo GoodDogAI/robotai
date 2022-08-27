@@ -65,7 +65,7 @@ class VPFTest(unittest.TestCase):
         green_img = get_test_image((0, 255, 0), width, height)
         blue_img = get_test_image((0, 0, 255), width, height)
 
-        packets = create_video([red_img, green_img, blue_img], width, height)
+        packets = create_video([red_img, green_img, blue_img])
         self.assertEqual(len(packets), 3)
 
         frame_rgb = decode_last_frame([packets[0]], nvc.PixelFormat.RGB, width, height)

@@ -44,8 +44,10 @@ You will need TensorRT 8.4, which is only available from NVIDIA.
 Once you get it, you'll want to follow the installation instructions here (.tar): 
 https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html#installing-tar
 
-In summary, you'll need to install the tensorrt*.whl file into your python environment. And
-then update the LD_LIBARY_PATH in your .bashrc
+In summary, you'll need to install the tensorrt*.whl file into your python environment. 
+
+And you'll need to adjust your ld conf so that the shared libraries can be found.
+
 
 ```
 cd ~/Downloads
@@ -54,7 +56,8 @@ export TRT_LIBPATH=`pwd`/TensorRT-8.4.2.4
 
 pip install TensorRT-8.4.2.4/python/tensorrt-8.4.2.4-cp39-none-linux_x86_64.whl
 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:<TensorRT-${version}/lib>
+sudo nano /etc/ld.so.conf.d/tensorrt.conf
+(Then paste in /home/jake/TensorRT-8.4.2.4/lib)
 ```
 
 # Building
