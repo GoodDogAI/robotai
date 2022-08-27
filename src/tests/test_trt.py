@@ -25,11 +25,25 @@ class TestTensorRT(unittest.TestCase):
             engine = runtime.deserialize_cuda_engine(serialized_engine)
             context = engine.create_execution_context()
 
-            # input_idx = engine[input_name]
-            # output_idx = engine[output_name]
+            for binding in engine:
+                print(binding)
 
-            # buffers = [None] * 2 # Assuming 1 input and 1 output
-            # buffers[input_idx] = input_ptr
-            # buffers[output_idx] = output_ptr
+            input_idx = engine["images"]
+            output_idx = engine["output"]
+            input_dims = engine.get_binding_shape(input_idx)
+            output_dims = engine.get_binding_shape(output_idx)
 
-            # context.execute_v2(buffers, stream_ptr)
+            print("input_dims:", input_dims)
+            print("output_dims:", output_dims)
+
+            bindings = []
+            for binding in engine:
+                shape = engine.get_binding_shape(binding)
+                dtype = trt.nptype(engine.get_binding_dtype(binding))
+                data = torch.zeros(*shape, device="cuda:0")
+                bindings.append(data)
+
+
+            context.execute_v2([b.data_ptr() for b in bindings])
+
+            print("bindings:", bindings)

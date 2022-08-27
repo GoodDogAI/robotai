@@ -56,8 +56,8 @@ export TRT_LIBPATH=`pwd`/TensorRT-8.4.2.4
 
 pip install TensorRT-8.4.2.4/python/tensorrt-8.4.2.4-cp39-none-linux_x86_64.whl
 
-sudo nano /etc/ld.so.conf.d/tensorrt.conf
-(Then paste in /home/jake/TensorRT-8.4.2.4/lib)
+nano ~/.bashrc
+export LD_LIBRARY_PATH=/home/jake/TensorRT-8.4.2.4/lib:$LD_LIBRARY_PATH
 ```
 
 # Building
