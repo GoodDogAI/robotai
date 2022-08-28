@@ -75,5 +75,15 @@ with trt.Builder(TRT_LOGGER) as builder, \
         with open(engine_path, "wb") as f:
             f.write(plan)
             
+        context = engine.create_execution_context()
+        bindings = []
+        for binding in engine:
+            shape = engine.get_binding_shape(binding)
+            dtype = trt.nptype(engine.get_binding_dtype(binding))
+            data = torch.zeros(*shape, device="cuda:0")
+            bindings.append(data)
 
-# Run both on the same random input and make sure
+
+        context.execute_v2([b.data_ptr() for b in bindings])
+        print("Done")
+
