@@ -2,6 +2,7 @@ import sys
 # Hack to allow loading the pickled yolov7 model
 sys.path.insert(0, "src/train/yolov7")
 
+import time
 import torch
 import onnx
 import tensorrt as trt
@@ -71,16 +72,16 @@ with trt.Builder(TRT_LOGGER) as builder, \
                     print(parser.get_error(error))
     
         
-        # print("Completed parsing of ONNX file")
-        # print("Beginning engine build")
-        # plan = builder.build_serialized_network(network, config)
-        # engine = runtime.deserialize_cuda_engine(plan)
-        # print("Completed creating Engine")
-        # with open(engine_path, "wb") as f:
-        #     f.write(plan)
+        print("Completed parsing of ONNX file")
+        print("Beginning engine build")
+        plan = builder.build_serialized_network(network, config)
+        engine = runtime.deserialize_cuda_engine(plan)
+        print("Completed creating Engine")
+        with open(engine_path, "wb") as f:
+            f.write(plan)
             
-        with open(engine_path, "rb") as f:
-            engine = runtime.deserialize_cuda_engine(f.read())
+        # with open(engine_path, "rb") as f:
+        #     engine = runtime.deserialize_cuda_engine(f.read())
 
         context = engine.create_execution_context()
         bindings = []
@@ -91,18 +92,25 @@ with trt.Builder(TRT_LOGGER) as builder, \
             bindings.append(data)
 
 
-        context.execute_v2([b.data_ptr() for b in bindings])
+        start = time.perf_counter()
+        for i in range(100):
+            context.execute_v2([b.data_ptr() for b in bindings])
+        print(f"TRT Took {(time.perf_counter() - start) / 100:0.4f} seconds per iteration")
 
-        import onnxruntime
-        ort_sess = onnxruntime.InferenceSession(onnx_path)
-        ort_outputs = ort_sess.run(None, {'images': bindings[0].cpu().numpy()})
+        # import onnxruntime
+        # ort_sess = onnxruntime.InferenceSession(onnx_path)
+        # ort_outputs = ort_sess.run(None, {'images': bindings[0].cpu().numpy()})
 
-        official = model(bindings[0])
+        start = time.perf_counter()
+        for i in range(100):
+            official = model(bindings[0])
+        print(f"PT Took {(time.perf_counter() - start) / 100:0.4f} seconds per iteration")
+    
 
         trt_close = torch.isclose(official[0], bindings[4], atol=1e-5, rtol=1e-3)
-        onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), bindings[4].cpu(), atol=1e-5, rtol=1e-3)
+        #onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), bindings[4].cpu(), atol=1e-5, rtol=1e-3)
 
         print(f"TensorRT-PT Percent match: {trt_close.sum() / torch.numel(trt_close):.3f}")
-        print(f"ONNX-PT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
+        #print(f"ONNX-PT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
         print("Done")
 
