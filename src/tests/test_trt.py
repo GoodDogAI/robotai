@@ -6,6 +6,7 @@ import torch
 import tensorrt as trt
 import unittest
 
+
 TRT_LOGGER = trt.Logger()
 yolo_checkpoint = "/home/jake/robotai/_checkpoints/yolov7-tiny.pt"
 

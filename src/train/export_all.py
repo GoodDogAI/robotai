@@ -48,42 +48,61 @@ print("Confirmed ONNX model is valid")
 engine_path = yolo_checkpoint.replace(".pt", ".engine")
 
 print('\nStarting TensorRT export with onnx %s...' % onnx.__version__)
-TRT_LOGGER = trt.Logger()
+TRT_LOGGER = trt.Logger(trt.ILogger.VERBOSE)
+
 with trt.Builder(TRT_LOGGER) as builder, \
      builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)) as network, \
      builder.create_builder_config() as config, \
      trt.OnnxParser(network, TRT_LOGGER) as parser, \
      trt.Runtime(TRT_LOGGER) as runtime:
      
+
+        # Don't use TF32 because it may give different results, and we are going for exact reproducability
+        config.clear_flag(trt.BuilderFlag.TF32)
+
         config.max_workspace_size = 1 << 28  # 256MiB
         builder.max_batch_size = 1
         
-        with open(onnx_path, "rb") as model:
+        with open(onnx_path, "rb") as onnx_file:
             print("Beginning ONNX file parsing")
-            if not parser.parse(model.read()):
+            if not parser.parse(onnx_file.read()):
                 print("ERROR: Failed to parse the ONNX file.")
                 for error in range(parser.num_errors):
                     print(parser.get_error(error))
     
-        # The actual yolov3.onnx is generated with batch size 64. Reshape input to batch size 1
-        #network.get_input(0).shape = [1, 3, 608, 608]
-        print("Completed parsing of ONNX file")
-        print("Beginning engine build")
-        plan = builder.build_serialized_network(network, config)
-        engine = runtime.deserialize_cuda_engine(plan)
-        print("Completed creating Engine")
-        with open(engine_path, "wb") as f:
-            f.write(plan)
+        
+        # print("Completed parsing of ONNX file")
+        # print("Beginning engine build")
+        # plan = builder.build_serialized_network(network, config)
+        # engine = runtime.deserialize_cuda_engine(plan)
+        # print("Completed creating Engine")
+        # with open(engine_path, "wb") as f:
+        #     f.write(plan)
             
+        with open(engine_path, "rb") as f:
+            engine = runtime.deserialize_cuda_engine(f.read())
+
         context = engine.create_execution_context()
         bindings = []
         for binding in engine:
             shape = engine.get_binding_shape(binding)
             dtype = trt.nptype(engine.get_binding_dtype(binding))
-            data = torch.zeros(*shape, device="cuda:0")
+            data = torch.randn(*shape, device="cuda:0")
             bindings.append(data)
 
 
         context.execute_v2([b.data_ptr() for b in bindings])
+
+        import onnxruntime
+        ort_sess = onnxruntime.InferenceSession(onnx_path)
+        ort_outputs = ort_sess.run(None, {'images': bindings[0].cpu().numpy()})
+
+        official = model(bindings[0])
+
+        trt_close = torch.isclose(official[0], bindings[4], atol=1e-5, rtol=1e-3)
+        onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), bindings[4].cpu(), atol=1e-5, rtol=1e-3)
+
+        print(f"TensorRT-PT Percent match: {trt_close.sum() / torch.numel(trt_close):.3f}")
+        print(f"ONNX-PT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
         print("Done")
 
