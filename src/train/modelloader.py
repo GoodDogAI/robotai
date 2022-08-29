@@ -16,7 +16,7 @@ DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
 DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 MODEL_MATCH_RTOL = 1e-5
-MODEL_MATCH_ATOL = 1e-5
+MODEL_MATCH_ATOL = 1e-4
 
 # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
 # in PyTorch 1.12 and later.
@@ -59,8 +59,6 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     #random_input = torch.randn(batch_size, 3, *img_size).to(device)
     random_input = torch.FloatTensor(batch_size, 3, *img_size).uniform_(0.0, 1.0).to(device)
 
-    cpu_model = config["load_fn"](config["checkpoint"], device="cpu")
-    #torch_output = cpu_model(random_input.cpu())
     torch_output = model(random_input)
 
     ort_sess = onnxruntime.InferenceSession(onnx_path)
@@ -70,8 +68,15 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     for i, torch_output in enumerate(chain(*torch_output)):
         torch_output = torch_output.detach().cpu().numpy()
         ort_output = ort_outputs[i]
-        #assert np.allclose(torch_output, ort_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
+
         matches = np.isclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
         print(f"Output {i} matches: {matches / torch_output.size:.2%}")
 
+        assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
+
     print("Validated pytorch and onnx outputs")
+
+    # Build the tensorRT engine
+    
+
+    # Verify that it matches
