@@ -9,7 +9,7 @@ then
     source activate robotai
 fi
 
-python -m unittest discover src.tests
+python3 -m unittest discover src.tests
 
 # Run c++ tests
 cd build

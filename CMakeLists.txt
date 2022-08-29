@@ -13,7 +13,7 @@ set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 
 # Locate Python
 set(Python_FIND_VIRTUALENV FIRST)
-find_package(Python3 3.9 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 3.8 COMPONENTS Interpreter Development REQUIRED)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
 
 # Set the default location for the jetson multimedia sdk
