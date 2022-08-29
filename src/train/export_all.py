@@ -74,13 +74,13 @@ with trt.Builder(TRT_LOGGER) as builder, \
                     print(parser.get_error(error))
     
         
-        # print("Completed parsing of ONNX file")
-        # print("Beginning engine build")
-        # plan = builder.build_serialized_network(network, config)
-        # engine = runtime.deserialize_cuda_engine(plan)
-        # print("Completed creating Engine")
-        # with open(engine_path, "wb") as f:
-        #     f.write(plan)
+        print("Completed parsing of ONNX file")
+        print("Beginning engine build")
+        plan = builder.build_serialized_network(network, config)
+        engine = runtime.deserialize_cuda_engine(plan)
+        print("Completed creating Engine")
+        with open(engine_path, "wb") as f:
+            f.write(plan)
             
         with open(engine_path, "rb") as f:
             engine = runtime.deserialize_cuda_engine(f.read())

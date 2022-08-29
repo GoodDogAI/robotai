@@ -8,6 +8,8 @@ from itertools import chain
 import polygraphy
 import polygraphy.backend.trt
 
+from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, SaveEngine, TrtRunner
+
 from src.train.config_train import VISION_CONFIGS, CACHE_DIR
 from src.include.config import load_realtime_config
 
@@ -18,18 +20,19 @@ DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 MODEL_MATCH_RTOL = 1e-5
 MODEL_MATCH_ATOL = 1e-4
 
-# The flag below controls whether to allow TF32 on matmul. This flag defaults to False
-# in PyTorch 1.12 and later.
-torch.backends.cuda.matmul.allow_tf32 = False
-
-# The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
-torch.backends.cudnn.allow_tf32 = False
 
 # Loads a preconfigured model from a pytorch checkpoint,
 # if needed, it builds a new tensorRT engine, and verifies that the model results are identical
 def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     config = VISION_CONFIGS[config]
     assert config is not None, "Unable to find config"
+
+    # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+    # in PyTorch 1.12 and later.
+    torch.backends.cuda.matmul.allow_tf32 = False
+
+    # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+    torch.backends.cudnn.allow_tf32 = False
 
     # TODO The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
     batch_size = 1
@@ -77,6 +80,15 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     print("Validated pytorch and onnx outputs")
 
     # Build the tensorRT engine
-    
+    trt_path = os.path.join(CACHE_DIR, os.path.basename(config["checkpoint"]).replace(".pt", ".engine"))
 
-    # Verify that it matches
+    build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
+    build_engine = SaveEngine(build_engine, path=trt_path)
+
+    # TODO: To help speed things up, we should use a timing cache
+    # TODO: We can also see if the engine already exists, and if we can successfully load and compare it, just return that
+
+    with TrtRunner(build_engine) as runner:
+        outputs = runner.infer(feed_dict={"input.1": random_input.cpu().numpy()})
+
+    print("Create TRT engine")
