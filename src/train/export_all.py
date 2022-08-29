@@ -5,8 +5,10 @@ sys.path.insert(0, "src/train/yolov7")
 import time
 import torch
 import onnx
+import numpy as np
 import tensorrt as trt
 
+from itertools import chain
 from src.train.yolov7.models.experimental import attempt_load
 from src.train.yolov7.utils.activations import Hardswish, SiLU
 from src.train.yolov7.utils.general import set_logging, check_img_size
@@ -72,16 +74,16 @@ with trt.Builder(TRT_LOGGER) as builder, \
                     print(parser.get_error(error))
     
         
-        print("Completed parsing of ONNX file")
-        print("Beginning engine build")
-        plan = builder.build_serialized_network(network, config)
-        engine = runtime.deserialize_cuda_engine(plan)
-        print("Completed creating Engine")
-        with open(engine_path, "wb") as f:
-            f.write(plan)
+        # print("Completed parsing of ONNX file")
+        # print("Beginning engine build")
+        # plan = builder.build_serialized_network(network, config)
+        # engine = runtime.deserialize_cuda_engine(plan)
+        # print("Completed creating Engine")
+        # with open(engine_path, "wb") as f:
+        #     f.write(plan)
             
-        # with open(engine_path, "rb") as f:
-        #     engine = runtime.deserialize_cuda_engine(f.read())
+        with open(engine_path, "rb") as f:
+            engine = runtime.deserialize_cuda_engine(f.read())
 
         context = engine.create_execution_context()
         bindings = []
@@ -97,9 +99,9 @@ with trt.Builder(TRT_LOGGER) as builder, \
             context.execute_v2([b.data_ptr() for b in bindings])
         print(f"TRT Took {(time.perf_counter() - start) / 100:0.4f} seconds per iteration")
 
-        # import onnxruntime
-        # ort_sess = onnxruntime.InferenceSession(onnx_path)
-        # ort_outputs = ort_sess.run(None, {'images': bindings[0].cpu().numpy()})
+        import onnxruntime
+        ort_sess = onnxruntime.InferenceSession(onnx_path)
+        ort_outputs = ort_sess.run(None, {'images': bindings[0].cpu().numpy()})
 
         start = time.perf_counter()
         for i in range(100):
@@ -108,9 +110,27 @@ with trt.Builder(TRT_LOGGER) as builder, \
     
 
         trt_close = torch.isclose(official[0], bindings[4], atol=1e-5, rtol=1e-3)
-        #onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), bindings[4].cpu(), atol=1e-5, rtol=1e-3)
+        onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), bindings[4].cpu(), atol=1e-5, rtol=1e-3)
 
         print(f"TensorRT-PT Percent match: {trt_close.sum() / torch.numel(trt_close):.3f}")
-        #print(f"ONNX-PT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
+        print(f"ONNX-TensorRT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
+
+        onnx_close = torch.isclose(torch.from_numpy(ort_outputs[0]), official[0].cpu(), atol=1e-5, rtol=1e-3)
+
+        print(f"ONNX-PT Percent match: {onnx_close.sum() / torch.numel(onnx_close):.3f}")
+
+        # Check that the outputs are the same
+        MODEL_MATCH_ATOL = 1e-5
+        MODEL_MATCH_RTOL = 1e-3
+
+
+        for i, torch_output in enumerate(chain(*official)):
+            torch_output = torch_output
+            ort_output = ort_outputs[i]
+            #assert np.allclose(torch_output, ort_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
+            matches = torch.isclose(torch.from_numpy(ort_output), torch_output.cpu(), rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
+            print(f"Output {i} matches: {matches / torch.numel(torch_output):.2%}")
+
+
         print("Done")
 

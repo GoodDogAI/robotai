@@ -36,3 +36,7 @@ seaborn
 
 # For exporting models to ONNX, as preparation for TensorRT export
 onnx
+
+# We only use ONNX as an intermediate format between PyTorch and TensorRT, but
+# we occasionally want to check that the PT and ONNX models are equivalent.
+onnxruntime
