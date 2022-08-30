@@ -2,6 +2,7 @@ import torch
 import onnx
 import onnxruntime
 import os
+import time
 import numpy as np
 
 from itertools import chain
@@ -9,6 +10,7 @@ import polygraphy
 import polygraphy.backend.trt
 
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
+from polygraphy.cuda import DeviceView
 
 from src.logutil import sha256
 from src.train.config_train import VISION_CONFIGS, CACHE_DIR
@@ -52,7 +54,7 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
     assert ort_sess.get_inputs()[0].type == "tensor(float)", "ONNX model must have a single input of type float"
     ort_shape = ort_sess.get_inputs()[0].shape
 
-    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0)
+    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
     ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
 
     with TrtRunner(build_engine) as runner:
@@ -62,9 +64,14 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
         assert ort_shape == trt_input_shape, "Input shape mismatch"
         assert runner.get_input_metadata()[trt_input_name].dtype == np.float32, "TRT model must have a single input of type float"
 
-        trt_outputs = runner.infer({
-            trt_input_name: random_input.cpu().numpy()
-        })
+        start = time.perf_counter()
+
+        for i in range(100):
+            trt_outputs = runner.infer({
+                trt_input_name: DeviceView(random_input.data_ptr(), random_input.shape, np.float32)
+            })
+
+        print(f"TRT inference time: {(time.perf_counter() - start)/100:.3f}s")
 
         # Check that the outputs are the same
         for index, ort_output_metadata in enumerate(ort_sess.get_outputs()):
