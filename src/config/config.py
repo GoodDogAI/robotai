@@ -40,7 +40,7 @@ HOST_CONFIG = dotdict({
 # Vision subsystem configuration
 VISION_CONFIGS = dotdict({
     "yolov7-tiny-s53": {
-        "load_fn": "src.train.yolov7.load_yolov7",
+        "load_fn": "src.train.yolov7.load.load_yolov7",
         "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
 
         # Input dimensions must be divisible by the stride

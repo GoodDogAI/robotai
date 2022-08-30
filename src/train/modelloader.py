@@ -3,7 +3,9 @@ import onnx
 import onnxruntime
 import os
 import time
+import importlib
 import numpy as np
+from pathlib import Path
 
 from itertools import chain
 import polygraphy
@@ -13,8 +15,7 @@ from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromO
 from polygraphy.cuda import DeviceView
 
 from src.logutil import sha256
-from src.train.config_train import VISION_CONFIGS, CACHE_DIR
-from src.config import DEVICE_CONFIG
+from src.config import DEVICE_CONFIG, HOST_CONFIG, VISION_CONFIGS
 
 
 
@@ -89,6 +90,10 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     config = VISION_CONFIGS[config]
     assert config is not None, "Unable to find config"
 
+    # Make sure that the required directories exist when this config file gets loaded
+    Path(HOST_CONFIG.RECORD_DIR).mkdir(parents=True, exist_ok=True)
+    Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
+
     # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
     # in PyTorch 1.12 and later.
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -106,14 +111,17 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     # Load the original pytorch model
     model_sha = sha256(config["checkpoint"])
     model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha
-    model = config["load_fn"](config["checkpoint"])
+    # Import and call function by string from the config
+    load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
+    load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
+    model = load_fn(config["checkpoint"])
 
     img = torch.zeros(batch_size, 3, *img_size).to(device)  # image size(1,3,height,width) 
 
     y = model(img)  # dry run
 
     # Convert that to ONNX
-    onnx_path = os.path.join(CACHE_DIR, f"{model_basename}.onnx")
+    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename}.onnx")
     onnx_exists_and_validates = False
 
     if os.path.exists(onnx_path):
@@ -131,7 +139,7 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
 
 
     # Build the tensorRT engine
-    trt_path = os.path.join(CACHE_DIR, f"{model_basename}.engine")
+    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename}.engine")
     trt_exists_and_validates = False
 
     if os.path.exists(trt_path):
