@@ -110,6 +110,7 @@ set(CEREAL_LIBRARIES "${SOURCE_DIR}/libcereal.a" "${SOURCE_DIR}/libvisionipc.a" 
 
 include_directories(
     src/include
+    src/config
     "${CEREAL_INCLUDE_DIRS}"
     "${CEREAL_INCLUDE_DIRS}/.."
 )
