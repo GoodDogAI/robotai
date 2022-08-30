@@ -41,8 +41,6 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
 
         assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
 
-    print("Validated pytorch and onnx outputs")
-
     return True   
 
 def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
@@ -78,9 +76,7 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
 
             assert np.allclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {index}"
 
-        
-
-
+    return True
 
 # Loads a preconfigured model from a pytorch checkpoint,
 # if needed, it builds a new tensorRT engine, and verifies that the model results are identical
@@ -113,32 +109,37 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
 
     # Convert that to ONNX
     onnx_path = os.path.join(CACHE_DIR, f"{model_basename}.onnx")
-    print("Starting ONNX export with onnx {onnx.__version__}")
+    onnx_exists_and_validates = False
 
-    torch.onnx.export(model, img, onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
+    if os.path.exists(onnx_path):
+        print(f"Found cached ONNX model {onnx_path}")
+        onnx_exists_and_validates = validate_pt_onnx(model, onnx_path)
+    
+    if not onnx_exists_and_validates:
+        torch.onnx.export(model, img, onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
 
-    onnx_model = onnx.load(onnx_path)  # load onnx model
-    onnx.checker.check_model(onnx_model)  # check onnx model
-    print("Confirmed ONNX model is valid")
+        onnx_model = onnx.load(onnx_path)  # load onnx model
+        onnx.checker.check_model(onnx_model)  # check onnx model
+        print("Confirmed ONNX model is valid")
 
-    assert validate_pt_onnx(model, onnx_path), "Validation of pytorch and onnx outputs failed"
-    print("Validated pytorch and onnx outputs")
+    assert onnx_exists_and_validates, "Validation of pytorch and onnx outputs failed"
+
 
     # Build the tensorRT engine
     trt_path = os.path.join(CACHE_DIR, f"{model_basename}.engine")
+    trt_exists_and_validates = False
 
     if os.path.exists(trt_path):
         print("Loading existing engine")
+        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
 
-        validates = validate_onnx_trt(onnx_path, trt_path)
-    # else:
-    #     build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
-    #     build_engine = SaveEngine(build_engine, path=trt_path)
+    if not trt_exists_and_validates:
+        build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
+        build_engine = SaveEngine(build_engine, path=trt_path)
 
-    #     # TODO: To help speed things up, we should use a timing cache
-    #     # TODO: We can also see if the engine already exists, and if we can successfully load and compare it, just return that
+        with TrtRunner(build_engine) as runner:
+            print("Created TRT engine")
 
-    #     with TrtRunner(build_engine) as runner:
-    #         outputs = runner.infer(feed_dict={"input.1": random_input.cpu().numpy()})
+        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
 
-    #     print("Create TRT engine")
+    assert trt_exists_and_validates, "Validation of onnx and trt outputs failed"
