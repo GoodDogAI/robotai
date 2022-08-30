@@ -18,7 +18,7 @@ CONFIG = load_realtime_config()
 DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
 DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
-MODEL_MATCH_RTOL = 1e-5
+MODEL_MATCH_RTOL = 1e-4
 MODEL_MATCH_ATOL = 1e-4
 
 
@@ -37,7 +37,7 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
         ort_output = ort_outputs[i]
 
         matches = np.isclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
-        print(f"Output {i} matches: {matches / torch_output.size:.2%}")
+        print(f"PT-ONNX Output {i} matches: {matches / torch_output.size:.3%}")
 
         assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
 
@@ -53,14 +53,32 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
     assert len(ort_sess.get_inputs()) == 1, "ONNX model must have a single input"
     assert ort_sess.get_inputs()[0].type == "tensor(float)", "ONNX model must have a single input of type float"
     ort_shape = ort_sess.get_inputs()[0].shape
+
     random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0)
+    ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
 
     with TrtRunner(build_engine) as runner:
         assert len(runner.get_input_metadata()) == 1, "TRT model must have a single input"
-        assert runner.get_input_metadata()[trt_input_name].dtype == np.float32, "TRT model must have a single input of type float"
         trt_input_name = next(iter(runner.get_input_metadata()))
         trt_input_shape = runner.get_input_metadata()[trt_input_name].shape
         assert ort_shape == trt_input_shape, "Input shape mismatch"
+        assert runner.get_input_metadata()[trt_input_name].dtype == np.float32, "TRT model must have a single input of type float"
+
+        trt_outputs = runner.infer({
+            trt_input_name: random_input.cpu().numpy()
+        })
+
+        # Check that the outputs are the same
+        for index, ort_output_metadata in enumerate(ort_sess.get_outputs()):
+            ort_output = ort_outputs[index]
+            trt_output = trt_outputs[ort_output_metadata.name]
+
+            matches = np.isclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
+            print(f"ONNX-TRT Output {index} matches: {matches / trt_output.size:.3%}")
+
+            assert np.allclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {index}"
+
+        
 
 
 
