@@ -117,7 +117,16 @@ include_directories(
 # Make sure warnings are treated as errors
 add_compile_options(-Wunused -Werror -Wshadow)
 
-add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS})
+# Generate the config.h file from python
+add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/config/config.h
+    COMMAND ${Python3_EXECUTABLE} -m src.config.generate_config_h
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/config/config.py ${CMAKE_SOURCE_DIR}/src/config/generate_config_h.py
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)           
+
+
+add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS} ${CMAKE_SOURCE_DIR}/src/config/config.h)
 target_link_libraries(
     loggerd 
     PRIVATE 
