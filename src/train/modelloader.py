@@ -8,8 +8,9 @@ from itertools import chain
 import polygraphy
 import polygraphy.backend.trt
 
-from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, SaveEngine, TrtRunner
+from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 
+from src.logutil import sha256
 from src.train.config_train import VISION_CONFIGS, CACHE_DIR
 from src.include.config import load_realtime_config
 
@@ -19,6 +20,48 @@ DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 MODEL_MATCH_RTOL = 1e-5
 MODEL_MATCH_ATOL = 1e-4
+
+
+def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
+    ort_sess = onnxruntime.InferenceSession(onnx_path)
+    assert len(ort_sess.get_inputs()) == 1, "ONNX model must have a single input"
+    ort_shape = ort_sess.get_inputs()[0].shape
+    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0)
+
+    torch_output = pt_model(random_input.to("cuda"))
+    ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
+
+    # Check that the outputs are the same
+    for i, torch_output in enumerate(chain(*torch_output)):
+        torch_output = torch_output.detach().cpu().numpy()
+        ort_output = ort_outputs[i]
+
+        matches = np.isclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
+        print(f"Output {i} matches: {matches / torch_output.size:.2%}")
+
+        assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
+
+    print("Validated pytorch and onnx outputs")
+
+    return True   
+
+def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
+    with open(trt_path, "rb") as f:
+        build_engine = EngineFromBytes(f.read())
+
+    ort_sess = onnxruntime.InferenceSession(onnx_path)
+    assert len(ort_sess.get_inputs()) == 1, "ONNX model must have a single input"
+    assert ort_sess.get_inputs()[0].type == "tensor(float)", "ONNX model must have a single input of type float"
+    ort_shape = ort_sess.get_inputs()[0].shape
+    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0)
+
+    with TrtRunner(build_engine) as runner:
+        assert len(runner.get_input_metadata()) == 1, "TRT model must have a single input"
+        assert runner.get_input_metadata()[trt_input_name].dtype == np.float32, "TRT model must have a single input of type float"
+        trt_input_name = next(iter(runner.get_input_metadata()))
+        trt_input_shape = runner.get_input_metadata()[trt_input_name].shape
+        assert ort_shape == trt_input_shape, "Input shape mismatch"
+
 
 
 # Loads a preconfigured model from a pytorch checkpoint,
@@ -42,6 +85,8 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     device = "cuda:0"
 
     # Load the original pytorch model
+    model_sha = sha256(config["checkpoint"])
+    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha
     model = config["load_fn"](config["checkpoint"])
 
     img = torch.zeros(batch_size, 3, *img_size).to(device)  # image size(1,3,height,width) 
@@ -49,7 +94,7 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     y = model(img)  # dry run
 
     # Convert that to ONNX
-    onnx_path = os.path.join(CACHE_DIR, os.path.basename(config["checkpoint"]).replace(".pt", ".onnx"))
+    onnx_path = os.path.join(CACHE_DIR, f"{model_basename}.onnx")
     print("Starting ONNX export with onnx {onnx.__version__}")
 
     torch.onnx.export(model, img, onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
@@ -58,37 +103,24 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     onnx.checker.check_model(onnx_model)  # check onnx model
     print("Confirmed ONNX model is valid")
 
-    # Before you go further, check that the pytorch output equals the onnx output
-    #random_input = torch.randn(batch_size, 3, *img_size).to(device)
-    random_input = torch.FloatTensor(batch_size, 3, *img_size).uniform_(0.0, 1.0).to(device)
-
-    torch_output = model(random_input)
-
-    ort_sess = onnxruntime.InferenceSession(onnx_path)
-    ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
-
-    # Check that the outputs are the same
-    for i, torch_output in enumerate(chain(*torch_output)):
-        torch_output = torch_output.detach().cpu().numpy()
-        ort_output = ort_outputs[i]
-
-        matches = np.isclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
-        print(f"Output {i} matches: {matches / torch_output.size:.2%}")
-
-        assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
-
+    assert validate_pt_onnx(model, onnx_path), "Validation of pytorch and onnx outputs failed"
     print("Validated pytorch and onnx outputs")
 
     # Build the tensorRT engine
-    trt_path = os.path.join(CACHE_DIR, os.path.basename(config["checkpoint"]).replace(".pt", ".engine"))
+    trt_path = os.path.join(CACHE_DIR, f"{model_basename}.engine")
 
-    build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
-    build_engine = SaveEngine(build_engine, path=trt_path)
+    if os.path.exists(trt_path):
+        print("Loading existing engine")
 
-    # TODO: To help speed things up, we should use a timing cache
-    # TODO: We can also see if the engine already exists, and if we can successfully load and compare it, just return that
+        validates = validate_onnx_trt(onnx_path, trt_path)
+    # else:
+    #     build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
+    #     build_engine = SaveEngine(build_engine, path=trt_path)
 
-    with TrtRunner(build_engine) as runner:
-        outputs = runner.infer(feed_dict={"input.1": random_input.cpu().numpy()})
+    #     # TODO: To help speed things up, we should use a timing cache
+    #     # TODO: We can also see if the engine already exists, and if we can successfully load and compare it, just return that
 
-    print("Create TRT engine")
+    #     with TrtRunner(build_engine) as runner:
+    #         outputs = runner.infer(feed_dict={"input.1": random_input.cpu().numpy()})
+
+    #     print("Create TRT engine")
