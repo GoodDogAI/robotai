@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse, Response
 
 from cereal import log
 
-from .config_web import RECORD_DIR
+from src.config import WEB_CONFIG
 from src.logutil import LogHashes, LogSummary, validate_log
 from ..video import load_image
 
@@ -36,7 +36,7 @@ _loghashes = None
 def get_loghashes() -> LogHashes:
     global _loghashes
     if _loghashes is None:
-        _loghashes = LogHashes(RECORD_DIR)
+        _loghashes = LogHashes(WEB_CONFIG.RECORD_DIR)
     return _loghashes
 
 
@@ -152,7 +152,7 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
         raise HTTPException(status_code=404, detail="Log not found")
 
     start = time.perf_counter()
-    rgb = load_image(os.path.join(RECORD_DIR, logfile), frameid)
+    rgb = load_image(os.path.join(WEB_CONFIG.RECORD_DIR, logfile), frameid)
     img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
     img_data = io.BytesIO()
     img.write(img_data)
@@ -166,7 +166,7 @@ async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
-    with open(os.path.join(RECORD_DIR, logfile), "rb") as f:
+    with open(os.path.join(WEB_CONFIG.RECORD_DIR, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
         for i, evt in enumerate(events):

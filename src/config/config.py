@@ -1,6 +1,7 @@
 import os
+from src.config.dotdict import dotdict
 
-DEVICE_CONFIG = {
+DEVICE_CONFIG = dotdict({
     "CAMERA_WIDTH": 1280,
     "CAMERA_HEIGHT": 720,
     "CAMERA_FPS": 15,
@@ -24,18 +25,20 @@ DEVICE_CONFIG = {
  
     "SIMPLEBGC_SERIAL_PORT": "/dev/ttyTHS0",
     "SIMPLEBGC_BAUD_RATE": 115_200,
-}
+})
 
 
-HOST_CONFIG = {
+HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_VISION_CONFIG": "yolov7-tiny-s53"
-}
+    "DEFAULT_VISION_CONFIG": "yolov7-tiny-s53",
+
+    "DEFAULT_DECODE_GPU_ID": 0,
+})
 
 # Vision subsystem configuration
-VISION_CONFIGS = {
+VISION_CONFIGS = dotdict({
     "yolov7-tiny-s53": {
         "load_fn": "src.train.yolov7.load_yolov7",
         "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
@@ -47,10 +50,10 @@ VISION_CONFIGS = {
         "intermediate_layer": "input.236",
         "intermediate_slice": 53,
     }
-}
+})
 
 
-WEB_CONFIG = {
-   "WEB_VIDEO_DECODE_GPU_ID": 0,
-}
+WEB_CONFIG = dotdict({
+   # Unknown
+})
 

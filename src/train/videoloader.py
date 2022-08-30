@@ -9,12 +9,8 @@ from cereal import log
 from src.video import V4L2_BUF_FLAG_KEYFRAME
 
 import torchdata.datapipes as dp
-from .config_train import RECORD_DIR
-from src.include.config import load_realtime_config
+from src.config import HOST_CONFIG, DEVICE_CONFIG
 
-CONFIG = load_realtime_config()
-DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
-DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 
 def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
     """
@@ -53,11 +49,11 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
         self.kwargs = kwargs
 
         self.nv_dec = nvc.PyNvDecoder(
-            DECODE_WIDTH,
-            DECODE_HEIGHT,
+            DEVICE_CONFIG.CAMERA_WIDTH,
+            DEVICE_CONFIG.CAMERA_HEIGHT,
             nvc.PixelFormat.NV12, # All actual decodes must be NV12 format
             nvc.CudaVideoCodec.HEVC,
-            0, # TODO Set the GPU ID dynamically or something
+            HOST_CONFIG.DEFAULT_DECODE_GPU_ID, # TODO Set the GPU ID dynamically or something
         )
                                            
 
@@ -89,7 +85,7 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                     yield surface_to_tensor(surface)
 
 
-def build_datapipe(root_dir=RECORD_DIR, train_or_valid: Literal["train", "valid"]="train", split: float=0.90):
+def build_datapipe(root_dir=HOST_CONFIG.RECORD_DIR, train_or_valid: Literal["train", "valid"]="train", split: float=0.90):
     datapipe = dp.iter.FileLister(root_dir)
     datapipe = datapipe.filter(filter_fn=lambda filename: filename.endswith('.log'))
     datapipe = datapipe.shuffle()

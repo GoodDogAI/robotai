@@ -4,8 +4,7 @@ import numpy as np
 
 from typing import List
 import src.PyNvCodec as nvc
-from src.include.config import load_realtime_config
-from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
+from src.config import DEVICE_CONFIG, HOST_CONFIG
 
 from cereal import log
 
@@ -33,25 +32,22 @@ NALU_TYPES = {
     22: 	"Reserved 	non-VCL",
     24: 	"Unspecified",
 }
-CONFIG = load_realtime_config()
 
-DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
-DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
 V4L2_BUF_FLAG_KEYFRAME = 0x8
 
 def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     frame_rgb = np.ndarray(shape=(0), dtype=np.uint8)
     nv_cc = nvc.ColorspaceConversionContext(nvc.ColorSpace.BT_601, nvc.ColorRange.MPEG)
 
-    nv_yuv = nvc.PySurfaceConverter(DECODE_WIDTH, DECODE_HEIGHT, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
-    nv_rgb = nvc.PySurfaceConverter(DECODE_WIDTH, DECODE_HEIGHT, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
+    nv_yuv = nvc.PySurfaceConverter(DEVICE_CONFIG.CAMERA_WIDTH, DEVICE_CONFIG.CAMERA_HEIGHT, nvc.PixelFormat.NV12, nvc.PixelFormat.YUV420, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
+    nv_rgb = nvc.PySurfaceConverter(DEVICE_CONFIG.CAMERA_WIDTH, DEVICE_CONFIG.CAMERA_HEIGHT, nvc.PixelFormat.YUV420, nvc.PixelFormat.RGB, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
 
-    nv_dl = nvc.PySurfaceDownloader(DECODE_WIDTH, DECODE_HEIGHT, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
+    nv_dl = nvc.PySurfaceDownloader(DEVICE_CONFIG.CAMERA_WIDTH, DEVICE_CONFIG.CAMERA_HEIGHT, nvc.PixelFormat.RGB, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
     surface = nv_yuv.Execute(surface, nv_cc)
     surface = nv_rgb.Execute(surface, nv_cc)
     nv_dl.DownloadSingleSurface(surface, frame_rgb)
 
-    return frame_rgb.reshape((DECODE_HEIGHT, -1))
+    return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, -1))
 
 
 def load_image(logpath: str, index: int) -> np.ndarray:
@@ -75,13 +71,14 @@ def load_image(logpath: str, index: int) -> np.ndarray:
    
 
 # Returns the last frame from a list of video packets as an image
-def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.PixelFormat.RGB, width: int=DECODE_WIDTH, height: int=DECODE_HEIGHT) -> np.ndarray:
+def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.PixelFormat.RGB,
+                      width: int=DEVICE_CONFIG.CAMERA_WIDTH, height: int=DEVICE_CONFIG.CAMERA_HEIGHT) -> np.ndarray:
     nv_dec = nvc.PyNvDecoder(
         width,
         height,
         nvc.PixelFormat.NV12, # All actual decodes must be NV12 format
         nvc.CudaVideoCodec.HEVC,
-        WEB_VIDEO_DECODE_GPU_ID,
+        HOST_CONFIG.DEFAULT_DECODE_GPU_ID,
     )
     packets_sent = 0
     packets_recv = 0
@@ -121,8 +118,8 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
 
 # Takes in frames as (HEIGHT, RGBRGBRGB...) shape ndarrays and returns HEVC output packets
 def create_video(frames: List[np.ndarray]) -> List[Bytes]:
-    width: int=DECODE_WIDTH
-    height: int=DECODE_HEIGHT
+    width: int=DEVICE_CONFIG.CAMERA_WIDTH
+    height: int=DEVICE_CONFIG.CAMERA_HEIGHT
 
     result = []
 
@@ -132,14 +129,14 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
 
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
                                 'fps': '15', 'rc': 'vbr', 'gop': '15', 'bf': '0',
-                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M', 'maxbitrate': '20M'}, format=nvc.PixelFormat.NV12, gpu_id=WEB_VIDEO_DECODE_GPU_ID)
+                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M', 'maxbitrate': '20M'}, format=nvc.PixelFormat.NV12, gpu_id=HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
 
     nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
                                                     color_range=nvc.ColorRange.MPEG)
 
-    nv_ul = nvc.PyFrameUploader(width, height, nvc.PixelFormat.RGB, WEB_VIDEO_DECODE_GPU_ID)
-    nv_rgb2yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, WEB_VIDEO_DECODE_GPU_ID)
-    nv_yuv2n12 = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, WEB_VIDEO_DECODE_GPU_ID)
+    nv_ul = nvc.PyFrameUploader(width, height, nvc.PixelFormat.RGB, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
+    nv_rgb2yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
+    nv_yuv2n12 = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.YUV420, nvc.PixelFormat.NV12, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
 
     packet = np.ndarray(shape=(0), dtype=np.uint8)
 

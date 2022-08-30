@@ -14,11 +14,9 @@ from polygraphy.cuda import DeviceView
 
 from src.logutil import sha256
 from src.train.config_train import VISION_CONFIGS, CACHE_DIR
-from src.include.config import load_realtime_config
+from src.config import DEVICE_CONFIG
 
-CONFIG = load_realtime_config()
-DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
-DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
+
 
 MODEL_MATCH_RTOL = 1e-4
 MODEL_MATCH_ATOL = 1e-4
@@ -101,8 +99,8 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     # TODO The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
     batch_size = 1
     # slice down the image size to the nearest multiple of the stride
-    img_size = (DECODE_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
-                DECODE_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+    img_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
+                DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
     device = "cuda:0"
 
     # Load the original pytorch model

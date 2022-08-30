@@ -6,14 +6,14 @@ import numpy as np
 
 from src.tests.utils import get_test_image
 from src.video import load_image, create_video, decode_last_frame
-from src.web.config_web import RECORD_DIR
+from src.config import HOST_CONFIG
 import src.PyNvCodec as nvc
-from src.web.config_web import WEB_VIDEO_DECODE_GPU_ID
+
 from cereal import log
 
 class VPFTest(unittest.TestCase):
     def test_load(self):
-        test_path = os.path.join(RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
         
         img = load_image(test_path, 0)
         self.assertEqual(img.shape, (720, 1280 * 3))
@@ -22,14 +22,14 @@ class VPFTest(unittest.TestCase):
         self.assertEqual(img.shape, (720, 1280 * 3))
 
     def test_decode_single_frame(self):
-        test_path = os.path.join(RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
         
         nv_dec = nvc.PyNvDecoder(
             1280,
             720,
             nvc.PixelFormat.NV12,
             nvc.CudaVideoCodec.HEVC,
-            WEB_VIDEO_DECODE_GPU_ID,
+            HOST_CONFIG.DEFAULT_DECODE_GPU_ID,
         )
 
         with open(test_path, "rb") as f:

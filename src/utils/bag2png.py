@@ -5,15 +5,14 @@ import rosbag
 import numpy as np
 from cereal import log
 from src.video import create_video
-from src.include.config import load_realtime_config
+from src.config import DEVICE_CONFIG
 import PIL
 from PIL import Image
 
 camera_topic = ["/camera/rgb/image_rect_raw"]
-CONFIG = load_realtime_config()
 
-DECODE_WIDTH = int(CONFIG["CAMERA_WIDTH"])
-DECODE_HEIGHT = int(CONFIG["CAMERA_HEIGHT"])
+DECODE_WIDTH = DEVICE_CONFIG.CAMERA_WIDTH
+DECODE_HEIGHT = DEVICE_CONFIG.CAMERA_HEIGHT
 
 def extract(bag_file: str):
     print(f"Extracting {bag_file}")
