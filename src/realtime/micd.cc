@@ -21,8 +21,9 @@ int main(int argc, char *argv[])
     snd_pcm_stream_t stream_capture { SND_PCM_STREAM_CAPTURE };
     snd_pcm_hw_params_t *hwparams {};
     uint32_t sample_rate { AUDIO_SAMPLE_RATE };
+    snd_pcm_format_t pcm_format {snd_pcm_format_value(AUDIO_PCM_FORMAT)};
 
-    int32_t frame_size { snd_pcm_format_width(AUDIO_PCM_FORMAT)/8 * AUDIO_CHANNELS };
+    int32_t frame_size { snd_pcm_format_width(pcm_format)/8 * AUDIO_CHANNELS };
     snd_pcm_uframes_t frames { 500 };
 
     // Allocate the hw_params struct
@@ -62,8 +63,13 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    // Set sample format
-    if (snd_pcm_hw_params_set_format(pcm_handle, hwparams, AUDIO_PCM_FORMAT) < 0) {
+    // Verify and set sample format
+    if (pcm_format == SND_PCM_FORMAT_UNKNOWN) {
+        fmt::print(stderr, "Error setting PCM format {} not recognized.\n", AUDIO_PCM_FORMAT);
+        return EXIT_FAILURE;
+    }
+
+    if (snd_pcm_hw_params_set_format(pcm_handle, hwparams, pcm_format) < 0) {
         fmt::print(stderr, "Error setting format.\n");
         return EXIT_FAILURE;
     }

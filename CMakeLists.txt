@@ -108,6 +108,14 @@ ExternalProject_Get_Property(cereal SOURCE_DIR)
 set(CEREAL_INCLUDE_DIRS ${SOURCE_DIR})
 set(CEREAL_LIBRARIES "${SOURCE_DIR}/libcereal.a" "${SOURCE_DIR}/libvisionipc.a" "${SOURCE_DIR}/libmessaging.a")
 
+# Generate the config.h file from python
+add_custom_command(
+    OUTPUT ${CMAKE_SOURCE_DIR}/src/config/config.h
+    COMMAND ${Python3_EXECUTABLE} -m src.config.generate_config_h
+    DEPENDS ${CMAKE_SOURCE_DIR}/src/config/config.py ${CMAKE_SOURCE_DIR}/src/config/generate_config_h.py
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)    
+
 include_directories(
     src/include
     src/config
@@ -118,16 +126,10 @@ include_directories(
 # Make sure warnings are treated as errors
 add_compile_options(-Wunused -Werror -Wshadow)
 
-# Generate the config.h file from python
-add_custom_command(
-    OUTPUT ${CMAKE_SOURCE_DIR}/src/config/config.h
-    COMMAND ${Python3_EXECUTABLE} -m src.config.generate_config_h
-    DEPENDS ${CMAKE_SOURCE_DIR}/src/config/config.py ${CMAKE_SOURCE_DIR}/src/config/generate_config_h.py
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)           
 
+set(MASTER_CONFIG_H "${CMAKE_SOURCE_DIR}/src/config/config.h")
 
-add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS} ${CMAKE_SOURCE_DIR}/src/config/config.h)
+add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS} ${MASTER_CONFIG_H})
 target_link_libraries(
     loggerd 
     PRIVATE 
@@ -141,7 +143,7 @@ target_link_libraries(
 add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
 
-add_executable(odrived src/realtime/odrived.cc)
+add_executable(odrived src/realtime/odrived.cc ${MASTER_CONFIG_H})
 target_link_libraries(
     odrived 
     PRIVATE
@@ -153,7 +155,7 @@ target_link_libraries(
         CapnProto::capnp
 )
 
-add_executable(simplebgcd src/realtime/simplebgcd.cc)
+add_executable(simplebgcd src/realtime/simplebgcd.cc ${MASTER_CONFIG_H})
 target_link_libraries(
     simplebgcd 
     PRIVATE
@@ -167,7 +169,7 @@ target_link_libraries(
 
 # Mike D with the master plan
 if(${ALSA_FOUND})
-    add_executable(micd src/realtime/micd.cc)
+    add_executable(micd src/realtime/micd.cc ${MASTER_CONFIG_H})
     target_link_libraries(
         micd
         PRIVATE
@@ -183,7 +185,9 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     add_executable(encoderd 
         src/realtime/encoderd.cc 
         src/realtime/nvencoder.cc
-        src/realtime/nvvisionbuf.cc)
+        src/realtime/nvvisionbuf.cc
+        ${MASTER_CONFIG_H}
+        )
     target_include_directories(encoderd PRIVATE ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     target_link_libraries(
         encoderd 
@@ -198,7 +202,9 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     add_executable(encoderd_tests 
         src/tests/test_nvencoder.cc 
         src/realtime/nvencoder.cc 
-        src/realtime/nvvisionbuf.cc)
+        src/realtime/nvvisionbuf.cc
+        ${MASTER_CONFIG_H}
+        )
     target_include_directories(encoderd_tests PRIVATE ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS} src/realtime)
     target_link_libraries(
         encoderd_tests
@@ -216,7 +222,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
 endif()
 
 if(${realsense2_FOUND})
-    add_executable(camerad src/realtime/camerad.cc)
+    add_executable(camerad src/realtime/camerad.cc ${MASTER_CONFIG_H})
     target_link_libraries(
         camerad
         PRIVATE
