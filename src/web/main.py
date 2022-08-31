@@ -3,7 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
-from . import logservice
+from . import logservice, modelservice
 
 app = FastAPI(title="RobotAI Log Service")
 app.add_middleware(
@@ -14,3 +14,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(logservice.router)
+app.include_router(modelservice.router)

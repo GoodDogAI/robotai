@@ -32,14 +32,22 @@ HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_VISION_CONFIG": "yolov7-tiny-s53",
+    "DEFAULT_BRAIN_CONFIG": "orange-hippo-1",
 
     "DEFAULT_DECODE_GPU_ID": 0,
 })
 
-# Vision subsystem configuration
-VISION_CONFIGS = dotdict({
+BRAIN_CONFIGS = dotdict({
+    "orange-hippo-1": {
+        "brain_model": "orange-hippo-1",
+        "vision_model": "yolov7-tiny-s53",
+    }
+})
+
+# Configures how models turn from pytorch checkpoints into runnable objects on the host and device
+MODEL_CONFIGS = dotdict({
     "yolov7-tiny-s53": {
+        "type": "vision",
         "load_fn": "src.train.yolov7.load.load_yolov7",
         "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
 

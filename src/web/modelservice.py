@@ -10,37 +10,30 @@ import re
 from typing import List
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, Form, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from cereal import log
 
-from src.config import WEB_CONFIG
+from src.config import HOST_CONFIG, MODEL_CONFIGS, BRAIN_CONFIGS
 from src.logutil import LogHashes, LogSummary, validate_log
 from ..video import load_image
 
-app = FastAPI(title="RobotAI Model Service")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|jake-training-box)(:[0-9]+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+router = APIRouter(prefix="/models",
+    tags=["models"],
 )
 
-@app.get("/models")
-async def get_all_models() -> List[str]:
-    return {
-    "yolov7-tiny-s53": {
-        "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
+@router.get("/")
+async def get_all_models() -> JSONResponse:
+    return MODEL_CONFIGS
 
-        # Input dimensions must be divisible by the stride
-        # In current situations, the image will be cropped to the nearest multiple of the stride
-        "dimension_stride": 32,
+@router.get("/brain/default")
+async def get_default_brain_model() -> str:
+    brain = HOST_CONFIG.DEFAULT_BRAIN_CONFIG
 
-        "intermediate_layer": "input.236",
-        "intermediate_slice": 53,
-    }
-}
+    return {brain: BRAIN_CONFIGS[brain]}
+
+@router.get("/{model_name}")
+async def get_model(model_name: str) -> JSONResponse:
+    return MODEL_CONFIGS[model_name]

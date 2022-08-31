@@ -15,7 +15,7 @@ from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromO
 from polygraphy.cuda import DeviceView
 
 from src.logutil import sha256
-from src.config import DEVICE_CONFIG, HOST_CONFIG, VISION_CONFIGS
+from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 
 
 
@@ -87,8 +87,9 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
 # Loads a preconfigured model from a pytorch checkpoint,
 # if needed, it builds a new tensorRT engine, and verifies that the model results are identical
 def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
-    config = VISION_CONFIGS[config]
+    config = MODEL_CONFIGS[config]
     assert config is not None, "Unable to find config"
+    assert config["type"] == "vision", "Config must be a vision model"
 
     # Make sure that the required directories exist when this config file gets loaded
     Path(HOST_CONFIG.RECORD_DIR).mkdir(parents=True, exist_ok=True)

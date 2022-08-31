@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from cereal import log
 from src.logutil import sha256, LogHashes
 from src.tests.utils import artificial_logfile
-from src.web.logservice import app, get_loghashes
+from src.web.main import app
+from src.web.dependencies import get_loghashes
 
 
 class LogServiceTest(unittest.TestCase):
@@ -23,13 +24,13 @@ class LogServiceTest(unittest.TestCase):
         app.dependency_overrides = {}
 
     def test_empty_logs(self):
-        resp = self.client.get("/logs")
+        resp = self.client.get("/logs/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json(), [])
 
     def test_post_empty_log(self):
         with tempfile.NamedTemporaryFile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, "invalid")})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, "invalid")})
             self.assertEqual(resp.status_code, 400)
 
     def test_post_invalid_log(self):
@@ -37,15 +38,15 @@ class LogServiceTest(unittest.TestCase):
             tf.write(b"Invalid Log!")
             tf.flush()
             tf.seek(0)
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
             self.assertEqual(resp.status_code, 400)
 
     def test_post_log(self):
         with artificial_logfile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
-            resp = self.client.get("/logs")
+            resp = self.client.get("/logs/")
             print(resp.json())
 
             tf.seek(0)
@@ -56,30 +57,30 @@ class LogServiceTest(unittest.TestCase):
 
             # Posting the same log again should error out
             tf.seek(0)
-            resp = self.client.post("/logs", files={"logfile": tf})
+            resp = self.client.post("/logs/", files={"logfile": tf})
             self.assertNotEqual(resp.status_code, 200)
 
     def test_post_invalid_hash(self):
         with artificial_logfile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, "Invalidsha256")})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, "Invalidsha256")})
             self.assertEqual(resp.status_code, 400)
 
     def test_read_log(self):
         with artificial_logfile() as tf:
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
-            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")
+            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}/")
             self.assertEqual(resp.status_code, 200)
 
             self.assertEqual(len(resp.json()), 1)
 
     def test_read_video_log(self):
         with artificial_logfile(video=True) as tf:
-            resp = self.client.post("/logs", files={"logfile": tf, "sha256": (None, tf.sha256)})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
 
-            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}")
+            resp = self.client.get(f"/logs/{os.path.basename(tf.name)}/")
             self.assertEqual(resp.status_code, 200)
 
             self.assertEqual(len(resp.json()), 1)
