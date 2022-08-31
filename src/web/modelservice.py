@@ -8,7 +8,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, Response
 
-from src.train.modelloader import create_and_validate_onnx
+from src.train.modelloader import create_and_validate_onnx, onnx_to_numpy_dtype
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS, BRAIN_CONFIGS
 
@@ -53,14 +53,16 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
     onnx_path = create_and_validate_onnx(model_name)
     ort_sess = onnxruntime.InferenceSession(onnx_path)
 
-    all_inputs = {x.name:x.shape for x in ort_sess.get_inputs()}
+    all_input_shapes = {x.name:x.shape for x in ort_sess.get_inputs()}
+    all_input_dtypes = {x.name:onnx_to_numpy_dtype(x.type) for x in ort_sess.get_inputs()}
 
-    if input_name not in all_inputs:
+    if input_name not in all_input_shapes:
         raise HTTPException(status_code=404, detail="Input name not found in model ONNX")
 
-    shape = all_inputs[input_name]
+    shape = all_input_shapes[input_name]
+    dtype = all_input_dtypes[input_name]
     rng = default_rng(REFERENCE_MODEL_RNG_SEED)
-    data = rng.random(shape)
+    data = rng.random(shape, dtype=dtype)
 
     file_data = io.BytesIO()
     np.save(file_data, data)
@@ -72,3 +74,20 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
 async def get_model_reference_input(model_name: str, output_name: str) -> FileResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
+
+    onnx_path = create_and_validate_onnx(model_name)
+    ort_sess = onnxruntime.InferenceSession(onnx_path)
+
+    feed_dict = {}
+    for input in ort_sess.get_inputs():
+        rng = default_rng(REFERENCE_MODEL_RNG_SEED)
+        data = rng.random(input.shape, dtype=onnx_to_numpy_dtype(input.type))
+        feed_dict[input.name] = data
+
+    try:
+        ort_outputs = ort_sess.run([output_name], feed_dict)
+    except onnxruntime.capi.onnxruntime_pybind11_state.InvalidArgument:
+        raise HTTPException(status_code=404, detail="Output name not found in model ONNX")
+
+    print(ort_outputs)
+

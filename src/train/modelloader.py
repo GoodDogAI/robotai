@@ -23,6 +23,16 @@ from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 MODEL_MATCH_RTOL = 1e-4
 MODEL_MATCH_ATOL = 1e-4
 
+def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
+    if onnx_type == "tensor(float)":
+        return np.float32
+    elif onnx_type == "tensor(int32)":
+        return np.int32
+    elif onnx_type == "tensor(int64)":
+        return np.int64
+    else:
+        raise ValueError(f"Unsupported ONNX type {onnx_type}")
+
 
 # Returns a unique path that includes a hash of the model config and checkpoint
 def model_basename(config_name: str) -> str:
