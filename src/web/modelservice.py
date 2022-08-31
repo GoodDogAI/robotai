@@ -37,3 +37,11 @@ async def get_model_onnx(model_name: str) -> FileResponse:
 
     onnx_path = create_and_validate_onnx(model_name)
     return FileResponse(path=onnx_path, media_type='application/octet-stream', filename=os.path.basename(onnx_path))
+
+@router.get("/{model_name}/reference_input/{input_name}")
+async def get_model_reference_input(model_name: str) -> FileResponse:
+    pass
+
+@router.get("/{model_name}/reference_output/{output_name}")
+async def get_model_reference_input(model_name: str) -> FileResponse:
+    pass

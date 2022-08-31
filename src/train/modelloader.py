@@ -4,6 +4,7 @@ import onnxruntime
 import os
 import time
 import importlib
+import hashlib
 import numpy as np
 from pathlib import Path
 
@@ -14,13 +15,31 @@ import polygraphy.backend.trt
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
 
-from src.logutil import sha256
+
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 
 
 
 MODEL_MATCH_RTOL = 1e-4
 MODEL_MATCH_ATOL = 1e-4
+
+
+# Returns a unique path that includes a hash of the model config and checkpoint
+def model_basename(config_name: str) -> str:
+    config = MODEL_CONFIGS[config_name]
+    assert config is not None, "Unable to find config"
+    sha256_hash = hashlib.sha256()
+
+    with open(config["checkpoint"], "rb") as f:
+        for byte_block in iter(lambda: f.read(65536), b""):
+            sha256_hash.update(byte_block)
+
+    # Also include the hash of the config itself
+    sha256_hash.update(repr(config).encode("utf-8"))
+    model_sha = sha256_hash.hexdigest()[:16]
+
+    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
+    return model_basename
 
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
@@ -107,8 +126,7 @@ def create_and_validate_onnx(config_name: str) -> str:
     device = "cuda:0"
 
     # Load the original pytorch model
-    model_sha = sha256(config["checkpoint"])
-    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha
+
     # Import and call function by string from the config
     load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
     load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
@@ -119,7 +137,7 @@ def create_and_validate_onnx(config_name: str) -> str:
     y = model(img)  # dry run
 
     # Convert that to ONNX
-    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename}.onnx")
+    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename(config_name)}.onnx")
     onnx_exists_and_validates = False
 
     if os.path.exists(onnx_path):
@@ -132,6 +150,7 @@ def create_and_validate_onnx(config_name: str) -> str:
         onnx_model = onnx.load(onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
         print("Confirmed ONNX model is valid")
+        onnx_exists_and_validates = validate_pt_onnx(model, onnx_path)
 
     assert onnx_exists_and_validates, "Validation of pytorch and onnx outputs failed"
 
@@ -148,11 +167,9 @@ def create_and_validate_trt(config_name: str) -> str:
     # TRT models must be made from ONNX files
     onnx_path = create_and_validate_onnx(config_name)
 
-    model_sha = sha256(config["checkpoint"])
-    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha
 
     # Build the tensorRT engine
-    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename}.engine")
+    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename(config_name)}.engine")
     trt_exists_and_validates = False
 
     if os.path.exists(trt_path):
