@@ -84,15 +84,12 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
 
     return True
 
-# Loads a preconfigured model from a pytorch checkpoint,
-# if needed, it builds a new tensorRT engine, and verifies that the model results are identical
-def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
-    config = MODEL_CONFIGS[config]
+# Returns a path to an onnx model that matches the given model configuration
+def create_and_validate_onnx(config_name: str) -> str:
+    config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
     assert config["type"] == "vision", "Config must be a vision model"
 
-    # Make sure that the required directories exist when this config file gets loaded
-    Path(HOST_CONFIG.RECORD_DIR).mkdir(parents=True, exist_ok=True)
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
 
     # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
@@ -138,6 +135,21 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
 
     assert onnx_exists_and_validates, "Validation of pytorch and onnx outputs failed"
 
+    return onnx_path
+
+# Returns a path to a TRT model that matches the given model configuration
+def create_and_validate_trt(config_name: str) -> str:
+    config = MODEL_CONFIGS[config_name]
+    assert config is not None, "Unable to find config"
+    assert config["type"] == "vision", "Config must be a vision model"
+
+    Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True) 
+
+    # TRT models must be made from ONNX files
+    onnx_path = create_and_validate_onnx(config_name)
+
+    model_sha = sha256(config["checkpoint"])
+    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha
 
     # Build the tensorRT engine
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename}.engine")
@@ -157,3 +169,10 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
         trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
 
     assert trt_exists_and_validates, "Validation of onnx and trt outputs failed"
+
+
+# Loads a preconfigured model from a pytorch checkpoint,
+# if needed, it builds a new tensorRT engine, and verifies that the model results are identical
+def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
+    trt_path = create_and_validate_trt(config)
+
