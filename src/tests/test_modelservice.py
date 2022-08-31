@@ -1,6 +1,5 @@
 import unittest
-import tempfile
-import hashlib
+import onnxruntime
 import io
 import numpy as np
 
@@ -34,11 +33,14 @@ class ModelServiceTest(unittest.TestCase):
 
         j = resp.json()
         main_key = list(j.keys())[0]
+
+        input_name = "input.1"
+        output_name = "onnx::Sigmoid_308"
         
         resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_input/INVALID_NAME")
         self.assertEqual(resp.status_code, 404)
     
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_input/input.1")
+        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_input/{input_name}")
         self.assertEqual(resp.status_code, 200)
 
         file_data = io.BytesIO(resp.content)
@@ -49,8 +51,23 @@ class ModelServiceTest(unittest.TestCase):
         resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_output/INVALID_OUTPUT")
         self.assertEqual(resp.status_code, 404)
 
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_output/onnx::Sigmoid_308")
+        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_output/{output_name}")
         self.assertEqual(resp.status_code, 200)
+
+        file_data = io.BytesIO(resp.content)
+        ref_output = np.load(file_data)
+
+        print(ref_output.shape)
+
+        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/onnx/")
+        self.assertEqual(resp.status_code, 200)
+
+        ort_sess = onnxruntime.InferenceSession(resp.content)
+
+        ort_outputs = ort_sess.run([output_name], {input_name: ref_input})
+
+        np.testing.assert_almost_equal(ort_outputs[0], ref_output, decimal=5)
+
     
 
 if __name__ == '__main__':

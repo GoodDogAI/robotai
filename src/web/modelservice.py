@@ -89,5 +89,10 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
     except onnxruntime.capi.onnxruntime_pybind11_state.InvalidArgument:
         raise HTTPException(status_code=404, detail="Output name not found in model ONNX")
 
-    print(ort_outputs)
+    assert len(ort_outputs) == 1
+
+    file_data = io.BytesIO()
+    np.save(file_data, ort_outputs[0])
+
+    return Response(content=file_data.getvalue(), media_type="application/octet-stream")
 
