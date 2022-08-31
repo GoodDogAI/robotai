@@ -8,7 +8,7 @@ then
     source activate robotai
 fi
 
-uvicorn src.web.logservice:app --host 0.0.0.0 --timeout-keep-alive 60 --reload &
+uvicorn src.web.main:app --host 0.0.0.0 --timeout-keep-alive 60 --reload &
 
 cd frontend
 npm start &

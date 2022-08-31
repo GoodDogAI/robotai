@@ -8,36 +8,22 @@ import hashlib
 import re
 
 from typing import List
-from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, Form, UploadFile, HTTPException
+from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from cereal import log
+from src.config import HOST_CONFIG
 
-from src.config import WEB_CONFIG
+from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, validate_log
-from ..video import load_image
+from src.video import load_image
 
-app = FastAPI(title="RobotAI Log Service")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|jake-training-box)(:[0-9]+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+
+router = APIRouter(prefix="/logs",
+    tags=["logs"],
 )
-
-_loghashes = None
-
-
-def get_loghashes() -> LogHashes:
-    global _loghashes
-    if _loghashes is None:
-        _loghashes = LogHashes(WEB_CONFIG.RECORD_DIR)
-    return _loghashes
 
 
 async def asha256(fp: UploadFile) -> str:
@@ -47,7 +33,7 @@ async def asha256(fp: UploadFile) -> str:
     return sha256_hash.hexdigest()
 
 
-@app.get("/logs")
+@router.get("/")
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSummary]]:
     groups = []
     cur_group = []
@@ -75,12 +61,12 @@ async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSumm
     return groups
 
 
-@app.get("/logs/exists/{sha256}")
+@router.get("/exists/{sha256}")
 async def log_exists(sha256: str, lh: LogHashes = Depends(get_loghashes)):
     return lh.hash_exists(sha256)
 
 
-@app.post("/logs")
+@router.post("/")
 async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depends(get_loghashes)):
     # Make sure the hash doesn't exist already
     local_hash = await asha256(logfile)
@@ -118,7 +104,7 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
     await logfile.close()
 
 
-@app.get("/logs/{logfile}")
+@router.get("/{logfile}")
 async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONResponse:
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
@@ -146,13 +132,13 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
     return JSONResponse(jsonable_encoder(result,
                         custom_encoder={bytes: lambda data_obj: None}))
 
-@app.get("/logs/{logfile}/frame/{frameid}")
+@router.get("/{logfile}/frame/{frameid}")
 async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
     start = time.perf_counter()
-    rgb = load_image(os.path.join(WEB_CONFIG.RECORD_DIR, logfile), frameid)
+    rgb = load_image(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), frameid)
     img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
     img_data = io.BytesIO()
     img.write(img_data)
@@ -161,12 +147,12 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
 
     return response
 
-@app.get("/logs/{logfile}/thumbnail")
+@router.get("/{logfile}/thumbnail")
 async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
-    with open(os.path.join(WEB_CONFIG.RECORD_DIR, logfile), "rb") as f:
+    with open(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
         for i, evt in enumerate(events):
