@@ -10,6 +10,8 @@ DEVICE_CONFIG = dotdict({
     "LOG_PATH": "/media/card",
     "LOG_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
+    "MODEL_STORAGE_PATH": "/home/robot/models",
+
     "ENCODER_BITRATE": 8_000_000,
     "ENCODER_DEV": "/dev/nvhost-msenc",
     "ENCODER_COMP_NAME": "NVENC",
