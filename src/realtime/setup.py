@@ -11,6 +11,7 @@ MODEL_SERVICE = DEVICE_CONFIG["MODEL_SERVICE"]
 
 
 def prepare_device_model(config_name: str):
+    logger.warning(f"Preparing model {config_name}")
     resp = requests.get(f"{MODEL_SERVICE}/models/{config_name}/onnx/")
     assert resp.status_code == 200, f"Failed to reach service for model {config_name}"
     assert "Content-Disposition" in resp.headers, "Missing Content-Disposition header"
@@ -48,4 +49,13 @@ def prepare_brain(brain_name: str=None):
     with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"), "r") as f:
         brain_config = json.load(f)
 
+    if brain_name != list(brain_config)[0]:
+        raise RuntimeError(f"Brain name {brain_name} does not match the one in the config {list(brain_config)[0]}")
+
+    brain_config = brain_config[brain_name]
+
+    prepare_device_model(brain_config["vision_model"])
+
+    # TODO Uncomment when the model service is ready
+    #prepare_device_model(brain_config["brain_model"])
 
