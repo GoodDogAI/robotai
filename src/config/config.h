@@ -8,6 +8,8 @@
 #define LOG_DURATION_SECONDS 60
 #define LOG_PATH "/media/card"
 #define LOG_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
+#define MODEL_STORAGE_PATH "/home/robot/models"
+#define MODEL_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
 #define ENCODER_BITRATE 8000000
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"

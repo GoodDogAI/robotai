@@ -43,6 +43,12 @@ FetchContent_Declare(fmt
         )
 FetchContent_MakeAvailable(fmt)
 
+FetchContent_Declare(argparse
+        GIT_REPOSITORY https://github.com/p-ranav/argparse
+        GIT_TAG v2.6 
+        )
+FetchContent_MakeAvailable(argparse)
+
 # If we are not on the Jetson platform, then we need to build the VPF and get TensorRT specially
 if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     FetchContent_Declare(VideoCodecSDK
@@ -180,6 +186,21 @@ if(${ALSA_FOUND})
             CapnProto::capnp
     )
 endif()
+
+add_executable(braind src/realtime/braind.cc ${MASTER_CONFIG_H})
+target_include_directories(braind PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+target_link_libraries(
+    braind 
+    PRIVATE
+        serial 
+        stdc++fs
+        fmt::fmt
+        nvinfer
+        argparse::argparse
+        ${CEREAL_LIBRARIES}
+        zmq
+        CapnProto::capnp
+)
 
 if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     add_executable(encoderd 

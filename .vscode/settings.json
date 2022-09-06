@@ -70,7 +70,9 @@
         "valarray": "cpp",
         "bit": "cpp",
         "shared_mutex": "cpp",
-        "strstream": "cpp"
+        "strstream": "cpp",
+        "charconv": "cpp",
+        "__nullptr": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",
