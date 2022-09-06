@@ -3,8 +3,17 @@ import onnx
 import json
 import logging
 import os
+import numpy as np
+
 from typing import Literal
 from src.config import DEVICE_CONFIG
+
+import polygraphy
+import polygraphy.backend.trt
+
+from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
+from polygraphy.cuda import DeviceView
+
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +40,7 @@ def prepare_model_reference(base_name: str, full_name: str, io: str, type: Liter
 def prepare_device_model(base_name: str, full_name: str):
     logger.warning(f"Preparing model {base_name}")
     onnx_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}.onnx")
+    trt_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}.engine")
 
     if not os.path.exists(onnx_path):
         resp = requests.get(f"{MODEL_SERVICE}/models/{base_name}/onnx/")
@@ -46,7 +56,28 @@ def prepare_device_model(base_name: str, full_name: str):
 
     for output in list(model.graph.output):
         prepare_model_reference(base_name, full_name, output.name, "output")
-    
+
+    if not os.path.exists(trt_path):
+        build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
+        build_engine = SaveEngine(build_engine, path=trt_path)
+
+        with TrtRunner(build_engine) as runner:
+            logger.info(f"Created TRT engine {full_name}")
+
+    with open(trt_path, "rb") as f:
+        run_engine = EngineFromBytes(f.read())
+
+    with TrtRunner(run_engine) as runner:
+        feed_dict = {}
+
+        for input in list(model.graph.input):
+            feed_dict[input.name] = np.load(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}-input-{input.name}.npy"))
+
+        trt_outputs = runner.infer(feed_dict)
+
+        for output_name, output_tensor in trt_outputs.items():
+            reference = np.load(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}-output-{output_name}.npy"))
+            assert np.allclose(output_tensor, reference, rtol=1e-4, atol=1e-4), f"Output {output_name} does not match reference"
 
     
 
