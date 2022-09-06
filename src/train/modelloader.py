@@ -17,6 +17,7 @@ from polygraphy.cuda import DeviceView
 
 
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
+from src.config.config import BRAIN_CONFIGS
 
 
 
@@ -50,6 +51,17 @@ def model_basename(config_name: str) -> str:
 
     model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
     return model_basename
+
+def brain_basename(brain_name: str) -> str:
+    brain = BRAIN_CONFIGS[brain_name]
+    assert brain is not None, "Unable to find brain config"
+
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(repr(brain).encode("utf-8"))
+    config_sha = sha256_hash.hexdigest()[:16]
+
+    brain_basename = brain_name + "-" + config_sha
+    return brain_basename
 
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
