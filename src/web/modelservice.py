@@ -1,3 +1,4 @@
+from operator import mod
 import os
 import onnxruntime
 import numpy as np
@@ -8,7 +9,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, Response
 
-from src.train.modelloader import create_and_validate_onnx, onnx_to_numpy_dtype
+from src.train.modelloader import create_and_validate_onnx, onnx_to_numpy_dtype, model_basename, brain_basename
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS, BRAIN_CONFIGS
 
@@ -22,20 +23,22 @@ REFERENCE_MODEL_RNG_SEED = 17
 
 @router.get("/")
 async def get_all_models() -> JSONResponse:
-    return MODEL_CONFIGS
+    return { name: model | {"_basename": model_basename(name)} for name, model in
+        MODEL_CONFIGS.items()
+    }
 
 @router.get("/brain/default")
 async def get_default_brain_model() -> str:
     brain = HOST_CONFIG.DEFAULT_BRAIN_CONFIG
 
-    return { brain: BRAIN_CONFIGS[brain] }
+    return { brain: BRAIN_CONFIGS[brain] | {"_basename": brain_basename(brain)} }
 
 @router.get("/{model_name}/config")
 async def get_model_config(model_name: str) -> JSONResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    return MODEL_CONFIGS[model_name]
+    return MODEL_CONFIGS[model_name] | {"_basename": model_basename(model_name)}
 
 @router.get("/{model_name}/onnx")
 async def get_model_onnx(model_name: str) -> FileResponse:
@@ -43,7 +46,8 @@ async def get_model_onnx(model_name: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="Model not found")
 
     onnx_path = create_and_validate_onnx(model_name)
-    return FileResponse(path=onnx_path, media_type="application/octet-stream", filename=os.path.basename(onnx_path))
+    return FileResponse(path=onnx_path, media_type="application/octet-stream", filename=os.path.basename(onnx_path),
+                        headers={"X-ModelBasename": model_basename(model_name)})
 
 @router.get("/{model_name}/reference_input/{input_name}")
 async def get_model_reference_input(model_name: str, input_name: str) -> FileResponse:
@@ -67,7 +71,9 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
     file_data = io.BytesIO()
     np.save(file_data, data)
 
-    return Response(content=file_data.getvalue(), media_type="application/octet-stream")
+    return Response(content=file_data.getvalue(),
+                    media_type="application/octet-stream",
+                    headers={"X-ModelBasename": model_basename(model_name)})
     
     
 @router.get("/{model_name}/reference_output/{output_name}")
@@ -94,5 +100,7 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
     file_data = io.BytesIO()
     np.save(file_data, ort_outputs[0])
 
-    return Response(content=file_data.getvalue(), media_type="application/octet-stream")
+    return Response(content=file_data.getvalue(),
+                media_type="application/octet-stream",
+                headers={"X-ModelBasename": model_basename(model_name)})
 
