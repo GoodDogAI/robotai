@@ -117,6 +117,3 @@ def prepare_brain(brain_name: str=None):
         prepare_device_model(brain_config["models"][model_name]["basename"],
                              brain_config["models"][model_name]["_fullname"])
 
-    # TODO Uncomment when the model service is ready
-    #prepare_device_model(brain_config["brain_model"])
-
