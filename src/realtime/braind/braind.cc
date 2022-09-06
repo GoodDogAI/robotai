@@ -9,28 +9,14 @@
 
 #include <NvInfer.h>
 
-#include "braind_buffers.h"
+#include "braind/buffers.h"
+#include "braind/logger.h"
 
 #include "config.h"
 
 namespace fs = std::experimental::filesystem;
 
 const fs::path model_path{MODEL_STORAGE_PATH};
-
-class Logger : public nvinfer1::ILogger
-{
-  void log(Severity severity, const char *msg) noexcept
-  {
-    // Would advise using a proper logging utility such as https://github.com/gabime/spdlog
-    // For the sake of this tutorial, will just log to the console.
-
-    // Only log Warnings or more important.
-    if (severity <= Severity::kWARNING)
-    {
-      fmt::print(stderr, "{}", msg);
-    }
-  }
-};
 
 Logger m_logger;
 
@@ -79,10 +65,10 @@ int main(int argc, char *argv[])
   catch (const std::runtime_error &err)
   {
     fmt::print(stderr, "Error parsing arguments {}\n", err.what());
-    std::exit(1);
+    return EXIT_FAILURE;
   }
 
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
 
-  return 0;
+  return EXIT_SUCCESS;
 }

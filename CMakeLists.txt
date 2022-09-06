@@ -187,8 +187,8 @@ if(${ALSA_FOUND})
     )
 endif()
 
-add_executable(braind src/realtime/braind.cc ${MASTER_CONFIG_H})
-target_include_directories(braind PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
+add_executable(braind src/realtime/braind/braind.cc ${MASTER_CONFIG_H})
+target_include_directories(braind PRIVATE ${CUDAToolkit_INCLUDE_DIRS} src/realtime)
 target_link_libraries(
     braind 
     PRIVATE
