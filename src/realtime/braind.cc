@@ -9,6 +9,8 @@
 
 #include <NvInfer.h>
 
+#include "braind_buffers.h"
+
 #include "config.h"
 
 namespace fs = std::experimental::filesystem;
@@ -55,6 +57,9 @@ std::unique_ptr<nvinfer1::ICudaEngine> prepare_engine(const std::string &model_f
 {
   const fs::path vision_onnx_path{model_path / fmt::format("{}.engine", model_full_name)};
   auto engine = load_engine(vision_onnx_path.string());
+
+  // Verify that inputs and outputs match the references
+
 
   return engine;
 }
