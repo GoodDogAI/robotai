@@ -3,6 +3,7 @@ import onnx
 import json
 import logging
 import os
+from typing import Literal
 from src.config import DEVICE_CONFIG
 
 logger = logging.getLogger(__name__)
@@ -10,15 +11,42 @@ logger = logging.getLogger(__name__)
 MODEL_SERVICE = DEVICE_CONFIG["MODEL_SERVICE"]
 
 
-def prepare_device_model(config_name: str):
-    logger.warning(f"Preparing model {config_name}")
-    resp = requests.get(f"{MODEL_SERVICE}/models/{config_name}/onnx/")
-    assert resp.status_code == 200, f"Failed to reach service for model {config_name}"
-    assert "Content-Disposition" in resp.headers, "Missing Content-Disposition header"
+def prepare_model_reference(base_name: str, full_name: str, io: str, type: Literal["input", "output"]):
+    logger.warning(f"Preparing model reference {type} {io}")
+    reference_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}-{type}-{io}.npy")
+
+    if not os.path.exists(reference_path):
+        if type == "input":
+            resp = requests.get(f"{MODEL_SERVICE}/models/{base_name}/reference_input/{io}")
+        elif type == "output":
+            resp = requests.get(f"{MODEL_SERVICE}/models/{base_name}/reference_output/{io}")
+        else:
+            raise NotImplementedError(f"IO type {type} not implemented")
+
+        assert resp.status_code == 200, f"Failed to reach service for model {base_name}"
+
+        with open(reference_path, "wb") as f:
+            f.write(resp.content)
+
+def prepare_device_model(base_name: str, full_name: str):
+    logger.warning(f"Preparing model {base_name}")
+    onnx_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}.onnx")
+
+    if not os.path.exists(onnx_path):
+        resp = requests.get(f"{MODEL_SERVICE}/models/{base_name}/onnx/")
+        assert resp.status_code == 200, f"Failed to reach service for model {base_name}"
+
+        with open(onnx_path, "wb") as f:
+            f.write(resp.content)
+
+    model = onnx.load(onnx_path)
+
+    for input in list(model.graph.input):
+        prepare_model_reference(base_name, full_name, input.name, "input")
+
+    for output in list(model.graph.output):
+        prepare_model_reference(base_name, full_name, output.name, "output")
     
-    onnx_filename = resp.headers.get("Content-Disposition").split("filename=")[1]
-    with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, onnx_filename), "wb") as f:
-        f.write(resp.content)
 
     
 
@@ -54,7 +82,9 @@ def prepare_brain(brain_name: str=None):
 
     brain_config = brain_config[brain_name]
 
-    prepare_device_model(brain_config["vision_model"])
+    for model_name in brain_config["models"]:
+        prepare_device_model(brain_config["models"][model_name]["basename"],
+                             brain_config["models"][model_name]["_fullname"])
 
     # TODO Uncomment when the model service is ready
     #prepare_device_model(brain_config["brain_model"])

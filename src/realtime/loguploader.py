@@ -8,19 +8,18 @@ from itertools import chain
 from typing import Dict, Any
 from inotify_simple import INotify, flags
 from src.logutil import LogHashes
-from src.include.config import load_realtime_config
+from src.config import DEVICE_CONFIG
 
 # Watches for newly completed log files in the logging directory, and uploads them
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-CONFIG = load_realtime_config()
 
 def sync(lh: LogHashes) -> bool:
     start = time.perf_counter()
 
     try:
-        all_logs = requests.get(CONFIG["LOG_SERVICE"] + "/logs")
+        all_logs = requests.get(DEVICE_CONFIG.LOG_SERVICE + "/logs")
         if all_logs.status_code != 200:
             logger.warning("Warning, unable to connect to logservice")
             return False
@@ -29,7 +28,7 @@ def sync(lh: LogHashes) -> bool:
         for ls in lh.values():
             if ls.sha256 not in all_hashes:
                 with open(os.path.join(lh.dir, ls.filename), "rb") as f:
-                    result = requests.post(CONFIG["LOG_SERVICE"] + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
+                    result = requests.post(DEVICE_CONFIG.LOG_SERVICE + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
 
                 if result.status_code != 200:
                     logger.warning(f"Warning, unable to upload {ls} response code {result.status_code}")
@@ -41,12 +40,12 @@ def sync(lh: LogHashes) -> bool:
 
         return True
     except requests.ConnectionError:
-        logger.error(f"Could not connect to {CONFIG['LOG_SERVICE']} in order to sync logs, will try again later")
+        logger.error(f"Could not connect to {DEVICE_CONFIG.LOG_SERVICE} in order to sync logs, will try again later")
     
     return False
        
 def main():
-    lh = LogHashes(CONFIG["LOG_PATH"])
+    lh = LogHashes(DEVICE_CONFIG.LOG_PATH)
 
     sync(lh)
 
@@ -67,6 +66,6 @@ def main():
 if __name__ == "__main__":
     logging.basicConfig()
     logger.warning("Syncing remaining logs manually")
-    lh = LogHashes(CONFIG["LOG_PATH"])
+    lh = LogHashes(DEVICE_CONFIG.LOG_PATH)
     sync(lh)
     logger.warning("Done with single sync")

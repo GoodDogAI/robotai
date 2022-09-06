@@ -62,6 +62,7 @@ class PythonProcess(ManagerProcess):
         self.p.start()
 
     async def join(self):
+        asyncio.current_task().set_name(self.name)
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self._do_join)
 
@@ -82,6 +83,7 @@ class NativeProcess(ManagerProcess):
         self.running = True
 
     async def join(self):
+        asyncio.current_task().set_name(self.name)
         await self.p.wait()
         self.running = False
 

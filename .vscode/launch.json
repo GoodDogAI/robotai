@@ -9,7 +9,7 @@
             "name": "Python: Module",
             "type": "python",
             "request": "launch",
-            "module": "src.train.export_all",
+            "module": "src.realtime.manager",
             "justMyCode": true
         },
         {
