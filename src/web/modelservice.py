@@ -1,8 +1,8 @@
-from operator import mod
 import os
 import onnxruntime
 import numpy as np
 import io
+import copy
 from numpy.random import default_rng
 
 from typing import List
@@ -30,8 +30,14 @@ async def get_all_models() -> JSONResponse:
 @router.get("/brain/default")
 async def get_default_brain_model() -> str:
     brain = HOST_CONFIG.DEFAULT_BRAIN_CONFIG
+    
+    config = copy.deepcopy(BRAIN_CONFIGS[brain])
+    config["_fullname"] = brain_fullname(brain)
+    
+    for type, model in config["models"].items():
+        config["models"][type] = {"basename": model, "_fullname": model_fullname(model)}
 
-    return { brain: BRAIN_CONFIGS[brain] | {"_fullname": brain_fullname(brain)} }
+    return { brain: config }
 
 @router.get("/{model_name}/config")
 async def get_model_config(model_name: str) -> JSONResponse:

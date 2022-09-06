@@ -42,8 +42,10 @@ HOST_CONFIG = dotdict({
 
 BRAIN_CONFIGS = dotdict({
     "orange-hippo-1": {
-        "brain_model": "orange-hippo-1",
-        "vision_model": "yolov7-tiny-s53",
+        "models": {
+            #"brain_model": "orange-hippo-1",
+            "vision_model": "yolov7-tiny-s53",
+        },
 
         "audio_resampler": "test1",
     }
