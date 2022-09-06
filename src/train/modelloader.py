@@ -36,7 +36,7 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
 
 
 # Returns a unique path that includes a hash of the model config and checkpoint
-def model_basename(config_name: str) -> str:
+def model_fullname(config_name: str) -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
     sha256_hash = hashlib.sha256()
@@ -49,10 +49,10 @@ def model_basename(config_name: str) -> str:
     sha256_hash.update(repr(config).encode("utf-8"))
     model_sha = sha256_hash.hexdigest()[:16]
 
-    model_basename = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
-    return model_basename
+    model_fullname = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
+    return model_fullname
 
-def brain_basename(brain_name: str) -> str:
+def brain_fullname(brain_name: str) -> str:
     brain = BRAIN_CONFIGS[brain_name]
     assert brain is not None, "Unable to find brain config"
 
@@ -60,8 +60,8 @@ def brain_basename(brain_name: str) -> str:
     sha256_hash.update(repr(brain).encode("utf-8"))
     config_sha = sha256_hash.hexdigest()[:16]
 
-    brain_basename = brain_name + "-" + config_sha
-    return brain_basename
+    brain_fullname = brain_name + "-" + config_sha
+    return brain_fullname
 
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
@@ -159,7 +159,7 @@ def create_and_validate_onnx(config_name: str) -> str:
     y = model(img)  # dry run
 
     # Convert that to ONNX
-    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename(config_name)}.onnx")
+    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.onnx")
     onnx_exists_and_validates = False
 
     if os.path.exists(onnx_path):
@@ -191,7 +191,7 @@ def create_and_validate_trt(config_name: str) -> str:
 
 
     # Build the tensorRT engine
-    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_basename(config_name)}.engine")
+    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.engine")
     trt_exists_and_validates = False
 
     if os.path.exists(trt_path):
