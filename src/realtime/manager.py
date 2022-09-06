@@ -5,6 +5,9 @@ import logging
 import multiprocessing
 from setproctitle import setproctitle 
 
+from src.realtime.setup import prepare_brain
+
+
 # Manager script to schedule and run a bunch of workers with various configurations
 # Loosely based on: https://github.com/commaai/openpilot/blob/master/selfdrive/manager
 logging.basicConfig()
@@ -97,6 +100,10 @@ procs = [
 ]
 
 async def main():
+    logger.warning("Setting up brain and models...")
+
+    prepare_brain()
+
     logger.warning("Starting manager...")
 
     for proc in procs:
