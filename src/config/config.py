@@ -11,6 +11,7 @@ DEVICE_CONFIG = dotdict({
     "LOG_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
     "MODEL_STORAGE_PATH": "/home/robot/models",
+    "MODEL_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
     "ENCODER_BITRATE": 8_000_000,
     "ENCODER_DEV": "/dev/nvhost-msenc",
@@ -43,6 +44,8 @@ BRAIN_CONFIGS = dotdict({
     "orange-hippo-1": {
         "brain_model": "orange-hippo-1",
         "vision_model": "yolov7-tiny-s53",
+
+        "audio_resampler": "test1",
     }
 })
 

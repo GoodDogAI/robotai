@@ -20,7 +20,7 @@ class ModelServiceTest(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
         j = resp.json()
-        main_key = list(j.keys())[0]
+        main_key = list(j)[0]
 
         resp = self.client.get(f"/models/INVALID/onnx/")
         self.assertEqual(resp.status_code, 404)
@@ -32,7 +32,7 @@ class ModelServiceTest(unittest.TestCase):
         resp = self.client.get("/models/brain/default/")
 
         j = resp.json()
-        main_key = list(j.keys())[0]
+        main_key = list(j)[0]
 
         input_name = "input.1"
         output_name = "onnx::Sigmoid_308"

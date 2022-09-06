@@ -22,7 +22,10 @@ REFERENCE_MODEL_RNG_SEED = 17
 
 @router.get("/")
 async def get_all_models() -> JSONResponse:
-    return MODEL_CONFIGS
+
+    return { {"checksum": 5, model} for model in
+        MODEL_CONFIGS
+    }
 
 @router.get("/brain/default")
 async def get_default_brain_model() -> str:
