@@ -47,13 +47,94 @@ class TrtEngine {
                 throw std::runtime_error("Failed to create TensorRT execution context");
             }
 
-            // Allocate memory for the input and output tensors
+            // Create host and device buffers
+            for (int i = 0; i < m_engine->getNbBindings(); i++)
+            {
+                size_t vol = 1;
+                nvinfer1::DataType type = m_engine->getBindingDataType(i);
+                auto dims = m_context->getBindingDimensions(i);
+                
+                int vecDim = m_engine->getBindingVectorizedDim(i);
+                if (-1 != vecDim) // i.e., 0 != lgScalarsPerVector
+                {
+                    int scalarsPerVec = m_engine->getBindingComponentsPerElement(i);
+                    dims.d[vecDim] = divUp(dims.d[vecDim], scalarsPerVec);
+                    vol *= scalarsPerVec;
+                }
+                vol *= volume(dims);
+                std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
+                manBuf->deviceBuffer = DeviceBuffer(vol, type);
+                manBuf->hostBuffer = HostBuffer(vol, type);
+                m_buffers.push_back(std::move(manBuf));
+            }
+    }
+
+    void* getDeviceBuffer(const std::string& tensorName) const
+    {
+        int index = m_engine->getBindingIndex(tensorName.c_str());
+        if (index == -1)
+            return nullptr;
+
+        return m_buffers[index]->deviceBuffer.data();
+    }
+
+    void* getHostBuffer(const std::string& tensorName) const
+    {
+        int index = m_engine->getBindingIndex(tensorName.c_str());
+        if (index == -1)
+            return nullptr;
+
+        return m_buffers[index]->hostBuffer.data();
+    }
+
+    void copyInputToDevice()
+    {
+        memcpyBuffers(true, false, false);
+    }
+
+    void copyOutputToHost()
+    {
+        memcpyBuffers(false, true, false);
     }
 
     private:
+        void memcpyBuffers(const bool copyInput, const bool deviceToHost, const bool async, const cudaStream_t& stream = 0)
+        {
+            for (int i = 0; i < m_engine->getNbBindings(); i++)
+            {
+                void* dstPtr
+                        = deviceToHost ? m_buffers[i]->hostBuffer.data() : m_buffers[i]->deviceBuffer.data();
+                const void* srcPtr
+                        = deviceToHost ? m_buffers[i]->deviceBuffer.data() : m_buffers[i]->hostBuffer.data();
+                const size_t byteSize = m_buffers[i]->hostBuffer.nbBytes();
+                const cudaMemcpyKind memcpyType = deviceToHost ? cudaMemcpyDeviceToHost : cudaMemcpyHostToDevice;
+                if ((copyInput && m_engine->bindingIsInput(i)) || (!copyInput && !m_engine->bindingIsInput(i)))
+                {
+                    if (async) {
+                        auto ret = cudaMemcpyAsync(dstPtr, srcPtr, byteSize, memcpyType, stream);
+
+                        if (ret != cudaSuccess) {
+                            std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
+                            abort();
+                        }
+                    }
+                    else {
+                        auto ret = cudaMemcpy(dstPtr, srcPtr, byteSize, memcpyType);
+
+                        if (ret != cudaSuccess) {
+                            std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
+                            abort();
+                        }
+                    }
+                }
+            }
+        }
+
         Logger m_logger;
         std::unique_ptr<nvinfer1::IRuntime> m_runtime = nullptr;
         std::unique_ptr<nvinfer1::ICudaEngine> m_engine = nullptr;
         std::unique_ptr<nvinfer1::IExecutionContext> m_context = nullptr;
 
+        // Input and output buffers
+        std::vector<std::unique_ptr<ManagedBuffer>> m_buffers;
 };

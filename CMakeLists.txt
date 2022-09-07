@@ -197,6 +197,7 @@ target_link_libraries(
         fmt::fmt
         nvinfer
         argparse::argparse
+        CUDA::cudart
         ${CEREAL_LIBRARIES}
         zmq
         CapnProto::capnp
