@@ -2,6 +2,7 @@
 #include <fstream>
 #include <memory>
 #include <utility>
+#include <chrono>
 #include <experimental/filesystem>
 
 #include <argparse/argparse.hpp>
@@ -16,12 +17,19 @@
 
 #include "braind/trtwrapper.hpp"
 
+#include "util.h"
 #include "config.h"
+
+#include "cereal/messaging/messaging.h"
+#include "cereal/visionipc/visionbuf.h"
+#include "cereal/visionipc/visionipc.h"
+#include "cereal/visionipc/visionipc_client.h"
 
 namespace fs = std::experimental::filesystem;
 
 const fs::path model_path{MODEL_STORAGE_PATH};
 
+ExitHandler do_exit;
 
 std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
 {
@@ -92,7 +100,45 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
+  size_t last_10_sec_msgs { 0 };
+  auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
+  
+
+  // Connect to the visionipc server
+  while (!do_exit) {
+    if (!vipc_client.connect(false)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        continue;
+    }
+    else {
+        std::cout << "Connected to visionipc" << std::endl;
+        break;
+    }
+  }
+
+  // Perform the brain function
+  while (!do_exit) {
+    VisionIpcBufExtra extra;
+    VisionBuf* buf = vipc_client.recv(&extra);
+    if (buf == nullptr)
+        continue;
+
+  
+    vision_engine->copy_input_to_device();
+    vision_engine->infer();
+
+    const auto cur_time = std::chrono::steady_clock::now();
+    if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
+        fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
+        last_10_sec_msgs = 0;
+        last_10_sec_time = cur_time;
+    }
+    
+    last_10_sec_msgs++;
+  }
+
 
   return EXIT_SUCCESS;
 }

@@ -5,7 +5,7 @@ import logging
 import os
 import numpy as np
 
-from typing import Literal
+from typing import Literal, Dict
 from src.config import DEVICE_CONFIG
 
 import polygraphy
@@ -81,7 +81,7 @@ def prepare_device_model(base_name: str, full_name: str):
 
     
 
-def prepare_brain(brain_name: str=None):
+def prepare_brain_models(brain_name: str=None) -> Dict[str, str]:
     # If brain_config is None, then get the current brain config name & checksum from the server
     # If you can't reach the server, then reuse the last one
     # NB: The config cached from the server will contain a checksum, so you don't have to update it everytime
@@ -113,7 +113,11 @@ def prepare_brain(brain_name: str=None):
 
     brain_config = brain_config[brain_name]
 
+    result = {}
+
     for model_name in brain_config["models"]:
         prepare_device_model(brain_config["models"][model_name]["basename"],
                              brain_config["models"][model_name]["_fullname"])
+        result[model_name] = brain_config["models"][model_name]["_fullname"]                             
 
+    return result

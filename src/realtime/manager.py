@@ -5,7 +5,8 @@ import logging
 import multiprocessing
 from setproctitle import setproctitle 
 
-from src.realtime.setup import prepare_brain
+from typing import List, Dict
+from src.realtime.setup import prepare_brain_models
 
 
 # Manager script to schedule and run a bunch of workers with various configurations
@@ -30,11 +31,13 @@ def pythonlauncher(name: str, module: str, func: str, nice: int=0):
 
 class ManagerProcess:
     name: str = ""
+    args: List[str] = []
     running: bool = False
     p = None
     
-    def __init__(self, name: str):
+    def __init__(self, name: str, args: List[str] = []):
         self.name = name
+        self.args = args
 
     async def start(self):
         raise NotImplementedError()
@@ -50,8 +53,8 @@ class PythonProcess(ManagerProcess):
     func: str = ""
     nice: int = 0
 
-    def __init__(self, name: str, module: str, func: str="main", nice: int=0):
-        super().__init__(name)
+    def __init__(self, name: str, module: str, func: str="main",  args: List[str] = [], nice: int=0):
+        super().__init__(name, args)
         self.module = module
         self.func = func
         self.nice = nice
@@ -75,11 +78,11 @@ class PythonProcess(ManagerProcess):
         self.running = False
 
 class NativeProcess(ManagerProcess):
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, name: str,  args: List[str] = []):
+        super().__init__(name, args)
 
     async def start(self):
-        self.p = await asyncio.create_subprocess_exec(os.path.abspath(f"build/{self.name}"))
+        self.p = await asyncio.create_subprocess_exec(os.path.abspath(f"build/{self.name}"), *self.args)
         self.running = True
 
     async def join(self):
@@ -91,20 +94,23 @@ class NativeProcess(ManagerProcess):
         self.p.kill()
         self.running = False
 
-procs = [
-    NativeProcess("camerad"), 
-    NativeProcess("encoderd"),
-    NativeProcess("loggerd"),
-    NativeProcess("micd"),
-    NativeProcess("odrived"),
-    NativeProcess("simplebgcd"),
-    PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
-]
+def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
+    return [
+        NativeProcess("camerad"), 
+        NativeProcess("encoderd"),
+        NativeProcess("loggerd"),
+        NativeProcess("micd"),
+        NativeProcess("odrived"),
+        #NativeProcess("simplebgcd"),
+        NativeProcess("braind", ["--vision_model", models["vision_model"]]),
+        PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
+    ]
 
 async def main():
     logger.warning("Setting up brain and models...")
 
-    prepare_brain()
+    models = prepare_brain_models()
+    procs = get_procs(models)
 
     logger.warning("Starting manager...")
 

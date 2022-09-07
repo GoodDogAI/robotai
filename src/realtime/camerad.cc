@@ -127,7 +127,7 @@ int main(int argc, char *argv[])
         if (frame_id % 100 == 0)
         {
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;
-            fmt::print("100 frames took {}ms\n", duration);
+            fmt::print("100 frames took {}\n", duration);
 
             start = std::chrono::steady_clock::now();
         }
