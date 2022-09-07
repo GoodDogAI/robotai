@@ -49,6 +49,15 @@ FetchContent_Declare(argparse
         )
 FetchContent_MakeAvailable(argparse)
 
+
+FetchContent_Declare(npy
+        GIT_REPOSITORY https://github.com/matajoh/libnpy
+        GIT_TAG v1.5.2 
+        )
+FetchContent_MakeAvailable(npy)
+
+
+
 # If we are not on the Jetson platform, then we need to build the VPF and get TensorRT specially
 if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     FetchContent_Declare(VideoCodecSDK
@@ -197,6 +206,7 @@ target_link_libraries(
         fmt::fmt
         nvinfer
         argparse::argparse
+        npy::npy
         CUDA::cudart
         ${CEREAL_LIBRARIES}
         zmq

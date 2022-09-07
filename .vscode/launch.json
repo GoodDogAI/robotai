@@ -15,9 +15,10 @@
         {
             "type": "cppdbg",
             "request": "launch",
-            "name": "Launch Loggerd",
-            "program": "${workspaceRoot}/build/loggerd",
+            "name": "Launch braind",
+            "program": "${workspaceRoot}/build/braind",
             "cwd": "${workspaceRoot}",
+            "args": ["--vision_model", "yolov7-tiny-f6c3863fa45a58b1"],
             "setupCommands": [
                 {
                     "description": "ignore SIGUSR2 signal",

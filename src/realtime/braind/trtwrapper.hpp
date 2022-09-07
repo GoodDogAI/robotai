@@ -47,6 +47,11 @@ class TrtEngine {
                 throw std::runtime_error("Failed to create TensorRT execution context");
             }
 
+            auto cudaRet = cudaStreamCreate(&m_cudaStream);
+            if (cudaRet != 0) {
+                throw std::runtime_error("Unable to create cuda stream");
+            }
+
             // Create host and device buffers
             for (int i = 0; i < m_engine->getNbBindings(); i++)
             {
@@ -65,11 +70,32 @@ class TrtEngine {
                 std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
                 manBuf->deviceBuffer = DeviceBuffer(vol, type);
                 manBuf->hostBuffer = HostBuffer(vol, type);
+                m_device_bindings.push_back(manBuf->deviceBuffer.data());
                 m_buffers.push_back(std::move(manBuf));
             }
     }
 
-    void* getDeviceBuffer(const std::string& tensorName) const
+    std::vector<std::string> get_input_names() const {
+        std::vector<std::string> input_names;
+        for (int i = 0; i < m_engine->getNbBindings(); i++) {
+            if (m_engine->bindingIsInput(i)) {
+                input_names.push_back(m_engine->getBindingName(i));
+            }
+        }
+        return input_names;
+    }
+
+    std::vector<std::string> get_output_names() const {
+        std::vector<std::string> output_names;
+        for (int i = 0; i < m_engine->getNbBindings(); i++) {
+            if (!m_engine->bindingIsInput(i)) {
+                output_names.push_back(m_engine->getBindingName(i));
+            }
+        }
+        return output_names;
+    }
+
+    void* get_device_buffer(const std::string& tensorName) const
     {
         int index = m_engine->getBindingIndex(tensorName.c_str());
         if (index == -1)
@@ -78,7 +104,7 @@ class TrtEngine {
         return m_buffers[index]->deviceBuffer.data();
     }
 
-    void* getHostBuffer(const std::string& tensorName) const
+    void* get_host_buffer(const std::string& tensorName) const
     {
         int index = m_engine->getBindingIndex(tensorName.c_str());
         if (index == -1)
@@ -87,14 +113,24 @@ class TrtEngine {
         return m_buffers[index]->hostBuffer.data();
     }
 
-    void copyInputToDevice()
+    void copy_input_to_device()
     {
         memcpyBuffers(true, false, false);
     }
 
-    void copyOutputToHost()
+    void copy_output_to_host()
     {
         memcpyBuffers(false, true, false);
+    }
+
+    void infer()
+    {
+        bool status = m_context->enqueueV2(m_device_bindings.data(), m_cudaStream, nullptr);
+
+        if (!status) 
+        {
+            throw std::runtime_error("Failed to enqueue inference");
+        }
     }
 
     private:
@@ -131,10 +167,12 @@ class TrtEngine {
         }
 
         Logger m_logger;
+        cudaStream_t m_cudaStream = nullptr;
         std::unique_ptr<nvinfer1::IRuntime> m_runtime = nullptr;
         std::unique_ptr<nvinfer1::ICudaEngine> m_engine = nullptr;
         std::unique_ptr<nvinfer1::IExecutionContext> m_context = nullptr;
 
         // Input and output buffers
         std::vector<std::unique_ptr<ManagedBuffer>> m_buffers;
+        std::vector<void*> m_device_bindings;
 };
