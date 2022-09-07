@@ -72,7 +72,8 @@
         "shared_mutex": "cpp",
         "strstream": "cpp",
         "charconv": "cpp",
-        "__nullptr": "cpp"
+        "__nullptr": "cpp",
+        "cassert": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

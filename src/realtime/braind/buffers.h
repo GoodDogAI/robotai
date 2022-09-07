@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-namespace samplesCommon
+namespace braind
 {
 
     inline uint32_t getElementSize(nvinfer1::DataType t) noexcept
@@ -157,7 +157,7 @@ public:
     //!
     size_t nbBytes() const
     {
-        return this->size() * samplesCommon::getElementSize(mType);
+        return this->size() * braind::getElementSize(mType);
     }
 
     //!
@@ -182,7 +182,7 @@ public:
     //!
     void resize(const nvinfer1::Dims& dims)
     {
-        return this->resize(samplesCommon::volume(dims));
+        return this->resize(braind::volume(dims));
     }
 
     ~GenericBuffer()
@@ -284,7 +284,7 @@ public:
                 dims.d[vecDim] = divUp(dims.d[vecDim], scalarsPerVec);
                 vol *= scalarsPerVec;
             }
-            vol *= samplesCommon::volume(dims);
+            vol *= braind::volume(dims);
             std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
             manBuf->deviceBuffer = DeviceBuffer(vol, type);
             manBuf->hostBuffer = HostBuffer(vol, type);
@@ -427,7 +427,7 @@ private:
                 if (async) {
                     auto ret = cudaMemcpyAsync(dstPtr, srcPtr, byteSize, memcpyType, stream);
 
-                    if (ret != 0) {
+                    if (ret != cudaSuccess) {
                         std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
                         abort();   
                     }
@@ -435,7 +435,7 @@ private:
                 else {
                     auto ret = cudaMemcpy(dstPtr, srcPtr, byteSize, memcpyType);
 
-                    if (ret != 0) {
+                    if (ret != cudaSuccess) {
                         std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
                         abort();   
                     }
