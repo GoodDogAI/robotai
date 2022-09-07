@@ -125,7 +125,8 @@ int main(int argc, char *argv[])
     if (buf == nullptr)
         continue;
 
-  
+    //TODO Copy the image to the engine's input buffer and convert from YUV to RGB
+
     vision_engine->copy_input_to_device();
     vision_engine->infer();
 
