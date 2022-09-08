@@ -191,11 +191,33 @@ def create_and_validate_onnx(config_name: str) -> str:
 
     # Now, load that onnx, and cut it down to only the desired output
     onnx_model = onnx.load(orig_onnx_path)
+    onnx_model = onnx.shape_inference.infer_shapes(onnx_model)
     graph = onnx_graphsurgeon.import_onnx(onnx_model)
     tensors = graph.tensors()
-    intermediate_output = tensors[config["intermediate_layer"]].to_variable(dtype=np.float32)
-    graph.outputs = [intermediate_output]
+    intermediate_output = tensors[config["intermediate_layer"]]
+
+    final_shape = 1
+    for dim in intermediate_output.shape[1:]:
+        final_shape *= dim
+
+    # Now, do a concatenation and slicing
+    
+    # inputs are [tensor, new_shape]
+    reshaped = graph.layer(inputs=[intermediate_output, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") 
+
+    # inputs are [tensor, starts, ends, axes, steps]
+    final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32) #, shape=[intermediate_output.shape[0], final_shape // config["intermediate_slice"]])
+    graph.layer(inputs=reshaped + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
+
+    graph.outputs = [final_output]
+    graph.cleanup()
+
+    # Save the final onnx model, but do a shape inference one last time on it for convience in debugging
     onnx.save(onnx_graphsurgeon.export_onnx(graph), final_onnx_path)
+    onnx_model = onnx.load(final_onnx_path)
+    onnx_model = onnx.shape_inference.infer_shapes(onnx_model)
+    onnx.checker.check_model(onnx_model)
+    onnx.save(onnx_model, final_onnx_path)
 
     return final_onnx_path
 
