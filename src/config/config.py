@@ -62,7 +62,7 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "intermediate_layer": "input.236",
+        "intermediate_layer": "input.248",
         "intermediate_slice": 53,
     }
 })

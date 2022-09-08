@@ -25,7 +25,9 @@ class ModelServiceTest(unittest.TestCase):
         resp = self.client.get(f"/models/INVALID/onnx/")
         self.assertEqual(resp.status_code, 404)
 
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/onnx/")
+        vision_model = j[main_key]["models"]["vision_model"]["basename"]
+
+        resp = self.client.get(f"/models/{vision_model}/onnx/")
         self.assertEqual(resp.status_code, 200)
 
     def test_model_references(self):
@@ -33,14 +35,15 @@ class ModelServiceTest(unittest.TestCase):
 
         j = resp.json()
         main_key = list(j)[0]
+        vision_model = j[main_key]["models"]["vision_model"]["basename"]
 
         input_name = "input.1"
         output_name = "onnx::Sigmoid_308"
         
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_input/INVALID_NAME")
+        resp = self.client.get(f"/models/{vision_model}/reference_input/INVALID_NAME")
         self.assertEqual(resp.status_code, 404)
     
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_input/{input_name}")
+        resp = self.client.get(f"/models/{vision_model}/reference_input/{input_name}")
         self.assertEqual(resp.status_code, 200)
 
         file_data = io.BytesIO(resp.content)
@@ -48,10 +51,10 @@ class ModelServiceTest(unittest.TestCase):
 
         print(ref_input.shape)
 
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_output/INVALID_OUTPUT")
+        resp = self.client.get(f"/models/{vision_model}/reference_output/INVALID_OUTPUT")
         self.assertEqual(resp.status_code, 404)
 
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/reference_output/{output_name}")
+        resp = self.client.get(f"/models/{vision_model}/reference_output/{output_name}")
         self.assertEqual(resp.status_code, 200)
 
         file_data = io.BytesIO(resp.content)
@@ -59,7 +62,7 @@ class ModelServiceTest(unittest.TestCase):
 
         print(ref_output.shape)
 
-        resp = self.client.get(f"/models/{j[main_key]['vision_model']}/onnx/")
+        resp = self.client.get(f"/models/{vision_model}/onnx/")
         self.assertEqual(resp.status_code, 200)
 
         ort_sess = onnxruntime.InferenceSession(resp.content)

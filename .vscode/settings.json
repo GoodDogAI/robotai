@@ -73,7 +73,8 @@
         "strstream": "cpp",
         "charconv": "cpp",
         "__nullptr": "cpp",
-        "cassert": "cpp"
+        "cassert": "cpp",
+        "target": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

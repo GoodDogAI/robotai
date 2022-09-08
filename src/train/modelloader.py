@@ -11,6 +11,7 @@ from pathlib import Path
 from itertools import chain
 import polygraphy
 import polygraphy.backend.trt
+import onnx_graphsurgeon
 
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
@@ -158,25 +159,34 @@ def create_and_validate_onnx(config_name: str) -> str:
 
     y = model(img)  # dry run
 
-    # Convert that to ONNX
-    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.onnx")
+    # Convert and validate the full base model to ONNX
+    orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_orig.onnx")
+    final_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_final.onnx")
+
     onnx_exists_and_validates = False
 
-    if os.path.exists(onnx_path):
-        print(f"Found cached ONNX model {onnx_path}")
-        onnx_exists_and_validates = validate_pt_onnx(model, onnx_path)
+    if os.path.exists(orig_onnx_path):
+        print(f"Found cached ONNX model {orig_onnx_path}")
+        onnx_exists_and_validates = validate_pt_onnx(model, orig_onnx_path)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(model, img, onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
+        torch.onnx.export(model, img, orig_onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
 
-        onnx_model = onnx.load(onnx_path)  # load onnx model
+        onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
         print("Confirmed ONNX model is valid")
-        onnx_exists_and_validates = validate_pt_onnx(model, onnx_path)
+        onnx_exists_and_validates = validate_pt_onnx(model, orig_onnx_path)
 
     assert onnx_exists_and_validates, "Validation of pytorch and onnx outputs failed"
 
-    return onnx_path
+    # Now, load that onnx, and cut it down to only the desired output
+    onnx_model = onnx.load(orig_onnx_path)
+    graph = onnx_graphsurgeon.import_onnx(onnx_model)
+    tensors = graph.tensors()
+    graph.cleanup()
+    onnx.save(onnx_graphsurgeon.export_onnx(graph), final_onnx_path)
+
+    return final_onnx_path
 
 # Returns a path to a TRT model that matches the given model configuration
 def create_and_validate_trt(config_name: str) -> str:
