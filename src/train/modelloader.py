@@ -175,15 +175,26 @@ def create_and_validate_onnx(config_name: str) -> str:
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
         print("Confirmed ONNX model is valid")
+
+        # Use graph surgeon to simplify the model, but make no other changes for now
+        graph = onnx_graphsurgeon.import_onnx(onnx_model)
+        graph.toposort()
+        graph.fold_constants()
+        graph.cleanup()
+        onnx.save(onnx_graphsurgeon.export_onnx(graph), orig_onnx_path)
+
         onnx_exists_and_validates = validate_pt_onnx(model, orig_onnx_path)
 
-    assert onnx_exists_and_validates, "Validation of pytorch and onnx outputs failed"
+    if not onnx_exists_and_validates:
+        os.remove(orig_onnx_path)
+        raise AssertionError("Validation of pytorch and onnx outputs failed")
 
     # Now, load that onnx, and cut it down to only the desired output
     onnx_model = onnx.load(orig_onnx_path)
     graph = onnx_graphsurgeon.import_onnx(onnx_model)
     tensors = graph.tensors()
-    graph.cleanup()
+    intermediate_output = tensors[config["intermediate_layer"]].to_variable(dtype=np.float32)
+    graph.outputs = [intermediate_output]
     onnx.save(onnx_graphsurgeon.export_onnx(graph), final_onnx_path)
 
     return final_onnx_path
@@ -217,7 +228,9 @@ def create_and_validate_trt(config_name: str) -> str:
 
         trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
 
-    assert trt_exists_and_validates, "Validation of onnx and trt outputs failed"
+    if not trt_exists_and_validates:
+        os.remove(trt_path)
+        raise AssertionError("Validation of onnx and trt outputs failed")
 
 
 # Loads a preconfigured model from a pytorch checkpoint,
