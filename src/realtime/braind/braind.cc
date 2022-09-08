@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   size_t last_10_sec_msgs { 0 };
-  auto last_10_sec_time { std::chrono::steady_clock::now() };
+  //auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
   
 
@@ -126,16 +126,19 @@ int main(int argc, char *argv[])
         continue;
 
     //TODO Copy the image to the engine's input buffer and convert from YUV to RGB
-
+    const auto cur_time = std::chrono::steady_clock::now();
     vision_engine->copy_input_to_device();
     vision_engine->infer();
 
-    const auto cur_time = std::chrono::steady_clock::now();
-    if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
-        fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
-        last_10_sec_msgs = 0;
-        last_10_sec_time = cur_time;
-    }
+    // TODO Synchronize the cuda stream?
+    fmt::print("infer took {}\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time));
+
+    // const auto cur_time = std::chrono::steady_clock::now();
+    // if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
+    //     fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
+    //     last_10_sec_msgs = 0;
+    //     last_10_sec_time = cur_time;
+    // }
     
     last_10_sec_msgs++;
   }
