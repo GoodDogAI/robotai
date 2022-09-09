@@ -25,11 +25,12 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     u = expand_uv(uv[:, :, :, 0::2])
     v = expand_uv(uv[:, :, :, 1::2])
 
-    r = 1.164 * y             + 1.596 * v
-    g = 1.164 * y - 0.392 * u - 0.813 * v
-    b = 1.164 * y + 2.017 * u
+    mat = torch.tensor([[1.164, 0.0, 1.596],[1.164, -0.392, -0.813],[1.164, 2.017, 0.0]], dtype=torch.float32)
 
-    return torch.cat([r, g, b], dim=1)
+    yuv = torch.cat([y, u, v], dim=1)
+    rgb = torch.conv2d(yuv, mat.reshape([3, 3, 1, 1]))
+    rgb = (rgb/ 255.0).clamp(0.0, 1.0)
+    return rgb
 
 def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
     jit = torch.jit.script(func)
