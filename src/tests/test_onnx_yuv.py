@@ -10,10 +10,22 @@ from src.train.onnx_yuv import nv12m_to_rgb, get_onnx
 
 img = data.astronaut()
 
+# TODO Deal with the clamping issue,
+# TODO Convert it to a module
+# TODO Adjust the onnx stuff to use the module
+# TODO Fix up the size stuff on the modelloader
+# TODO Test that it exports on the device
+# TODO Fix the rest of the unit tests
+
 class ONNXYUVTest(unittest.TestCase):
     def test_convert(self):
         # Start with random RGB image
-        rgb_input = torch.randint(low=0, high=255, size=(720, 1280, 3), dtype=torch.uint8)
+        rgb_input = torch.randint(low=0, high=255, size=(720 // 2, 1280 // 2, 3), dtype=torch.uint8)
+        
+        # Upsample it, into 2x2 squares, this is important, because it makes sure that the
+        # image is consistent in the NV12M format which has less color data than a true random image
+        # Otherwise, you'd get out-of-range colors with the artifically generated data here
+        rgb_input = rgb_input.repeat_interleave(2, dim=0).repeat_interleave(2, dim=1)
 
         # Convert to YCbCr using a known reference implementation
         yuv_input = torch.tensor(rgb2ycbcr(rgb_input.numpy()))

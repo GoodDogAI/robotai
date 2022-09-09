@@ -144,7 +144,8 @@ def create_and_validate_onnx(config_name: str) -> str:
     # TODO The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
     batch_size = 1
     # slice down the image size to the nearest multiple of the stride
-    img_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
+
+    internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
                 DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
     device = "cuda:0"
 
@@ -155,9 +156,11 @@ def create_and_validate_onnx(config_name: str) -> str:
     load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
     model = load_fn(config["checkpoint"])
 
-    img = torch.zeros(batch_size, 3, *img_size).to(device)  # image size(1,3,height,width) 
+    img = torch.zeros(batch_size, 3, *internal_size).to(device)  # image size(1,3,height,width) 
 
     y = model(img)  # dry run
+
+    full_seq = torch.nn.Sequential(model)
 
     # Convert and validate the full base model to ONNX
     orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_orig.onnx")
