@@ -20,6 +20,16 @@ router = APIRouter(prefix="/models",
 
 REFERENCE_MODEL_RNG_SEED = 17
 
+def _get_reference_input(shape, dtype):
+    rng = default_rng(REFERENCE_MODEL_RNG_SEED)
+
+    if dtype == np.uint8:
+        return rng.integers(low=0, high=255, size=shape, dtype=dtype)
+    elif dtype == np.float32 or dtype == np.float64:
+        return rng.random(size=shape, dtype=dtype)
+    else:
+        raise NotImplementedError()
+
 
 @router.get("/")
 async def get_all_models() -> JSONResponse:
@@ -71,8 +81,8 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
 
     shape = all_input_shapes[input_name]
     dtype = all_input_dtypes[input_name]
-    rng = default_rng(REFERENCE_MODEL_RNG_SEED)
-    data = rng.random(shape, dtype=dtype)
+   
+    data = _get_reference_input(shape, dtype)
 
     file_data = io.BytesIO()
     np.save(file_data, data)
@@ -92,9 +102,7 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
 
     feed_dict = {}
     for input in ort_sess.get_inputs():
-        rng = default_rng(REFERENCE_MODEL_RNG_SEED)
-        data = rng.random(input.shape, dtype=onnx_to_numpy_dtype(input.type))
-        feed_dict[input.name] = data
+        feed_dict[input.name] = _get_reference_input(input.shape, onnx_to_numpy_dtype(input.type))
 
     try:
         ort_outputs = ort_sess.run([output_name], feed_dict)
