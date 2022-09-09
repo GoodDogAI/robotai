@@ -29,7 +29,7 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
 
     mat = torch.tensor([[1.164, 0.0, 1.596],
                         [1.164, -0.392, -0.813],
-                        [1.164, 2.017, 0.0]], dtype=torch.float32)
+                        [1.164, 2.017, 0.0]], dtype=torch.float32, device=y.device)
 
     yuv = torch.cat([y, u, v], dim=1)
     rgb = torch.conv2d(yuv, mat.reshape([3, 3, 1, 1]))
@@ -37,16 +37,35 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     
     return rgb
 
-def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
-    jit = torch.jit.script(func)
+class NV12MToRGB(torch.nn.Module):
+    def forward(self, yuv_tuple):
+        y, uv = yuv_tuple
+        return nv12m_to_rgb(y, uv)
 
-    #with tempfile.NamedTemporaryFile() as f:
-    f = "/home/jake/test.onnx"
-    torch.onnx.export(jit, args, f)
-    onnx_model = onnx.load(f)
-    graph = onnx_graphsurgeon.import_onnx(onnx_model)
-    graph.toposort()
-    graph.fold_constants()
-    graph.cleanup()
-    onnx.save(onnx_graphsurgeon.export_onnx(graph), f)
-    return graph
+class CenterCrop(torch.nn.Module):
+    def __init__(self, size):
+        super().__init__()
+        self.size = size
+
+    def forward(self, image):
+        (batch, chan, height, width) = image.shape
+        (crop_height, crop_width) = self.size
+        assert crop_height <= height
+        assert crop_width <= width
+        y = (height - crop_height) // 2
+        x = (width - crop_width) // 2
+        return image[:, :, y:y+crop_height, x:x+crop_width]
+
+def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
+    module = NV12MToRGB()
+
+    with tempfile.NamedTemporaryFile() as f:
+        torch.onnx.export(module, args, f)
+        onnx_model = onnx.load(f)
+        graph = onnx_graphsurgeon.import_onnx(onnx_model)
+        graph.toposort()
+        graph.fold_constants()
+        graph.cleanup()
+        onnx.save(onnx_graphsurgeon.export_onnx(graph), f)
+
+        return graph

@@ -56,6 +56,7 @@ MODEL_CONFIGS = dotdict({
     "yolov7-tiny-s53": {
         "type": "vision",
         "load_fn": "src.train.yolov7.load.load_yolov7",
+        "input_format": "rgb",
         "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
 
         # Input dimensions must be divisible by the stride

@@ -10,7 +10,6 @@ from src.train.onnx_yuv import nv12m_to_rgb, get_onnx
 
 img = data.astronaut()
 
-# TODO Deal with the clamping issue,
 # TODO Convert it to a module
 # TODO Adjust the onnx stuff to use the module
 # TODO Fix up the size stuff on the modelloader

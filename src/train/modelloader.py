@@ -7,6 +7,7 @@ import importlib
 import hashlib
 import numpy as np
 from pathlib import Path
+from typing import Literal
 
 from itertools import chain
 import polygraphy
@@ -16,7 +17,7 @@ import onnx_graphsurgeon
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
 
-
+from src.train.onnx_yuv import NV12MToRGB, CenterCrop
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 from src.config.config import BRAIN_CONFIGS
 
@@ -127,10 +128,13 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
     return True
 
 # Returns a path to an onnx model that matches the given model configuration
-def create_and_validate_onnx(config_name: str) -> str:
+def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv12m") -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
     assert config["type"] == "vision", "Config must be a vision model"
+
+    assert input_format == "nv12m", "Only NV12M feed is supported"
+    assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
 
@@ -143,24 +147,35 @@ def create_and_validate_onnx(config_name: str) -> str:
 
     # TODO The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
     batch_size = 1
+    device = "cuda:0"
     # slice down the image size to the nearest multiple of the stride
+    inputs = ()
+
+    if input_format == "nv12m":
+        feed_y = torch.randn(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
+        feed_uv= torch.randn(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
+        inputs = (feed_y, feed_uv)
+    elif input_format == "rgb":
+        feed_rgb = torch.randn(batch_size, 3, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
+        inputs = (feed_rgb)
+    else:
+        raise NotImplementedError(f"Input format {input_format} not supported")
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
-                DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
-    device = "cuda:0"
+                     DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+  
 
     # Load the original pytorch model
 
     # Import and call function by string from the config
     load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
     load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
-    model = load_fn(config["checkpoint"])
+    vision_model = load_fn(config["checkpoint"])
 
-    img = torch.zeros(batch_size, 3, *internal_size).to(device)  # image size(1,3,height,width) 
+    full_model = torch.nn.Sequential(NV12MToRGB(), CenterCrop(internal_size), vision_model)
 
-    y = model(img)  # dry run
 
-    full_seq = torch.nn.Sequential(model)
+    _ = full_model(inputs)  # dry run
 
     # Convert and validate the full base model to ONNX
     orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_orig.onnx")
@@ -170,10 +185,10 @@ def create_and_validate_onnx(config_name: str) -> str:
 
     if os.path.exists(orig_onnx_path):
         print(f"Found cached ONNX model {orig_onnx_path}")
-        onnx_exists_and_validates = validate_pt_onnx(model, orig_onnx_path)
+        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(model, img, orig_onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
+        torch.onnx.export(full_model, (inputs,), orig_onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
@@ -186,7 +201,7 @@ def create_and_validate_onnx(config_name: str) -> str:
         graph.cleanup()
         onnx.save(onnx_graphsurgeon.export_onnx(graph), orig_onnx_path)
 
-        onnx_exists_and_validates = validate_pt_onnx(model, orig_onnx_path)
+        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
 
     if not onnx_exists_and_validates:
         os.remove(orig_onnx_path)
