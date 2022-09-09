@@ -75,3 +75,20 @@ Install the python libraries into their proper places
 `cmake --install . --prefix /home/jake/robotai`
 
 
+
+## Notes on Colorspaces
+
+This project involves a lot of different image sources, along with video transcoding, and color space conversion.
+
+- IntelRealsense, outputs YUYV format as 1280W x 720H resolution and 15FPS
+    - TODO: Figure out what the range is on the Y and UV values here, 0-255 or 40-216?
+- camerad takes that, and seperates out the 1280Wx720H Y plane, and then creates a UV plane which has 1280Wx360H
+  This is known as NV12M format
+- encoderd takes the NV12M and passes it directly into the NVIDIA encoder which gets saved into H265 format
+    - TODO: This is encoded with a default colorspace, does that need to be changed?
+- braind takes the NV12M and passes it to the vision onnx models, which do an internal conversion step
+    - TODO: Once you know what the range is on the camerad YUV stuff, you can make sure that you have the proper color converter in ONNX
+- The host training process gets the H265 packets, and decodes them using NVDEC, into NV12 format
+- Then, it takes NV12 into YUV420, and then RGB, but it uses color_space=nvc.ColorSpace.BT_601 and color_range=nvc.ColorRange.MPEG
+    - TODO: What actual color_space and color_range to use here?
+- Those RGB frames can go directly into ONNX models for vision intermediates, or vision rewards

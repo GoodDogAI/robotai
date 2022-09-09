@@ -1,6 +1,7 @@
 import torch
 import onnx
 import tempfile
+import onnx_graphsurgeon
 from typing import Callable, Tuple
 
 def expand_uv(uv: torch.Tensor) -> torch.Tensor:
@@ -38,4 +39,10 @@ def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
     #with tempfile.NamedTemporaryFile() as f:
     f = "/home/jake/test.onnx"
     torch.onnx.export(jit, args, f)
-    return onnx.load(f)
+    onnx_model = onnx.load(f)
+    graph = onnx_graphsurgeon.import_onnx(onnx_model)
+    graph.toposort()
+    graph.fold_constants()
+    graph.cleanup()
+    onnx.save(onnx_graphsurgeon.export_onnx(graph), f)
+    return graph
