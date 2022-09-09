@@ -196,17 +196,13 @@ def create_and_validate_onnx(config_name: str) -> str:
     tensors = graph.tensors()
     intermediate_output = tensors[config["intermediate_layer"]]
 
-    final_shape = 1
-    for dim in intermediate_output.shape[1:]:
-        final_shape *= dim
-
     # Now, do a concatenation and slicing
     
     # inputs are [tensor, new_shape]
     reshaped = graph.layer(inputs=[intermediate_output, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") 
 
     # inputs are [tensor, starts, ends, axes, steps]
-    final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32) #, shape=[intermediate_output.shape[0], final_shape // config["intermediate_slice"]])
+    final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32)
     graph.layer(inputs=reshaped + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
 
     graph.outputs = [final_output]
