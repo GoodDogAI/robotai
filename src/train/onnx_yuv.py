@@ -16,6 +16,11 @@ def expand_uv(uv: torch.Tensor) -> torch.Tensor:
 def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     # y.shape = [batch, 1, height, width], dtype=int8
     # uv.shape = [batch, 1, height/2, width], dtype=int8
+    assert len(y.shape) == 4
+    assert len(uv.shape) == 4
+
+    assert y.dtype == torch.uint8, "Expecting y in range of [16, 235]"
+    assert uv.dtype == torch.uint8, "Expecting uv in range of [16, 240]"
 
     # Convert to float
     y = y.float()
@@ -38,8 +43,7 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     return rgb
 
 class NV12MToRGB(torch.nn.Module):
-    def forward(self, yuv_tuple):
-        y, uv = yuv_tuple
+    def forward(self, y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
         return nv12m_to_rgb(y, uv)
 
 class CenterCrop(torch.nn.Module):
@@ -55,6 +59,18 @@ class CenterCrop(torch.nn.Module):
         y = (height - crop_height) // 2
         x = (width - crop_width) // 2
         return image[:, :, y:y+crop_height, x:x+crop_width]
+
+class ConvertCropVision(torch.nn.Module):
+    def __init__(self, converter, cropper, vision_model):
+        super().__init__()
+        self.converter = converter
+        self.cropper = cropper
+        self.vision_model = vision_model
+
+    def forward(self, y=None, uv=None, rgb=None):
+        img = self.converter(y, uv) 
+        img = self.cropper(img)
+        return self.vision_model(img)
 
 def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
     module = NV12MToRGB()

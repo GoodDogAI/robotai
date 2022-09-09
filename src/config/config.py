@@ -63,7 +63,7 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "intermediate_layer": "input.248", # Another option to try could be onnx::Conv_254
+        "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
         "intermediate_slice": 53,
     }
 })

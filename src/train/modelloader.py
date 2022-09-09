@@ -17,7 +17,7 @@ import onnx_graphsurgeon
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
 
-from src.train.onnx_yuv import NV12MToRGB, CenterCrop
+from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 from src.config.config import BRAIN_CONFIGS
 
@@ -33,6 +33,8 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
         return np.int32
     elif onnx_type == "tensor(int64)":
         return np.int64
+    elif onnx_type == "tensor(uint8)":
+        return np.uint8
     else:
         raise ValueError(f"Unsupported ONNX type {onnx_type}")
 
@@ -68,12 +70,20 @@ def brain_fullname(brain_name: str) -> str:
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
     ort_sess = onnxruntime.InferenceSession(onnx_path)
-    assert len(ort_sess.get_inputs()) == 1, "ONNX model must have a single input"
-    ort_shape = ort_sess.get_inputs()[0].shape
-    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0)
+  
+    feed_dict = {}
+    for ort_input in ort_sess.get_inputs():
+        ort_shape = ort_input.shape
+        ort_dtype = onnx_to_numpy_dtype(ort_input.type)
 
-    torch_output = pt_model(random_input.to("cuda"))
-    ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
+        if ort_dtype == np.uint8:
+            feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
+        elif ort_dtype == np.float32:
+            feed_dict[ort_input.name] = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
+        
+    
+    torch_output = pt_model(**feed_dict)
+    ort_outputs = ort_sess.run(None, {k: v.cpu().numpy() for k, v in feed_dict.items()})
 
     # Check that the outputs are the same
     for i, torch_output in enumerate(chain(*torch_output)):
@@ -149,15 +159,15 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
     batch_size = 1
     device = "cuda:0"
     # slice down the image size to the nearest multiple of the stride
-    inputs = ()
+    inputs = {}
 
     if input_format == "nv12m":
-        feed_y = torch.randn(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
-        feed_uv= torch.randn(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
-        inputs = (feed_y, feed_uv)
+        feed_y = torch.randint(low=16, high=235, size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
+        feed_uv= torch.randint(low=16, high=240, size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
+        inputs = {"y": feed_y, "uv": feed_uv}
     elif input_format == "rgb":
-        feed_rgb = torch.randn(batch_size, 3, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, device=device)
-        inputs = (feed_rgb)
+        feed_rgb = torch.randint(low=0, high=255, size=(batch_size, 3, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
+        inputs = {"rgb": feed_rgb}
     else:
         raise NotImplementedError(f"Input format {input_format} not supported")
 
@@ -166,16 +176,15 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
   
 
     # Load the original pytorch model
-
     # Import and call function by string from the config
     load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
     load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
     vision_model = load_fn(config["checkpoint"])
 
-    full_model = torch.nn.Sequential(NV12MToRGB(), CenterCrop(internal_size), vision_model)
+    # Make a module that is going to include the input format conversion and any required cropping
+    full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
 
-
-    _ = full_model(inputs)  # dry run
+    _ = full_model(**inputs)  # dry run
 
     # Convert and validate the full base model to ONNX
     orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_orig.onnx")
@@ -188,7 +197,7 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
         onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(full_model, (inputs,), orig_onnx_path, verbose=False, opset_version=12, dynamic_axes=None)
+        torch.onnx.export(full_model, inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
