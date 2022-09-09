@@ -79,6 +79,7 @@ Install the python libraries into their proper places
 ## Notes on Colorspaces
 
 This project involves a lot of different image sources, along with video transcoding, and color space conversion.
+https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ranges
 
 - IntelRealsense, outputs YUYV format as 1280W x 720H resolution and 15FPS
     - TODO: Figure out what the range is on the Y and UV values here, 0-255 or 40-216?

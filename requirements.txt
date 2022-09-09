@@ -34,6 +34,9 @@ wandb
 # For yolov7 plotting
 seaborn
 
+# To make it easier to rearrange dimensions and such of tensors
+einops
+
 # For exporting models to ONNX, as preparation for TensorRT export
 onnx
 
