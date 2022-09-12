@@ -48,6 +48,7 @@ std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
   engine->copy_input_to_device();
   engine->infer();
   engine->copy_output_to_host();
+  engine->sync();
 
   fmt::print("Finished sample inference run\n");
 
@@ -125,10 +126,26 @@ int main(int argc, char *argv[])
     if (buf == nullptr)
         continue;
 
-    //TODO Copy the image to the engine's input buffer and convert from YUV to RGB
     const auto cur_time = std::chrono::steady_clock::now();
+
+    float *device_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
+    float *device_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
+
+    if (buf->width != buf->stride || buf->width != vision_engine->get_bu)
+    // TODO Add asserts that every size matches up here, maybe not in the inner loop?
+
+    for (size_t i = 0; i < buf->width * buf->height; i++) {
+        device_y[i] = buf->y[i];
+    }
+
+    for (size_t i = 0; i < buf->width * buf->height / 2; i++) {
+        device_uv[i] = buf->uv[i];
+    }
+
+    
     vision_engine->copy_input_to_device();
     vision_engine->infer();
+    vision_engine->sync();
 
     // TODO Synchronize the cuda stream?
     fmt::print("infer took {}\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time));

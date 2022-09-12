@@ -115,12 +115,12 @@ class TrtEngine {
 
     void copy_input_to_device()
     {
-        memcpyBuffers(true, false, false);
+        memcpyBuffers(true, false, true);
     }
 
     void copy_output_to_host()
     {
-        memcpyBuffers(false, true, false);
+        memcpyBuffers(false, true, true);
     }
 
     void infer()
@@ -133,8 +133,13 @@ class TrtEngine {
         }
     }
 
+    void sync() 
+    {
+        cudaStreamSynchronize(m_cudaStream);
+    }
+
     private:
-        void memcpyBuffers(const bool copyInput, const bool deviceToHost, const bool async, const cudaStream_t& stream = 0)
+        void memcpyBuffers(const bool copyInput, const bool deviceToHost, const bool async)
         {
             for (int i = 0; i < m_engine->getNbBindings(); i++)
             {
@@ -147,7 +152,7 @@ class TrtEngine {
                 if ((copyInput && m_engine->bindingIsInput(i)) || (!copyInput && !m_engine->bindingIsInput(i)))
                 {
                     if (async) {
-                        auto ret = cudaMemcpyAsync(dstPtr, srcPtr, byteSize, memcpyType, stream);
+                        auto ret = cudaMemcpyAsync(dstPtr, srcPtr, byteSize, memcpyType, m_cudaStream);
 
                         if (ret != cudaSuccess) {
                             std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
