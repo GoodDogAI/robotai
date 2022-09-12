@@ -5,6 +5,13 @@ import numpy as np
 import onnx_graphsurgeon
 from typing import Callable, Tuple
 
+# Used because TensorRT only supports INT8, not UINT8 inputs, so we need to do a
+# "reinterpret_cast" to convert the UINT8 to INT8
+def int8_from_uint8(x: int) -> int:
+    # Return two's complement representation of x
+    return x - 256 if x > 127 else x
+
+
 def expand_uv(uv: torch.Tensor) -> torch.Tensor:
     len = uv.numel()
     (batch, chan, height, width) = uv.shape
@@ -19,32 +26,37 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     assert len(y.shape) == 4
     assert len(uv.shape) == 4
 
-    assert y.dtype == torch.uint8, "Expecting y in range of [16, 235]"
-    assert uv.dtype == torch.uint8, "Expecting uv in range of [16, 240]"
+    assert y.dtype == torch.float32, "Expecting float y in range of [16, 235]"
+    assert uv.dtype == torch.float32, "Expecting float uv in range of [16, 240]"
 
-    # Convert to float
-    y = y.float()
-    uv = uv.float()
-
-    y -= 16
-    uv -= 128
+    y -= 16.0
+    uv -= 128.0
     
     u = expand_uv(uv[:, :, :, 0::2])
     v = expand_uv(uv[:, :, :, 1::2])
+
 
     mat = torch.tensor([[1.164, 0.0, 1.596],
                         [1.164, -0.392, -0.813],
                         [1.164, 2.017, 0.0]], dtype=torch.float32, device=y.device)
 
     yuv = torch.cat([y, u, v], dim=1)
+
     rgb = torch.conv2d(yuv, mat.reshape([3, 3, 1, 1]))
+    
     rgb = (rgb/ 255.0).clamp(0.0, 1.0)
     
     return rgb
 
+def softcast_to_float(x: torch.Tensor) -> torch.Tensor:
+    x = x.float()
+    negs = x < 0
+    x[negs] = x[negs] + 256
+    return x
+
 class NV12MToRGB(torch.nn.Module):
     def forward(self, y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
-        return nv12m_to_rgb(y, uv)
+        return nv12m_to_rgb(softcast_to_float(y), softcast_to_float(uv))
 
 class CenterCrop(torch.nn.Module):
     def __init__(self, size):

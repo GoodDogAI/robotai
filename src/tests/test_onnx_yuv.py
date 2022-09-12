@@ -12,6 +12,7 @@ img = data.astronaut()
 
 
 # TODO Test that it exports on the device
+# TODO, I just found out that TensorRT only supports INT8 and not UINT8, so we need to just cast it
 # TODO Fix the rest of the unit tests
 
 class ONNXYUVTest(unittest.TestCase):

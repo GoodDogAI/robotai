@@ -2,14 +2,14 @@ import torch
 import onnx
 import onnxruntime
 import os
+import copy
 import time
 import importlib
 import hashlib
 import numpy as np
 from pathlib import Path
-from typing import Literal
+from typing import Union, List, Tuple, Iterable
 
-from itertools import chain
 import polygraphy
 import polygraphy.backend.trt
 import onnx_graphsurgeon
@@ -17,7 +17,7 @@ import onnx_graphsurgeon
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
 
-from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision
+from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 from src.config.config import BRAIN_CONFIGS
 
@@ -35,9 +35,17 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
         return np.int64
     elif onnx_type == "tensor(uint8)":
         return np.uint8
+    elif onnx_type == "tensor(int8)":
+        return np.int8
     else:
         raise ValueError(f"Unsupported ONNX type {onnx_type}")
 
+def _flatten_deep(x: Union[List, Tuple]) -> Iterable:
+    if isinstance(x, (list, tuple)):
+        for y in x:
+            yield from _flatten_deep(y)
+    else:
+        yield x
 
 # Returns a unique path that includes a hash of the model config and checkpoint
 def model_fullname(config_name: str) -> str:
@@ -78,20 +86,26 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
 
         if ort_dtype == np.uint8:
             feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
+        elif ort_dtype == np.int8:
+            feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
         elif ort_dtype == np.float32:
             feed_dict[ort_input.name] = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
+        else:
+            raise NotImplementedError()
         
     
-    torch_output = pt_model(**feed_dict)
+    torch_outputs = pt_model(**feed_dict)
     ort_outputs = ort_sess.run(None, {k: v.cpu().numpy() for k, v in feed_dict.items()})
 
     # Check that the outputs are the same
-    for i, torch_output in enumerate(chain(*torch_output)):
+    for i, torch_output in enumerate(_flatten_deep(torch_outputs)):
         torch_output = torch_output.detach().cpu().numpy()
         ort_output = ort_outputs[i]
 
         matches = np.isclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
         print(f"PT-ONNX Output {i} matches: {matches / torch_output.size:.3%}")
+
+        diffs = np.abs(ort_output - torch_output)
 
         assert np.allclose(ort_output, torch_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {i}"
 
@@ -138,12 +152,11 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
     return True
 
 # Returns a path to an onnx model that matches the given model configuration
-def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv12m") -> str:
+def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
     assert config["type"] == "vision", "Config must be a vision model"
 
-    assert input_format == "nv12m", "Only NV12M feed is supported"
     assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
@@ -159,17 +172,12 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
     batch_size = 1
     device = "cuda:0"
     # slice down the image size to the nearest multiple of the stride
-    inputs = {}
-
-    if input_format == "nv12m":
-        feed_y = torch.randint(low=16, high=235, size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
-        feed_uv= torch.randint(low=16, high=240, size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
-        inputs = {"y": feed_y, "uv": feed_uv}
-    elif input_format == "rgb":
-        feed_rgb = torch.randint(low=0, high=255, size=(batch_size, 3, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device)
-        inputs = {"rgb": feed_rgb}
-    else:
-        raise NotImplementedError(f"Input format {input_format} not supported")
+    inputs = {
+        "y": torch.randint(low=16, high=235,
+                           size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.int8),
+        "uv": torch.randint(low=16, high=240,
+                            size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.int8)
+    }
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
                      DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
@@ -192,12 +200,12 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
 
     onnx_exists_and_validates = False
 
-    if os.path.exists(orig_onnx_path):
+    if os.path.exists(orig_onnx_path) and not skip_cache:
         print(f"Found cached ONNX model {orig_onnx_path}")
         onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(full_model, inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
+        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
@@ -245,7 +253,7 @@ def create_and_validate_onnx(config_name: str, input_format:Literal["nv12m"]="nv
     return final_onnx_path
 
 # Returns a path to a TRT model that matches the given model configuration
-def create_and_validate_trt(config_name: str) -> str:
+def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
     assert config["type"] == "vision", "Config must be a vision model"
@@ -260,7 +268,7 @@ def create_and_validate_trt(config_name: str) -> str:
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.engine")
     trt_exists_and_validates = False
 
-    if os.path.exists(trt_path):
+    if os.path.exists(trt_path) and not skip_cache:
         print("Loading existing engine")
         trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
 
