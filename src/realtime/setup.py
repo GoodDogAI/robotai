@@ -81,7 +81,7 @@ def prepare_device_model(base_name: str, full_name: str):
 
     
 
-def prepare_brain_models(brain_name: str=None) -> Dict[str, str]:
+def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
     # If brain_config is None, then get the current brain config name & checksum from the server
     # If you can't reach the server, then reuse the last one
     # NB: The config cached from the server will contain a checksum, so you don't have to update it everytime
@@ -91,22 +91,29 @@ def prepare_brain_models(brain_name: str=None) -> Dict[str, str]:
     # For each model, download the onnx, download the reference inputs/outputs, and convert to TensorRT
 
     # Once everything check out, return and allow the manager to start everything
-    if brain_name is None:
+    brain_name = None
+    
+    if orig_brain_name is None:
         logger.warning("No brain name provided, attempting to locate and use default")
-        resp = requests.get(f"{MODEL_SERVICE}/models/brain/default/")
+        try:
+            resp = requests.get(f"{MODEL_SERVICE}/models/brain/default/")
 
-        if resp.status_code == 200:
-            with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"), "wb") as f:
-                f.write(resp.content)
+            if resp.status_code == 200:
+                with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"), "wb") as f:
+                    f.write(resp.content)
 
-            brain_name = list(resp.json())[0]
-            logger.warning(f"Downloaded {brain_name} from server")
-        else:
-            logger.warning("Could not reach server to get brain config, using cached one")
-
+                brain_name = list(resp.json())[0]
+                logger.warning(f"Downloaded {brain_name} from server")
+            else:
+                logger.warning("Could not reach server to get brain config, using cached one")
+        except requests.exceptions.RequestException:
+            logger.warning(f"Failed to reach model service, using last known brain config")
 
     with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"), "r") as f:
         brain_config = json.load(f)
+
+    if brain_name is None:
+        brain_name = list(brain_config)[0]
 
     if brain_name != list(brain_config)[0]:
         raise RuntimeError(f"Brain name {brain_name} does not match the one in the config {list(brain_config)[0]}")
