@@ -21,8 +21,8 @@ def expand_uv(uv: torch.Tensor) -> torch.Tensor:
 
 # Allows you to modify an ONNX model to use YUV input instead of RGB
 def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
-    # y.shape = [batch, 1, height, width], dtype=int8
-    # uv.shape = [batch, 1, height/2, width], dtype=int8
+    # y.shape = [batch, 1, height, width]
+    # uv.shape = [batch, 1, height/2, width]
     assert len(y.shape) == 4
     assert len(uv.shape) == 4
 
@@ -34,7 +34,6 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     
     u = expand_uv(uv[:, :, :, 0::2])
     v = expand_uv(uv[:, :, :, 1::2])
-
 
     mat = torch.tensor([[1.164, 0.0, 1.596],
                         [1.164, -0.392, -0.813],
@@ -48,15 +47,10 @@ def nv12m_to_rgb(y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
     
     return rgb
 
-def softcast_to_float(x: torch.Tensor) -> torch.Tensor:
-    x = x.float()
-    negs = x < 0
-    x[negs] = x[negs] + 256
-    return x
 
 class NV12MToRGB(torch.nn.Module):
     def forward(self, y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
-        return nv12m_to_rgb(softcast_to_float(y), softcast_to_float(uv))
+        return nv12m_to_rgb(y, uv)
 
 class CenterCrop(torch.nn.Module):
     def __init__(self, size):

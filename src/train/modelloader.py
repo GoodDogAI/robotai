@@ -79,23 +79,25 @@ def brain_fullname(brain_name: str) -> str:
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
     ort_sess = onnxruntime.InferenceSession(onnx_path)
   
-    feed_dict = {}
+    pt_feed_dict = {}
     for ort_input in ort_sess.get_inputs():
         ort_shape = ort_input.shape
         ort_dtype = onnx_to_numpy_dtype(ort_input.type)
 
         if ort_dtype == np.uint8:
-            feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
         elif ort_dtype == np.int8:
-            feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
         elif ort_dtype == np.float32:
-            feed_dict[ort_input.name] = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.float32)
         else:
             raise NotImplementedError()
         
-    
-    torch_outputs = pt_model(**feed_dict)
-    ort_outputs = ort_sess.run(None, {k: v.cpu().numpy() for k, v in feed_dict.items()})
+    # NB. You need to make a copy of the feed_dict now, otherwise the tensors will be modified in-place
+    ort_feed_dict = {k: v.cpu().numpy() for k, v in pt_feed_dict.items()}
+
+    torch_outputs = pt_model(**pt_feed_dict)
+    ort_outputs = ort_sess.run(None, ort_feed_dict)
 
     # Check that the outputs are the same
     for i, torch_output in enumerate(_flatten_deep(torch_outputs)):
@@ -116,8 +118,20 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
         build_engine = EngineFromBytes(f.read())
 
     ort_sess = onnxruntime.InferenceSession(onnx_path)
-    assert len(ort_sess.get_inputs()) == 1, "ONNX model must have a single input"
-    assert ort_sess.get_inputs()[0].type == "tensor(float)", "ONNX model must have a single input of type float"
+
+    pt_feed_dict = {}
+    for ort_input in ort_sess.get_inputs():
+        ort_shape = ort_input.shape
+        ort_dtype = onnx_to_numpy_dtype(ort_input.type)
+
+        if ort_dtype == np.uint8:
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
+        elif ort_dtype == np.int8:
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
+        elif ort_dtype == np.float32:
+            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.float32)
+        else:
+            raise NotImplementedError()
     ort_shape = ort_sess.get_inputs()[0].shape
 
     random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
@@ -174,9 +188,9 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     # slice down the image size to the nearest multiple of the stride
     inputs = {
         "y": torch.randint(low=16, high=235,
-                           size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.int8),
+                           size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.float32),
         "uv": torch.randint(low=16, high=240,
-                            size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.int8)
+                            size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.float32)
     }
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
