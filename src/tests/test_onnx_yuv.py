@@ -36,8 +36,10 @@ class ONNXYUVTest(unittest.TestCase):
         uv = rearrange(uv, "h w (c1 c2) -> 1 1 h (w c1 c2)", c1=1)
     
         # Run the conversion using our optimized method
-        rgb = nv12m_to_rgb(y, uv)
-        onnx = get_onnx(nv12m_to_rgb, (y, uv))
+        rgb = nv12m_to_rgb(y.to(torch.float32), uv.to(torch.float32))
+
+        # Make sure the onnx can render too
+        onnx = get_onnx(nv12m_to_rgb, (y.to(torch.float32), uv.to(torch.float32)))
 
         # Compare the results, for this, we actually have to take the NV12M UV plane, and reupsample it
         u = uv[:, :, :, 0::2].repeat_interleave(2, dim=3).repeat_interleave(2, dim=2)
