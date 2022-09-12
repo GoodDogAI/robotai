@@ -8,7 +8,7 @@ import importlib
 import hashlib
 import numpy as np
 from pathlib import Path
-from typing import Union, List, Tuple, Iterable
+from typing import Literal, Union, List, Tuple, Iterable
 
 import polygraphy
 import polygraphy.backend.trt
@@ -39,6 +39,28 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
         return np.int8
     else:
         raise ValueError(f"Unsupported ONNX type {onnx_type}")
+
+def get_reference_input(shape: List[int], dtype: np.dtype, model_type: Literal["vision"]) -> np.ndarray:
+    if model_type == "vision":
+        if dtype == np.uint8:
+            return np.random.randint(low=16, high=235, size=shape, dtype=np.uint8)
+        elif dtype == np.float32:
+            return np.random.randint(low=16, high=235, size=shape, dtype=np.uint8).astype(np.float32)
+        else:
+            raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+
+def get_pt_feeddict(ort_sess: onnxruntime.InferenceSession, model_type: Literal["vision"]) -> dict:
+    pt_feed_dict = {}
+    for ort_input in ort_sess.get_inputs():
+        ort_shape = ort_input.shape
+        ort_dtype = onnx_to_numpy_dtype(ort_input.type)
+
+        pt_feed_dict[ort_input.name] = torch.from_numpy(get_reference_input(ort_shape, ort_dtype, model_type)).to(device="cuda")
+
+    return pt_feed_dict
+
 
 def _flatten_deep(x: Union[List, Tuple]) -> Iterable:
     if isinstance(x, (list, tuple)):
@@ -76,24 +98,11 @@ def brain_fullname(brain_name: str) -> str:
     return brain_fullname
 
 
-def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
+def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str, model_type:Literal["vision"]) -> bool:
     ort_sess = onnxruntime.InferenceSession(onnx_path)
   
-    pt_feed_dict = {}
-    for ort_input in ort_sess.get_inputs():
-        ort_shape = ort_input.shape
-        ort_dtype = onnx_to_numpy_dtype(ort_input.type)
-
-        if ort_dtype == np.uint8:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
-        elif ort_dtype == np.int8:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
-        elif ort_dtype == np.float32:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.float32)
-        else:
-            raise NotImplementedError()
-        
     # NB. You need to make a copy of the feed_dict now, otherwise the tensors will be modified in-place
+    pt_feed_dict = get_pt_feeddict(ort_sess, model_type)
     ort_feed_dict = {k: v.cpu().numpy() for k, v in pt_feed_dict.items()}
 
     torch_outputs = pt_model(**pt_feed_dict)
@@ -113,43 +122,22 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str) -> bool:
 
     return True   
 
-def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
+def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"]) -> bool:
     with open(trt_path, "rb") as f:
         build_engine = EngineFromBytes(f.read())
 
     ort_sess = onnxruntime.InferenceSession(onnx_path)
 
-    pt_feed_dict = {}
-    for ort_input in ort_sess.get_inputs():
-        ort_shape = ort_input.shape
-        ort_dtype = onnx_to_numpy_dtype(ort_input.type)
+    pt_feed_dict = get_pt_feeddict(ort_sess, model_type)
+    ort_feed_dict = {k: v.cpu().numpy() for k, v in pt_feed_dict.items()}
 
-        if ort_dtype == np.uint8:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda")
-        elif ort_dtype == np.int8:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.int8)
-        elif ort_dtype == np.float32:
-            pt_feed_dict[ort_input.name] = torch.randint(low=16, high=235, size=ort_shape, dtype=torch.uint8, device="cuda").to(torch.float32)
-        else:
-            raise NotImplementedError()
-    ort_shape = ort_sess.get_inputs()[0].shape
-
-    random_input = torch.FloatTensor(*ort_shape).uniform_(0.0, 1.0).to("cuda")
-    ort_outputs = ort_sess.run(None, {'input.1': random_input.cpu().numpy()})
+    ort_outputs = ort_sess.run(None, ort_feed_dict)
 
     with TrtRunner(build_engine) as runner:
-        assert len(runner.get_input_metadata()) == 1, "TRT model must have a single input"
-        trt_input_name = next(iter(runner.get_input_metadata()))
-        trt_input_shape = runner.get_input_metadata()[trt_input_name].shape
-        assert ort_shape == trt_input_shape, "Input shape mismatch"
-        assert runner.get_input_metadata()[trt_input_name].dtype == np.float32, "TRT model must have a single input of type float"
-
         start = time.perf_counter()
 
         for i in range(100):
-            trt_outputs = runner.infer({
-                trt_input_name: DeviceView(random_input.data_ptr(), random_input.shape, np.float32)
-            })
+            trt_outputs = runner.infer({name: DeviceView(data.data_ptr(), data.shape, np.float32) for name, data in pt_feed_dict.items()})
 
         print(f"TRT inference time: {(time.perf_counter() - start)/100:.3f}s")
 
@@ -169,7 +157,8 @@ def validate_onnx_trt(onnx_path: str, trt_path: str) -> bool:
 def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
-    assert config["type"] == "vision", "Config must be a vision model"
+    model_type = config["type"]
+    assert model_type == "vision", "Config must be a vision model"
 
     assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
 
@@ -187,10 +176,8 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     device = "cuda:0"
     # slice down the image size to the nearest multiple of the stride
     inputs = {
-        "y": torch.randint(low=16, high=235,
-                           size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.float32),
-        "uv": torch.randint(low=16, high=240,
-                            size=(batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), dtype=torch.uint8, device=device).to(torch.float32)
+        "y": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
+        "uv": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
     }
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
@@ -216,7 +203,7 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
 
     if os.path.exists(orig_onnx_path) and not skip_cache:
         print(f"Found cached ONNX model {orig_onnx_path}")
-        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
+        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path, model_type)
     
     if not onnx_exists_and_validates:
         torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
@@ -232,7 +219,7 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
         graph.cleanup()
         onnx.save(onnx_graphsurgeon.export_onnx(graph), orig_onnx_path)
 
-        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path)
+        onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path, model_type)
 
     if not onnx_exists_and_validates:
         os.remove(orig_onnx_path)
@@ -270,13 +257,13 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
 def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
     config = MODEL_CONFIGS[config_name]
     assert config is not None, "Unable to find config"
-    assert config["type"] == "vision", "Config must be a vision model"
+    model_type = config["type"]
+    assert model_type == "vision", "Config must be a vision model"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True) 
 
     # TRT models must be made from ONNX files
     onnx_path = create_and_validate_onnx(config_name)
-
 
     # Build the tensorRT engine
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.engine")
@@ -284,7 +271,7 @@ def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
 
     if os.path.exists(trt_path) and not skip_cache:
         print("Loading existing engine")
-        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
+        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path, model_type)
 
     if not trt_exists_and_validates:
         build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
@@ -293,7 +280,7 @@ def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
         with TrtRunner(build_engine) as runner:
             print("Created TRT engine")
 
-        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path)
+        trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path, model_type)
 
     if not trt_exists_and_validates:
         os.remove(trt_path)
