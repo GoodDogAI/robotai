@@ -10,6 +10,7 @@
 #include <future>
 
 #include "nvvisionbuf.h"
+#include "cereal/visionipc/visionipc.h"
 #include "cereal/visionipc/visionbuf.h"
 
 
@@ -25,8 +26,9 @@ class NVEncoder{
             uint8_t *data;
             size_t len;
             int32_t flags;
+            VisionIpcBufExtra extra;
 
-            NVResult(NVEncoder &e, uint8_t *d, size_t l, int32_t f, uint32_t i) : enc(e), data(d), len(l), flags(f), index(i) {}
+            NVResult(NVEncoder &e, uint8_t *d, size_t l, int32_t f, uint32_t i, const VisionIpcBufExtra &ex) : enc(e), data(d), len(l), flags(f), index(i), extra(ex) {}
             // Requeues the resulting buffer to V4L2 once the user is done with it
             ~NVResult();
 
@@ -35,7 +37,7 @@ class NVEncoder{
                 const uint32_t index;
         };
 
-        std::future<std::unique_ptr<NVResult>> encode_frame(VisionBuf* buf, VisionIpcBufExtra *extra);
+        std::future<std::unique_ptr<NVResult>> encode_frame(VisionBuf* buf, const VisionIpcBufExtra &extra);
 
         const int in_width, in_height, out_width, out_height, bitrate, fps;
 
@@ -53,5 +55,6 @@ class NVEncoder{
         int frame_write_index, frame_read_index;
     
         std::map<int, std::promise<std::unique_ptr<NVResult>>> encoder_promises;
+        std::map<int, VisionIpcBufExtra> encoder_vision_buf_extras;
 };
 

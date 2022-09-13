@@ -80,7 +80,9 @@
         "__functional_base_03": "cpp",
         "__hash_table": "cpp",
         "__tree": "cpp",
-        "__tuple": "cpp"
+        "__tuple": "cpp",
+        "__bit_reference": "cpp",
+        "__split_buffer": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

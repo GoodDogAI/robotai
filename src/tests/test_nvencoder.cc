@@ -43,7 +43,7 @@ TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
                         0,
         };
 
-        auto future = encoder.encode_frame(&buf, &extra);
+        auto future = encoder.encode_frame(&buf, extra);
         auto result = future.get();
         
         INFO("frame " << i << " " << result->flags);
@@ -76,7 +76,7 @@ TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
     std::fill(buf.y + CAMERA_WIDTH * CAMERA_HEIGHT / 2, buf.y + CAMERA_WIDTH * CAMERA_HEIGHT, 128);
     std::fill(buf.uv, buf.uv + CAMERA_WIDTH * CAMERA_HEIGHT / 2, 0);
 
-    auto future = encoder.encode_frame(&buf, &extra);
+    auto future = encoder.encode_frame(&buf, extra);
     auto result = future.get();
 
     INFO("Got result from encoder len " << result->len);

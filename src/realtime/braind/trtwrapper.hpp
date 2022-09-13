@@ -96,12 +96,32 @@ class TrtEngine {
         return output_names;
     }
 
-    nvinfer1::Dims get_tensor_shape(const std::string &tensorName) const {
+    std::vector<int32_t> get_tensor_shape(const std::string &tensorName) const {
         int index = m_engine->getBindingIndex(tensorName.c_str());
         if (index == -1) {
             throw std::runtime_error(fmt::format("Tensor {} not found", tensorName));
         }
-        return m_context->getBindingDimensions(index);
+
+        auto dims = m_context->getBindingDimensions(index);
+        std::vector<int32_t> shape(dims.nbDims);
+        for (int i = 0; i < dims.nbDims; i++) {
+            shape[i] = dims.d[i];
+        }
+        return shape;
+    }
+
+    size_t get_tensor_size(const std::string &tensorName) const {
+        int index = m_engine->getBindingIndex(tensorName.c_str());
+        if (index == -1) {
+            throw std::runtime_error(fmt::format("Tensor {} not found", tensorName));
+        }
+
+        auto dims = m_context->getBindingDimensions(index);
+        size_t vol = 1;
+        for (int i = 0; i < dims.nbDims; i++) {
+            vol *= dims.d[i];
+        }
+        return vol;
     }
 
     nvinfer1::DataType get_tensor_dtype(const std::string &tensorName) const {
@@ -112,18 +132,18 @@ class TrtEngine {
         return m_engine->getBindingDataType(index);
     }
 
-    bool compare_tensor_shape(const std::string &tensorName, std::vector<int32_t> shape) const {
-        auto tensor_shape = get_tensor_shape(tensorName);
-        if (tensor_shape.nbDims != shape.size()) {
-            return false;
-        }
-        for (int i = 0; i < shape.size(); i++) {
-            if (tensor_shape.d[i] != shape[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
+    // bool compare_tensor_shape(const std::string &tensorName, std::vector<int32_t> shape) const {
+    //     auto tensor_shape = get_tensor_shape(tensorName);
+    //     if (tensor_shape.nbDims != shape.size()) {
+    //         return false;
+    //     }
+    //     for (int i = 0; i < shape.size(); i++) {
+    //         if (tensor_shape.d[i] != shape[i]) {
+    //             return false;
+    //         }
+    //     }
+    //     return true;
+    // }
 
     void* get_device_buffer(const std::string& tensorName) const
     {

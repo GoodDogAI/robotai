@@ -28,6 +28,7 @@
 namespace fs = std::experimental::filesystem;
 
 const fs::path model_path{MODEL_STORAGE_PATH};
+const char *validation_service_name = "brainValidation";
 
 ExitHandler do_exit;
 
@@ -102,8 +103,9 @@ int main(int argc, char *argv[])
   }
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
+  PubMaster pm { {validation_service_name} };
   size_t last_10_sec_msgs { 0 };
-  //auto last_10_sec_time { std::chrono::steady_clock::now() };
+  auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
   
   // Make sure the vision engine inputs and outputs are setup as we expect them
@@ -113,10 +115,10 @@ int main(int argc, char *argv[])
   if (vision_engine->get_tensor_dtype("uv") != nvinfer1::DataType::kFLOAT) {
     throw std::runtime_error("Vision model output tensor y is not of type float");
   }
-  if (!vision_engine->compare_tensor_shape("y", {1, 1, CAMERA_HEIGHT, CAMERA_WIDTH})) {
+  if (vision_engine->get_tensor_shape("y") != std::vector{1, 1, CAMERA_HEIGHT, CAMERA_WIDTH}) {
     throw std::runtime_error("Vision model output tensor y is not of expected size");
   }
-  if (!vision_engine->compare_tensor_shape("uv", {1, 1, CAMERA_HEIGHT / 2, CAMERA_WIDTH})) {
+  if (vision_engine->get_tensor_shape("uv") != std::vector{1, 1, CAMERA_HEIGHT / 2, CAMERA_WIDTH}) {
     throw std::runtime_error("Vision model output tensor y is not of expected size");
   }
 
@@ -132,6 +134,11 @@ int main(int argc, char *argv[])
     }
   }
 
+  float *host_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
+  float *host_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
+  float *host_intermediate = static_cast<float*>(vision_engine->get_host_buffer("intermediate"));
+  auto intermediate_shape = vision_engine->get_tensor_shape("intermediate");
+
   // Perform the brain function
   while (!do_exit) {
     VisionIpcBufExtra extra;
@@ -145,33 +152,45 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    fmt::print("Extra data: {}\n", extra.frame_id);
+
     const auto cur_time = std::chrono::steady_clock::now();
 
-    float *device_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
-    float *device_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
-
+    // Copy and convert from vision ipc to float inputs in range of [16.0, 235.0]
     for (size_t i = 0; i < buf->width * buf->height; i++) {
-        device_y[i] = buf->y[i];
+        host_y[i] = buf->y[i];
     }
 
     for (size_t i = 0; i < buf->width * buf->height / 2; i++) {
-        device_uv[i] = buf->uv[i];
+        host_uv[i] = buf->uv[i];
     }
 
-    
     vision_engine->copy_input_to_device();
     vision_engine->infer();
     vision_engine->sync();
 
-    // TODO Synchronize the cuda stream?
-    fmt::print("infer took {}\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time));
+    // Log every N frames with a model validation message
+    if (extra.frame_id % 60 == 0) {
+        MessageBuilder msg;
+        auto event = msg.initEvent(true);
+        auto mdat = event.initModelValidation();
+        mdat.setModelType(cereal::ModelValidation::ModelType::VISION_INTERMEDIATE);
+        mdat.setModelFullName(args.get<std::string>("vision_model"));
+        mdat.setFrameId(extra.frame_id);
+        mdat.setOutputName("intermediate");
+        mdat.setShape(kj::arrayPtr(intermediate_shape.data(), intermediate_shape.size()));
+        mdat.setData(kj::ArrayPtr<float>(host_intermediate, host_intermediate + vision_engine->get_tensor_size("intermediate")));
+        
+        auto words = capnp::messageToFlatArray(msg);
+        auto bytes = words.asBytes();
+        pm.send(validation_service_name, bytes.begin(), bytes.size());
+    }
 
-    // const auto cur_time = std::chrono::steady_clock::now();
-    // if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
-    //     fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
-    //     last_10_sec_msgs = 0;
-    //     last_10_sec_time = cur_time;
-    // }
+    if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
+        fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
+        last_10_sec_msgs = 0;
+        last_10_sec_time = cur_time;
+    }
     
     last_10_sec_msgs++;
   }

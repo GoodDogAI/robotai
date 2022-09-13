@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
             continue;
 
         // Add the future to be retrieved later
-        auto future = encoder.encode_frame(buf, &extra);
+        auto future = encoder.encode_frame(buf, extra);
         encoder_futures.push_back(std::move(future));
 
         // Process and dump out any finished futures 
@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
             auto event = msg.initEvent(true);
             auto edat = event.initHeadEncodeData();
             auto edata = edat.initIdx(); 
+            edata.setFrameId(result->extra.frame_id);
             edata.setEncodeId(num_frames);
             edata.setFlags(result->flags);
 

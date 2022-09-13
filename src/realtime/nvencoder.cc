@@ -322,8 +322,10 @@ void NVEncoder::do_dequeue_capture() {
             promise.set_value(std::make_unique<NVResult>(*this, buf_out[index].planes[0].data,
                 bytesused,
                 flags,
-                index));
+                index,
+                encoder_vision_buf_extras[frame_read_index]));
             encoder_promises.erase(frame_read_index);
+            encoder_vision_buf_extras.erase(frame_read_index);
             frame_read_index++;
             
             // The buffer is requeued once the unique pointer goes out of scope
@@ -348,7 +350,7 @@ void NVEncoder::do_dequeue_output() {
 }
 
 
-std::future<std::unique_ptr<NVEncoder::NVResult>> NVEncoder::encode_frame(VisionBuf* ipcbuf, VisionIpcBufExtra *extra) {
+std::future<std::unique_ptr<NVEncoder::NVResult>> NVEncoder::encode_frame(VisionBuf* ipcbuf, const VisionIpcBufExtra &extra) {
     // Find an empty buf
     auto buf = std::find_if(buf_in.begin(), buf_in.end(), [](NVVisionBuf &b) {
         return !b.is_queued;
@@ -362,6 +364,7 @@ std::future<std::unique_ptr<NVEncoder::NVResult>> NVEncoder::encode_frame(Vision
     //std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
 
     auto &promise = encoder_promises[frame_write_index];
+    encoder_vision_buf_extras[frame_write_index] = extra;
     frame_write_index++;
 
     queue_buffer(fd, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, buf->index, &(*buf));
