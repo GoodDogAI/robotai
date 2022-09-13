@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
     rs2_metadata_type last_start_of_frame {};
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
+
     while (true)
     {
         rs2::video_frame color_frame = queue.wait_for_frame();
@@ -121,6 +122,24 @@ int main(int argc, char *argv[])
                 cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
             }
         }
+
+        // Collect min/max statistics on the Y and UV data so we can understand if it's full-range or [16, 235] range
+        // auto minmax_frame_y = std::minmax_element(cur_yuv_buf->y, cur_yuv_buf->y + cur_yuv_buf->width * cur_yuv_buf->height);
+        // auto minmax_frame_uv = std::minmax_element(cur_yuv_buf->uv, cur_yuv_buf->uv + cur_yuv_buf->width * cur_yuv_buf->height / 2);
+
+        // if (frame_id == 1) {
+        //     minmax_global_y.first = *minmax_frame_y.first;
+        //     minmax_global_y.second = *minmax_frame_y.second;
+        //     minmax_global_uv.first = *minmax_frame_uv.first;
+        //     minmax_global_uv.second = *minmax_frame_uv.second;
+        // } else {
+        //     minmax_global_y.first = std::min(*minmax_frame_y.first, minmax_global_y.first);
+        //     minmax_global_y.second = std::max(*minmax_frame_y.second, minmax_global_y.second);
+        //     minmax_global_uv.first = std::min(*minmax_frame_uv.first, minmax_global_uv.first);
+        //     minmax_global_uv.second = std::max(*minmax_frame_uv.second, minmax_global_uv.second);
+        // }
+
+        // fmt::print("Y min {} max {} UV min {} max {}\n", minmax_global_y.first, minmax_global_y.second, minmax_global_uv.first, minmax_global_uv.second);
 
         vipc_server.send(cur_yuv_buf, &extra);
 

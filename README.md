@@ -82,7 +82,7 @@ This project involves a lot of different image sources, along with video transco
 https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ranges
 
 - IntelRealsense, outputs YUYV format as 1280W x 720H resolution and 15FPS
-    - TODO: Figure out what the range is on the Y and UV values here, 0-255 or 40-216?
+    - Y Range - [16,235], UV Range [18,236] (So it's probably according to ITU-R BT.601)
 - camerad takes that, and seperates out the 1280Wx720H Y plane, and then creates a UV plane which has 1280Wx360H
   This is known as NV12M format
 - encoderd takes the NV12M and passes it directly into the NVIDIA encoder which gets saved into H265 format

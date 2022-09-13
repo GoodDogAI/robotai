@@ -106,6 +106,19 @@ int main(int argc, char *argv[])
   //auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
   
+  // Make sure the vision engine inputs and outputs are setup as we expect them
+  if (vision_engine->get_tensor_dtype("y") != nvinfer1::DataType::kFLOAT) {
+    throw std::runtime_error("Vision model output tensor y is not of type float");
+  }
+  if (vision_engine->get_tensor_dtype("uv") != nvinfer1::DataType::kFLOAT) {
+    throw std::runtime_error("Vision model output tensor y is not of type float");
+  }
+  if (!vision_engine->compare_tensor_shape("y", {1, 1, CAMERA_HEIGHT, CAMERA_WIDTH})) {
+    throw std::runtime_error("Vision model output tensor y is not of expected size");
+  }
+  if (!vision_engine->compare_tensor_shape("uv", {1, 1, CAMERA_HEIGHT / 2, CAMERA_WIDTH})) {
+    throw std::runtime_error("Vision model output tensor y is not of expected size");
+  }
 
   // Connect to the visionipc server
   while (!do_exit) {
@@ -114,7 +127,7 @@ int main(int argc, char *argv[])
         continue;
     }
     else {
-        std::cout << "Connected to visionipc" << std::endl;
+        fmt::print("Connected to visionipc\n");
         break;
     }
   }
@@ -126,13 +139,16 @@ int main(int argc, char *argv[])
     if (buf == nullptr)
         continue;
 
+    if (buf->width != CAMERA_WIDTH|| buf->stride != CAMERA_WIDTH || buf->height != CAMERA_HEIGHT) {
+        std::cout << "Invalid frame size" << std::endl;
+        fmt::print(stderr, "Invalid frame size\n");
+        return EXIT_FAILURE;
+    }
+
     const auto cur_time = std::chrono::steady_clock::now();
 
     float *device_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
     float *device_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
-
-    if (buf->width != buf->stride || buf->width != vision_engine->get_bu)
-    // TODO Add asserts that every size matches up here, maybe not in the inner loop?
 
     for (size_t i = 0; i < buf->width * buf->height; i++) {
         device_y[i] = buf->y[i];

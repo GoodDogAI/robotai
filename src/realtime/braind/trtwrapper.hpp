@@ -11,6 +11,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
+#include <array>
 
 #include "braind/logger.hpp"
 #include "braind/buffers.hpp"
@@ -93,6 +94,35 @@ class TrtEngine {
             }
         }
         return output_names;
+    }
+
+    nvinfer1::Dims get_tensor_shape(const std::string &tensorName) const {
+        int index = m_engine->getBindingIndex(tensorName.c_str());
+        if (index == -1) {
+            throw std::runtime_error(fmt::format("Tensor {} not found", tensorName));
+        }
+        return m_context->getBindingDimensions(index);
+    }
+
+    nvinfer1::DataType get_tensor_dtype(const std::string &tensorName) const {
+        int index = m_engine->getBindingIndex(tensorName.c_str());
+        if (index == -1) {
+            throw std::runtime_error(fmt::format("Tensor {} not found", tensorName));
+        }
+        return m_engine->getBindingDataType(index);
+    }
+
+    bool compare_tensor_shape(const std::string &tensorName, std::vector<int32_t> shape) const {
+        auto tensor_shape = get_tensor_shape(tensorName);
+        if (tensor_shape.nbDims != shape.size()) {
+            return false;
+        }
+        for (int i = 0; i < shape.size(); i++) {
+            if (tensor_shape.d[i] != shape[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 
     void* get_device_buffer(const std::string& tensorName) const
