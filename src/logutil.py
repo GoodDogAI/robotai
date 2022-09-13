@@ -31,6 +31,20 @@ def validate_log(f: BinaryIO) -> bool:
         for evt in events:
             evt.which()
 
+            # Now, also process modelValidation events, and check if they are valid
+            if evt.which() == "modelValidation" and \
+                evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+                print(f"Checking vision model {evt.modelValidation.modelFullName}...")
+
+                # Render the video frame which is being referred to
+
+                # Load in the model runner for the model in question
+
+                # Run the model on the frame
+
+                # Compare the output to the expected output
+                    
+
         return True
     except capnp.KjException:
         return False
