@@ -152,8 +152,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    fmt::print("Extra data: {}\n", extra.frame_id);
-
     const auto cur_time = std::chrono::steady_clock::now();
 
     // Copy and convert from vision ipc to float inputs in range of [16.0, 235.0]
