@@ -196,22 +196,25 @@ if(${ALSA_FOUND})
     )
 endif()
 
-add_executable(braind src/realtime/braind/braind.cc ${MASTER_CONFIG_H})
-target_include_directories(braind PRIVATE ${CUDAToolkit_INCLUDE_DIRS} src/realtime)
-target_link_libraries(
-    braind 
-    PRIVATE
-        serial 
-        stdc++fs
-        fmt::fmt
-        nvinfer
-        argparse::argparse
-        npy::npy
-        CUDA::cudart
-        ${CEREAL_LIBRARIES}
-        zmq
-        CapnProto::capnp
-)
+# TODO Build the brain on host device too, for now we are excluding it due to some weird linker errors
+if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
+    add_executable(braind src/realtime/braind/braind.cc ${MASTER_CONFIG_H})
+    target_include_directories(braind PRIVATE ${CUDAToolkit_INCLUDE_DIRS} src/realtime)
+    target_link_libraries(
+        braind 
+        PRIVATE
+            serial 
+            stdc++fs
+            fmt::fmt
+            nvinfer
+            argparse::argparse
+            npy::npy
+            CUDA::cudart
+            ${CEREAL_LIBRARIES}
+            zmq
+            CapnProto::capnp
+    )
+endif()
 
 if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     add_executable(encoderd 
