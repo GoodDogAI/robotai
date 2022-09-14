@@ -17,7 +17,7 @@ from cereal import log
 from src.config import HOST_CONFIG
 
 from src.web.dependencies import get_loghashes
-from src.logutil import LogHashes, LogSummary, validate_log
+from src.logutil import LogHashes, LogSummary, quick_validate_log
 from src.video import get_image_packets, decode_last_frame
 import src.PyNvCodec as nvc
 
@@ -83,7 +83,7 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
 
     # Check that you can read all messages
     logfile.file.seek(0)
-    if not validate_log(logfile.file):
+    if not quick_validate_log(logfile.file):
         raise HTTPException(status_code=400, detail="Log file is not a serialized capnp buffer")
 
     # Determine a new filename
