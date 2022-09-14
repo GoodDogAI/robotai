@@ -2,7 +2,9 @@ import os
 import hashlib
 import json
 import logging
+import numpy as np
 
+from einops import rearrange
 from typing import List, Dict, BinaryIO
 from functools import total_ordering
 from capnp.lib import capnp
@@ -10,6 +12,10 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
 from cereal import log
 from src.video import get_image_packets, decode_last_frame
+from src.train.modelloader import load_vision_model
+from contextlib import ExitStack
+
+import src.PyNvCodec as nvc
 
 logger = logging.getLogger(__name__)
 DATA_FILE = "_hashes.json"
@@ -29,27 +35,40 @@ def validate_log(f: BinaryIO) -> bool:
     try:
         events = log.Event.read_multiple(f)
         
+        with ExitStack() as stack:
+            valid_engine = stack.enter_context(load_vision_model("yolov7-tiny-s53"))
 
-        for evt in events:
-            evt.which()
+            for evt in events:
+                evt.which()
 
-            # Now, also process modelValidation events, and check if they are valid
-            if evt.which() == "modelValidation" and \
-                evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
-                print(f"Checking vision model {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
+                # Now, also process modelValidation events, and check if they are valid
+                if evt.which() == "modelValidation" and \
+                    evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+                    print(f"Checking vision model {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
 
-                # Render the video frame which is being referred to
-                packets = get_image_packets(f.name, evt.modelValidation.frameId)
-                yuv = decode_last_frame(packets)
+                    # Render the video frame which is being referred to
+                    packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
 
-                # TODO: If you didn't find a packet, then it's an error, unless this is the last modelValidation message, and 
-                # then, due to encoding delays, you may expect that frame to come in on a later log rotation, so it's okay to skip it
+                    # TODO: If you didn't find a packet, then it's an error, unless this is the last modelValidation message, and 
+                    # then, due to encoding delays, you may expect that frame to come in on a later log rotation, so it's okay to skip it
 
-                # Load in the model runner for the model in question
+                    # Load in the model runner for the model in question
 
-                # Run the model on the frame
 
-                # Compare the output to the expected output
+                    # Run the model on the frame
+                    # TODO Assert type and shape
+                    logged_intermediate = np.frombuffer(evt.modelValidation.data, dtype=np.float32)
+                    logged_intermediate = np.reshape(logged_intermediate, evt.modelValidation.shape)
+                    y = rearrange(y.astype(np.float32), "h w -> 1 1 h w")
+                    uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
+                    trt_outputs = valid_engine.infer({"y": y, "uv": uv})
+
+                    diff = np.abs(trt_outputs["intermediate"] -n)
+                    print(f"Model outputs: {trt_outputs}")
+                    
+
+                    # Compare the output to the expected output
                     
 
         return True

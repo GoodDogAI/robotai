@@ -9,6 +9,7 @@ import hashlib
 import numpy as np
 from pathlib import Path
 from typing import Literal, Union, List, Tuple, Iterable
+from contextlib import contextmanager
 
 import polygraphy
 import polygraphy.backend.trt
@@ -286,9 +287,21 @@ def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
         os.remove(trt_path)
         raise AssertionError("Validation of onnx and trt outputs failed")
 
+    return trt_path
 
 # Loads a preconfigured model from a pytorch checkpoint,
 # if needed, it builds a new tensorRT engine, and verifies that the model results are identical
+@contextmanager
 def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     trt_path = create_and_validate_trt(config)
+
+    with open(trt_path, "rb") as f:
+        build_engine = EngineFromBytes(f.read())
+
+    runner = TrtRunner(build_engine)
+    runner.activate()
+    yield runner
+    runner.deactivate()
+
+
 
