@@ -49,9 +49,20 @@ def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
 
     return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, -1))
 
+def _nv12_from_surface(surface: "nvc.PySurface") -> np.ndarray:
+    frame_yuv = np.ndarray(shape=(0), dtype=np.uint8)
+    nv_dl = nvc.PySurfaceDownloader(DEVICE_CONFIG.CAMERA_WIDTH, DEVICE_CONFIG.CAMERA_HEIGHT, nvc.PixelFormat.NV12, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
+    nv_dl.DownloadSingleSurface(surface, frame_yuv)
 
-def load_image(logpath: str, index: int) -> np.ndarray:
+    frame_yuv = frame_yuv.reshape((DEVICE_CONFIG.CAMERA_HEIGHT + DEVICE_CONFIG.CAMERA_HEIGHT // 2, -1))
+    y = frame_yuv[:DEVICE_CONFIG.CAMERA_HEIGHT, :]
+    uv = frame_yuv[DEVICE_CONFIG.CAMERA_HEIGHT:, :]
+    return y, uv
+
+
+def get_image_packets(logpath: str, frameId: int) -> List[bytes]:
     video_packets = []
+    found = False
 
     with open(logpath, "rb") as f:
         events = log.Event.read_multiple(f)
@@ -64,14 +75,18 @@ def load_image(logpath: str, index: int) -> np.ndarray:
 
                 video_packets.append(evt.headEncodeData.data)
 
-            if i == index:
-                break
+                if evt.headEncodeData.idx.frameId == frameId:
+                    found = True
+                    break
             
-    return decode_last_frame(video_packets)
+    if not found:
+        raise KeyError(f"Frame {frameId} not found")
+    else:
+        return video_packets
    
 
 # Returns the last frame from a list of video packets as an image
-def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.PixelFormat.RGB,
+def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.PixelFormat.NV12,
                       width: int=DEVICE_CONFIG.CAMERA_WIDTH, height: int=DEVICE_CONFIG.CAMERA_HEIGHT) -> np.ndarray:
     nv_dec = nvc.PyNvDecoder(
         width,
@@ -84,7 +99,7 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
     packets_recv = 0
 
     assert len(packets) > 0, "Need to have some packets"
-    assert pixel_format == nvc.PixelFormat.RGB, "Other formats Not implemented yet"
+    assert pixel_format in [nvc.PixelFormat.NV12, nvc.PixelFormat.RGB], "Other formats Not implemented yet"
 
     # Workaround a bug in the nvidia library, where sending a single packet will never get decoded
     # That can only happen if we have a single iframe, so just send it twice
@@ -98,7 +113,10 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
 
         if not surface.Empty():
             if packets_recv == len(packets) - 1:
-                return _rgb_from_surface(surface)   
+                if pixel_format == nvc.PixelFormat.NV12:
+                    return _nv12_from_surface(surface)  
+                else:
+                    return _rgb_from_surface(surface) 
 
             packets_recv += 1
 
@@ -110,7 +128,10 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
             break
         else:
             if packets_recv == len(packets) - 1:
-                return _rgb_from_surface(surface)
+                if pixel_format == nvc.PixelFormat.NV12:
+                    return _nv12_from_surface(surface)  
+                else:
+                    return _rgb_from_surface(surface) 
 
             packets_recv += 1
 

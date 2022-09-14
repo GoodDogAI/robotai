@@ -9,6 +9,7 @@ from capnp.lib import capnp
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
 from cereal import log
+from src.video import get_image_packets, decode_last_frame
 
 logger = logging.getLogger(__name__)
 DATA_FILE = "_hashes.json"
@@ -27,6 +28,7 @@ def sha256(filename: str) -> str:
 def validate_log(f: BinaryIO) -> bool:
     try:
         events = log.Event.read_multiple(f)
+        
 
         for evt in events:
             evt.which()
@@ -34,9 +36,14 @@ def validate_log(f: BinaryIO) -> bool:
             # Now, also process modelValidation events, and check if they are valid
             if evt.which() == "modelValidation" and \
                 evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
-                print(f"Checking vision model {evt.modelValidation.modelFullName}...")
+                print(f"Checking vision model {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
 
                 # Render the video frame which is being referred to
+                packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                yuv = decode_last_frame(packets)
+
+                # TODO: If you didn't find a packet, then it's an error, unless this is the last modelValidation message, and 
+                # then, due to encoding delays, you may expect that frame to come in on a later log rotation, so it's okay to skip it
 
                 # Load in the model runner for the model in question
 

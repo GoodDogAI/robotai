@@ -1,11 +1,12 @@
-from struct import pack
 import unittest
 import os
-from webbrowser import get
+import torch
 import numpy as np
+from einops import rearrange
 
 from src.tests.utils import get_test_image
-from src.video import load_image, create_video, decode_last_frame
+from src.train.onnx_yuv import nv12m_to_rgb
+from src.video import get_image_packets, create_video, decode_last_frame
 from src.config import HOST_CONFIG
 import src.PyNvCodec as nvc
 
@@ -76,6 +77,31 @@ class VPFTest(unittest.TestCase):
 
         frame_rgb = decode_last_frame([packets[0], packets[1], packets[2]], nvc.PixelFormat.RGB, width, height)
         np.testing.assert_array_almost_equal(frame_rgb / 255.0, blue_img / 255.0, decimal=1)
+
+    def test_encode_decode_nv12(self):
+        width, height = 1280, 720
+
+        red_img = get_test_image((255, 0, 0), width, height)
+        green_img = get_test_image((0, 255, 0), width, height)
+        blue_img = get_test_image((0, 0, 255), width, height)
+
+        packets = create_video([red_img, green_img, blue_img])
+        self.assertEqual(len(packets), 3)
+
+        frame_y, frame_uv = decode_last_frame([packets[0]], nvc.PixelFormat.NV12, width, height)
+        self.assertEqual(frame_y.shape, (height, width))
+        self.assertEqual(frame_uv.shape, (height // 2, width))
+
+        # Convert that back to RGB
+        y = rearrange(torch.from_numpy(frame_y).to(torch.float32), "h w -> 1 1 h w")
+        uv = rearrange(torch.from_numpy(frame_uv).to(torch.float32), "h w -> 1 1 h w")
+        rgb = nv12m_to_rgb(y, uv)
+
+        self.assertEqual(rgb.shape, (1, 3, height, width))
+        
+        # TODO, it would be nice if these RGB values were just a little bit closer
+        np.testing.assert_allclose(rgb[0, :, 0, 0].numpy(), [1.0, 0.0, 0.0], atol=0.001)
+
 
 
            

@@ -18,8 +18,8 @@ from src.config import HOST_CONFIG
 
 from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, validate_log
-from src.video import load_image
-
+from src.video import get_image_packets, decode_last_frame
+import src.PyNvCodec as nvc
 
 router = APIRouter(prefix="/logs",
     tags=["logs"],
@@ -138,7 +138,13 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
         raise HTTPException(status_code=404, detail="Log not found")
 
     start = time.perf_counter()
-    rgb = load_image(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), frameid)
+
+    try:
+        packets = get_image_packets(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), frameid)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Frame not found")
+        
+    rgb = decode_last_frame(packets, pixel_format=nvc.PixelFormat.RGB)
     img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
     img_data = io.BytesIO()
     img.write(img_data)
