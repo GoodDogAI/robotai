@@ -7,6 +7,7 @@ from cereal import log
 from src.video import get_image_packets, decode_last_frame
 from src.train.modelloader import load_vision_model
 from contextlib import ExitStack
+import src.PyNvCodec as nvc
 
 # Fully checks the log file, including validating any modelValidation type events
 def full_validate_log(f: BinaryIO) -> bool:
@@ -42,13 +43,25 @@ def full_validate_log(f: BinaryIO) -> bool:
                     trt_outputs = valid_engine.infer({"y": y, "uv": uv})
                     trt_intermediate = trt_outputs["intermediate"]
 
+                    # Compare the output to the expected output
                     diff = np.abs(trt_outputs["intermediate"] - logged_intermediate)
                     matches = np.isclose(trt_intermediate, logged_intermediate, rtol=1e-2, atol=1e-2).sum()
                     print(f"Logged Output matches: {matches / logged_intermediate.size:.3%}")
 
-                    
+                elif evt.which() == "modelValidation" and \
+                    evt.modelValidation.modelType == log.ModelValidation.ModelType.visionInput:
+                    print(f"Checking vision input {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
 
-                    # Compare the output to the expected output
+                    # Render the video frame which is being referred to
+                    packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
+
+                    logged_y_slice = np.array(list(evt.modelValidation.data), dtype=np.float32)
+                    logged_y_slice = np.reshape(logged_y_slice, evt.modelValidation.shape)
+                    print("A")
+
+
+                    
                     
 
         return True
