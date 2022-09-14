@@ -134,6 +134,17 @@ int main(int argc, char *argv[])
     }
   }
 
+  // Receive all stale frames from visionipc
+  while (true) {
+     VisionIpcBufExtra extra;
+    
+    //half a frame timeout, so if there are no pending frames, we can exit
+     VisionBuf* buf = vipc_client.recv(&extra, (1000/CAMERA_FPS) / 2);
+     if (buf == nullptr) {
+          break;
+     }
+  }
+
   float *host_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
   float *host_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
   float *host_intermediate = static_cast<float*>(vision_engine->get_host_buffer("intermediate"));
