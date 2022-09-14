@@ -57,15 +57,17 @@ def validate_log(f: BinaryIO) -> bool:
 
 
                     # Run the model on the frame
-                    # TODO Assert type and shape
-                    logged_intermediate = np.frombuffer(evt.modelValidation.data, dtype=np.float32)
+                    logged_intermediate = np.array(list(evt.modelValidation.data), dtype=np.float32)
                     logged_intermediate = np.reshape(logged_intermediate, evt.modelValidation.shape)
                     y = rearrange(y.astype(np.float32), "h w -> 1 1 h w")
                     uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
                     trt_outputs = valid_engine.infer({"y": y, "uv": uv})
+                    trt_intermediate = trt_outputs["intermediate"]
 
-                    diff = np.abs(trt_outputs["intermediate"] -n)
-                    print(f"Model outputs: {trt_outputs}")
+                    diff = np.abs(trt_outputs["intermediate"] - logged_intermediate)
+                    matches = np.isclose(trt_intermediate, logged_intermediate, rtol=1e-2, atol=1e-2).sum()
+                    print(f"Logged Output matches: {matches / logged_intermediate.size:.3%}")
+
                     
 
                     # Compare the output to the expected output

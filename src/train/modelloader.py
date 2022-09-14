@@ -298,10 +298,12 @@ def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
     with open(trt_path, "rb") as f:
         build_engine = EngineFromBytes(f.read())
 
-    runner = TrtRunner(build_engine)
-    runner.activate()
-    yield runner
-    runner.deactivate()
+    try:
+        runner = TrtRunner(build_engine)
+        runner.activate()
+        yield runner
+    finally:
+        runner.deactivate()
 
 
 
