@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
         // fmt::print("Y min {} max {} UV min {} max {}\n", minmax_global_y.first, minmax_global_y.second, minmax_global_uv.first, minmax_global_uv.second);
 
         vipc_server.send(cur_yuv_buf, &extra);
-
+   
         if (frame_id % 100 == 0)
         {
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;

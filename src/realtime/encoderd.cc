@@ -49,6 +49,17 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Receive all stale frames from visionipc
+    while (true) {
+        VisionIpcBufExtra extra;
+
+        // half a frame timeout, so if there are no pending frames, we can exit
+        VisionBuf *buf = vipc_client.recv(&extra, (1000 / CAMERA_FPS) / 2);
+        if (buf == nullptr) {
+            break;
+        }
+    }
+
     // Perform the encoding
     while (!do_exit) {
         VisionIpcBufExtra extra;
@@ -69,7 +80,9 @@ int main(int argc, char *argv[])
             auto edat = event.initHeadEncodeData();
             auto edata = edat.initIdx(); 
             edata.setFrameId(result->extra.frame_id);
+            edata.setTimestampSof(result->extra.timestamp_sof);
             edata.setEncodeId(num_frames);
+            edata.setType(cereal::EncodeIndex::Type::FULL_H_E_V_C);
             edata.setFlags(result->flags);
 
             edat.setData(kj::heapArray<capnp::byte>(result->data, result->len));
