@@ -1,5 +1,5 @@
 from src.config import HOST_CONFIG
-from src.logutil import LogHashes, LogSummary, validate_log
+from src.logutil import LogHashes
 
 _loghashes = None
 
