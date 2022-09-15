@@ -176,6 +176,7 @@ int main(int argc, char *argv[])
 
     vision_engine->copy_input_to_device();
     vision_engine->infer();
+    vision_engine->copy_output_to_host();
     vision_engine->sync();
 
     // Log every N frames with a model validation message
@@ -186,14 +187,39 @@ int main(int argc, char *argv[])
         mdat.setModelType(cereal::ModelValidation::ModelType::VISION_INTERMEDIATE);
         mdat.setModelFullName(args.get<std::string>("vision_model"));
         mdat.setFrameId(extra.frame_id);
-        mdat.setOutputName("intermediate");
+        mdat.setTensorName("intermediate");
         mdat.setShape(kj::arrayPtr(intermediate_shape.data(), intermediate_shape.size()));
         mdat.setData(kj::ArrayPtr<float>(host_intermediate, host_intermediate + vision_engine->get_tensor_size("intermediate")));
         
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();
         pm.send(validation_service_name, bytes.begin(), bytes.size());
+
+        // Log the actual input frame too, because there are some issues
+        event = msg.initEvent(true);
+        mdat = event.initModelValidation();
+        mdat.setModelType(cereal::ModelValidation::ModelType::VISION_INPUT);
+        mdat.setModelFullName(args.get<std::string>("vision_model"));
+        mdat.setFrameId(extra.frame_id);
+        mdat.setTensorName("y_slice");
+        auto yshape = std::vector<int32_t>{1, 1, CAMERA_HEIGHT, 2};
+        mdat.setShape(kj::arrayPtr(yshape.data(), yshape.size()));
+        mdat.setData(kj::ArrayPtr<float>(host_y, host_y + CAMERA_HEIGHT * 2));
+        
+        words = capnp::messageToFlatArray(msg);
+        bytes = words.asBytes();
+        pm.send(validation_service_name, bytes.begin(), bytes.size());
     }
+
+    /* Theories why the validations are not right
+      1. Y slice message is getting modified by the inference engine, so you should send it earlier
+      2. UV data is not interleaved correctly
+      3. Visionipc bufs are getting overwritten while stuff is being processed
+      4. The float data for both tensors is not being stored or copied correctly
+      5. There was not a call to copy_output_to_host, but then that doesn't explain the y_slices being wrong too.
+      6. TensorRT versions are mismatched, you should at least address those WARNINGS it is printing out.
+
+    */
 
     if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
         fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
