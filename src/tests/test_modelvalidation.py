@@ -1,51 +1,54 @@
 
-
 import os
 import tensorrt as trt
 import numpy as np
 import unittest
 import png
 
-from einops import rearrange
-from skimage.color import ycbcr2rgb, rgb2ycbcr
-
+from src.train.onnx_yuv import png_to_nv12m
 from src.config import HOST_CONFIG, BRAIN_CONFIGS
 from src.train.modelloader import load_vision_model
-from src.train.log_validation import full_validate_log
+from src.train.log_validation import full_validate_log, cosine_similarity
 
 class TestModelValidation(unittest.TestCase):
     def test_typical_model_deltas(self):
         # Load an image, and run it through the model
-        img = png.Reader(filename = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "215.png"))
-        width, height, rowdata, info = img.asRGB8()
+        with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "room.png"), "rb") as f1:
+            y1, uv1 = png_to_nv12m(f1)
 
-        # Convert to a numpy array
-        img_data = np.vstack([np.uint8(row) for row in rowdata])
-        img_data = np.reshape(img_data, (height, width, 3))
+        with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "plug.png"), "rb") as f1:
+            y2, uv2 = png_to_nv12m(f1)
 
-        yuv = rgb2ycbcr(img_data).astype(np.float32)
-        y = yuv[:, :, 0]
-        uv = yuv[0::2, 0::2, 1:]
-        y = rearrange(y, "h w -> 1 1 h w")
-        uv = rearrange(uv, "h w (c1 c2) -> 1 1 h (w c1 c2)", c1=1)
 
         with load_vision_model("yolov7-tiny-s53") as engine:
-            trt_outputs = engine.infer({"y": np.copy(y), "uv": np.copy(uv)})
-            trt_intermediate_orig = np.copy(trt_outputs["intermediate"])
+            trt_outputs = engine.infer({"y": np.copy(y1), "uv": np.copy(uv1)})
+            trt_intermediate_1 = np.copy(trt_outputs["intermediate"])
 
             # Now, perturb the y input slightly
-            offsets = np.random.uniform(0, 1, y.shape)
-            y += offsets
+            offsets = np.round(np.random.uniform(-2, 2, y1.shape)).astype(np.int8)
+            y1 += offsets
+            y1 = np.clip(y1, 16, 235)
 
-            trt_outputs = engine.infer({"y": np.copy(y), "uv": np.copy(uv)})
-            trt_intermediate_new = np.copy(trt_outputs["intermediate"])
+            trt_outputs = engine.infer({"y": np.copy(y1), "uv": np.copy(uv1)})
+            trt_intermediate_1perturb = np.copy(trt_outputs["intermediate"])
+
+            trt_outputs = engine.infer({"y": np.copy(y2), "uv": np.copy(uv2)})
+            trt_intermediate_2 = np.copy(trt_outputs["intermediate"])
 
             # Now, compute the difference between the two
-            trt_intermediate_diff = trt_intermediate_new - trt_intermediate_orig
-            num_diffs = (trt_intermediate_diff > 0.01).sum()
-            print(trt_intermediate_diff)
+            matches = np.isclose(trt_intermediate_1, trt_intermediate_1perturb, rtol=1e-2, atol=1e-2).sum()
+            print(f"Logged Output matches: {matches / trt_intermediate_1perturb.size:.3%}")
 
+            # Cosine similarity to a random vector should be around zero
+            self.assertLess(cosine_similarity(trt_intermediate_1[0], np.random.uniform(-1, 1, trt_intermediate_1perturb[0].shape)), 0.01)
 
+            # Cosine similarity to a perturbed image should be quite high
+            print(f"Cosine Similarity: {cosine_similarity(trt_intermediate_1[0], trt_intermediate_1perturb[0]):.3%}")
+            self.assertGreater(cosine_similarity(trt_intermediate_1[0], trt_intermediate_1perturb[0]), 0.98)
+            
+            # Cosine similarity to a different image should be quite low
+            print(f"Cosine Similarity: {cosine_similarity(trt_intermediate_1[0], trt_intermediate_2[0]):.3%}")
+            self.assertLess(cosine_similarity(trt_intermediate_1[0], trt_intermediate_2[0]), 0.60)
 
 
     def test_vision_intermediate_video(self):

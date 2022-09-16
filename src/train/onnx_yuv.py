@@ -2,8 +2,13 @@ import torch
 import onnx
 import tempfile
 import numpy as np
+import png
 import onnx_graphsurgeon
-from typing import Callable, Tuple
+
+from typing import Callable, Tuple, BinaryIO
+
+from einops import rearrange
+from skimage.color import ycbcr2rgb, rgb2ycbcr
 
 # Used because TensorRT only supports INT8, not UINT8 inputs, so we need to do a
 # "reinterpret_cast" to convert the UINT8 to INT8
@@ -11,6 +16,21 @@ def int8_from_uint8(x: int) -> int:
     # Return two's complement representation of x
     return x - 256 if x > 127 else x
 
+def png_to_nv12m(png_file: BinaryIO) -> Tuple[np.ndarray, np.ndarray]:
+    img = png.Reader(png_file)
+    width, height, rowdata, info = img.asRGB8()
+
+    # Convert to a numpy array
+    img_data = np.vstack([np.uint8(row) for row in rowdata])
+    img_data = np.reshape(img_data, (height, width, 3))
+
+    yuv = rgb2ycbcr(img_data).astype(np.float32)
+    y = yuv[:, :, 0]
+    uv = yuv[0::2, 0::2, 1:]
+    y = rearrange(y, "h w -> 1 1 h w")
+    uv = rearrange(uv, "h w (c1 c2) -> 1 1 h (w c1 c2)", c1=1)
+
+    return y, uv
 
 def expand_uv(uv: torch.Tensor) -> torch.Tensor:
     len = uv.numel()

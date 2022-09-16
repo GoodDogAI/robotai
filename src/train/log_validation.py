@@ -9,6 +9,11 @@ from src.train.modelloader import load_vision_model
 from contextlib import ExitStack
 import src.PyNvCodec as nvc
 
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
 # Fully checks the log file, including validating any modelValidation type events
 def full_validate_log(f: BinaryIO) -> bool:
     try:
@@ -45,8 +50,9 @@ def full_validate_log(f: BinaryIO) -> bool:
 
                     # Compare the output to the expected output
                     diff = np.abs(trt_outputs["intermediate"] - logged_intermediate)
-                    matches = np.isclose(trt_intermediate, logged_intermediate, rtol=1e-2, atol=1e-2).sum()
+                    matches = np.isclose(trt_intermediate, logged_intermediate, rtol=3e-2, atol=1e-2).sum()
                     print(f"Logged Output matches: {matches / logged_intermediate.size:.3%}")
+                    print(f"Cosine similarity: {cosine_similarity(trt_intermediate.flatten(), logged_intermediate.flatten()):.3f}")
 
                 elif evt.which() == "modelValidation" and \
                     evt.modelValidation.modelType == log.ModelValidation.ModelType.visionInput:
