@@ -58,7 +58,7 @@ async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSumm
     if cur_group != []:
         groups.append(cur_group)
 
-    return groups
+    return sorted(groups, key=lambda x: "".join(x[0].filename.split("-")[2:]))
 
 
 @router.get("/exists/{sha256}")

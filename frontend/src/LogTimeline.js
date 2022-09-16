@@ -105,7 +105,7 @@ export function LogTimeline(props) {
             <div className="frameContainer">
                 <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${frameIds[index]}`} alt={`frame${frameIds[index]}`}/>
                 <div>
-                    <span>Frame {index} / {frameIds.length} ({frameIds[index]})</span>
+                    <span>Frame {index} / {frameIds.length} (ID{frameIds[index]})</span>
                     <FrameSlider frameIds={frameIds} index={index} onChangeIndex={setIndex}/>
                 </div>
             </div>
