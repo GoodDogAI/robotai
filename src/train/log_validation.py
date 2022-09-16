@@ -16,6 +16,9 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 # Fully checks the log file, including validating any modelValidation type events
 def full_validate_log(f: BinaryIO) -> bool:
+    validated_frames = []
+    missing_frames = []
+
     try:
         events = log.Event.read_multiple(f)
         
@@ -31,7 +34,13 @@ def full_validate_log(f: BinaryIO) -> bool:
                     print(f"Checking vision model {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
 
                     # Render the video frame which is being referred to
-                    packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    try:
+                        packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    except KeyError:
+                        print(f"Frame {evt.modelValidation.frameId} not found in log")
+                        missing_frames.append(evt.modelValidation.frameId)
+                        continue
+
                     y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
 
                     # TODO: If you didn't find a packet, then it's an error, unless this is the last modelValidation message, and 
@@ -49,17 +58,21 @@ def full_validate_log(f: BinaryIO) -> bool:
                     trt_intermediate = trt_outputs["intermediate"]
 
                     # Compare the output to the expected output
-                    diff = np.abs(trt_outputs["intermediate"] - logged_intermediate)
-                    matches = np.isclose(trt_intermediate, logged_intermediate, rtol=3e-2, atol=1e-2).sum()
-                    print(f"Logged Output matches: {matches / logged_intermediate.size:.3%}")
-                    print(f"Cosine similarity: {cosine_similarity(trt_intermediate.flatten(), logged_intermediate.flatten()):.3f}")
-
+                    cos_sim = cosine_similarity(logged_intermediate.flatten(), trt_intermediate.flatten())
+                    print(f"intermediate cosine similarity: {cos_sim}")
+                    validated_frames.append(evt.modelValidation.frameId)
+                    
                 elif evt.which() == "modelValidation" and \
                     evt.modelValidation.modelType == log.ModelValidation.ModelType.visionInput:
                     print(f"Checking vision input {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
 
                     # Render the video frame which is being referred to
-                    packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    try:
+                        packets = get_image_packets(f.name, evt.modelValidation.frameId)
+                    except KeyError:
+                        print(f"Frame {evt.modelValidation.frameId} not found in log")
+                        continue
+
                     y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
 
                     y_slice = y[:2, :]
@@ -67,16 +80,12 @@ def full_validate_log(f: BinaryIO) -> bool:
                     logged_y_slice = np.array(list(evt.modelValidation.data), dtype=np.float32)
                     logged_y_slice = np.reshape(logged_y_slice, evt.modelValidation.shape)
 
-                    diff = np.abs(y_slice - logged_y_slice)
+                    cos_sim = cosine_similarity(logged_y_slice.flatten(), y_slice.flatten())
+                    print(f"y value cosine similarity: {cos_sim}")
 
-                    matches = np.isclose(y_slice, logged_y_slice, rtol=1e-2, atol=1.0).sum()
-                    print(f"Logged YSlice matches: {matches / logged_y_slice.size:.3%}")
-
-
-
-                    
-                    
-
-        return True
+        if all([frame > max(validated_frames) for frame in missing_frames]):
+            return True
+        else:
+            return False
     except capnp.KjException:
         return False

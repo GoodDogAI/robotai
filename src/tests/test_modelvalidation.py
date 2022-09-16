@@ -51,10 +51,8 @@ class TestModelValidation(unittest.TestCase):
             self.assertLess(cosine_similarity(trt_intermediate_1[0], trt_intermediate_2[0]), 0.60)
 
 
-    def test_vision_intermediate_video(self):
-        #test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-5205d621-2022-9-14-21_57.log")
-        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "alphalog-6eb8d100-2022-9-16-16_21.log")
-        #test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "alphalog-6705c9d2-2022-9-16-16_47.log")
-        
+    def test_vision_intermediate_video(self):      
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
+
         with open(test_path, "rb") as f:
-            full_validate_log(f)
+            self.assertTrue(full_validate_log(f))
