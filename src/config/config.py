@@ -13,7 +13,9 @@ DEVICE_CONFIG = dotdict({
     "MODEL_STORAGE_PATH": "/home/robot/models",
     "MODEL_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
-    "ENCODER_BITRATE": 8_000_000,
+    # 0 QP is nearly lossless, 50 is a huge lossy compression, we don't specify a bitrate because
+    # we want each frame to be encoded to some minimum quality level
+    "ENCODER_QP": 10, 
     "ENCODER_DEV": "/dev/nvhost-msenc",
     "ENCODER_COMP_NAME": "NVENC",
 
