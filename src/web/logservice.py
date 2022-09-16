@@ -122,6 +122,8 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
             which = evt.which()
             if which == "micData":
                 del data["micData"]["data"]
+            elif which == "modelValidation":
+                del data["modelValidation"]["data"]
 
             # Add in some sizing metadata
             data["_total_size_bytes"] = evt.total_size.word_count * 8

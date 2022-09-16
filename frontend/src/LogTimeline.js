@@ -25,10 +25,10 @@ function formatSize(bytes) {
 }
 
 function FrameSlider(props) {
-    const { index, max, onChangeIndex } = props;
+    const { frameIds, index, onChangeIndex } = props;
 
     return (
-        <input className="frameSlider" type="range" min="0" max={max} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
+        <input className="frameSlider" type="range" min="0" max={frameIds.length} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
     );
 }
 
@@ -91,14 +91,22 @@ export function LogTimeline(props) {
     if (isLoading) {
         return <div className="timeline">Loading...</div>;
     }
+
+    const frameIds = [];
+    for (const message of data) {
+        if ("headEncodeData" in message){
+            frameIds.push(message["headEncodeData"]["idx"]["frameId"]);
+        }
+    }
+
   
     return (
         <div className="timeline">
             <div className="frameContainer">
-                <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${index}`} alt={`frame${index}`}/>
+                <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${frameIds[index]}`} alt={`frame${frameIds[index]}`}/>
                 <div>
-                    <span>Frame {index} / {data.length}</span>
-                    <FrameSlider max={data.length - 1} index={index} onChangeIndex={setIndex}/>
+                    <span>Frame {index} / {frameIds.length} ({frameIds[index]})</span>
+                    <FrameSlider frameIds={frameIds} index={index} onChangeIndex={setIndex}/>
                 </div>
             </div>
             <h5>{logName}</h5>
