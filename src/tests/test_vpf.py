@@ -14,16 +14,15 @@ from cereal import log
 
 class VPFTest(unittest.TestCase):
     def test_load(self):
-        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
         
-        img = load_image(test_path, 0)
-        self.assertEqual(img.shape, (720, 1280 * 3))
-
-        img = load_image(test_path, 20)
-        self.assertEqual(img.shape, (720, 1280 * 3))
+        packets = get_image_packets(test_path, 100)
+        y, uv = decode_last_frame(packets)
+        self.assertEqual(y.shape, (720, 1280))
+        self.assertEqual(uv.shape, (360, 1280))
 
     def test_decode_single_frame(self):
-        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2022-7-28-16_54.log")
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
         
         nv_dec = nvc.PyNvDecoder(
             1280,
@@ -99,8 +98,7 @@ class VPFTest(unittest.TestCase):
 
         self.assertEqual(rgb.shape, (1, 3, height, width))
         
-        # TODO, it would be nice if these RGB values were just a little bit closer
-        np.testing.assert_allclose(rgb[0, :, 0, 0].numpy(), [1.0, 0.0, 0.0], atol=0.001)
+        np.testing.assert_allclose(rgb[0, :, 0, 0].numpy(), [1.0, 0.0, 0.0], atol=0.01)
 
 
 
