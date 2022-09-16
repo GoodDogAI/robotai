@@ -56,9 +56,16 @@ def full_validate_log(f: BinaryIO) -> bool:
                     packets = get_image_packets(f.name, evt.modelValidation.frameId)
                     y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
 
+                    y_slice = y[:2, :]
+
                     logged_y_slice = np.array(list(evt.modelValidation.data), dtype=np.float32)
                     logged_y_slice = np.reshape(logged_y_slice, evt.modelValidation.shape)
-                    print("A")
+
+                    diff = np.abs(y_slice - logged_y_slice)
+
+                    matches = np.isclose(y_slice, logged_y_slice, rtol=1e-2, atol=1.0).sum()
+                    print(f"Logged YSlice matches: {matches / logged_y_slice.size:.3%}")
+
 
 
                     
