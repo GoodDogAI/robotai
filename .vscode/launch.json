@@ -25,6 +25,19 @@
                     "text": "handle SIGUSR2 nostop noprint pass"
                 }
             ]
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Launch encoderd",
+            "program": "${workspaceRoot}/build/encoderd",
+            "cwd": "${workspaceRoot}",
+            "setupCommands": [
+                {
+                    "description": "ignore SIGUSR2 signal",
+                    "text": "handle SIGUSR2 nostop noprint pass"
+                }
+            ]
         }
     ]
 }

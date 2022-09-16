@@ -179,6 +179,8 @@ int main(int argc, char *argv[])
     vision_engine->copy_output_to_host();
     vision_engine->sync();
 
+    const auto inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time);
+
     // Log every N frames with a model validation message
     if (extra.frame_id % 60 == 0) {
         MessageBuilder msg;
@@ -202,9 +204,10 @@ int main(int argc, char *argv[])
         mdat.setModelFullName(args.get<std::string>("vision_model"));
         mdat.setFrameId(extra.frame_id);
         mdat.setTensorName("y_slice");
-        auto yshape = std::vector<int32_t>{1, 1, CAMERA_HEIGHT, 2};
+        auto yshape = std::vector<int32_t>{1, 1, 2, CAMERA_WIDTH};
         mdat.setShape(kj::arrayPtr(yshape.data(), yshape.size()));
-        mdat.setData(kj::ArrayPtr<float>(host_y, host_y + CAMERA_HEIGHT * 2));
+
+        mdat.setData(kj::ArrayPtr<float>(host_y, host_y + CAMERA_WIDTH * 2));
         
         words = capnp::messageToFlatArray(msg);
         bytes = words.asBytes();
@@ -215,14 +218,15 @@ int main(int argc, char *argv[])
       1. Y slice message is getting modified by the inference engine, so you should send it earlier
       2. UV data is not interleaved correctly
       3. Visionipc bufs are getting overwritten while stuff is being processed
-      4. The float data for both tensors is not being stored or copied correctly
-      5. There was not a call to copy_output_to_host, but then that doesn't explain the y_slices being wrong too.
+      X 4. The float data for both tensors is not being stored or copied correctly
+      X 5. There was not a call to copy_output_to_host, but then that doesn't explain the y_slices being wrong too.
+            the y slices were wrong because the shape and stride was not done correctly
       6. TensorRT versions are mismatched, you should at least address those WARNINGS it is printing out.
-
+      7. The compression ratio needs to be adjusted, or at least verified with lossless compression
     */
 
     if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
-        fmt::print("braind {:1.1f} frames/sec\n", last_10_sec_msgs / 10.0f);
+        fmt::print("braind {:1.1f} frames/sec, inference time {}\n", last_10_sec_msgs / 10.0f, inference_elapsed);
         last_10_sec_msgs = 0;
         last_10_sec_time = cur_time;
     }

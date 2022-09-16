@@ -32,7 +32,7 @@ const char *service_name = "headEncodeData";
 int main(int argc, char *argv[])
 {
     VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_BITRATE, CAMERA_FPS };
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_QP, CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
     PubMaster pm{ {service_name} };
     int32_t num_frames{ 0 };

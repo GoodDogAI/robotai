@@ -20,8 +20,8 @@
 #include "nvvisionbuf.h"
 #include "util.h"
 
-#define BUF_OUT_COUNT 6
-#define BUF_IN_COUNT 6
+#define BUF_OUT_COUNT 12
+#define BUF_IN_COUNT 12
 
 
 // NVENC documentation: https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html
@@ -56,7 +56,10 @@ static int dequeue_buffer(int fd, v4l2_buf_type buf_type, unsigned int *index = 
         *flags = v4l_buf.flags;
     if (timestamp)
         *timestamp = v4l_buf.timestamp;
-    assert(v4l_buf.m.planes[0].data_offset == 0);
+    
+    if (v4l_buf.m.planes[0].data_offset != 0) {
+        throw std::runtime_error("unexpected data_offset != 0");
+    }
     
     return 1;
 }
@@ -138,8 +141,8 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NV
     }
 }
 
-NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int bitrate, int fps):
-   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), bitrate(bitrate), fps(fps),
+NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int qp, int fps):
+   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), qp(qp), fps(fps),
    frame_read_index(0), frame_write_index(0)
 {
     fd = v4l2_open(encoderdev.c_str(), O_RDWR);
@@ -193,7 +196,10 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
 
     // Needs to be sent after the output plane itself is configured
-    assert(fps > 0);
+    if (fps <= 0) {
+        throw std::runtime_error("Invalid fps");
+    }
+
     v4l2_streamparm streamparm = {
         .type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
         .parm = {
@@ -212,12 +218,21 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
     // Configure Video controls
     // valid controls are listed here
     // https://docs.nvidia.com/jetson/l4t-multimedia/group__V4L2Enc.html#ga8498d6532a37c8f0553df78d2952ed31
+
+    v4l2_ctrl_video_qp_range qps;
+    qps.MinQpI = QP_RETAIN_VAL;
+    qps.MaxQpI = qp;
+    qps.MinQpP = QP_RETAIN_VAL;
+    qps.MaxQpP = qp;
+    qps.MinQpB = QP_RETAIN_VAL;
+    qps.MaxQpB = QP_RETAIN_VAL;
+
     {
         struct v4l2_ext_control ctrls[] = {
             // Generic controls
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate },
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, .value = bitrate * 2},
-            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
+            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate },
+            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, .value = bitrate * 2},
+            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
             { .id = V4L2_CID_MPEG_VIDEO_GOP_SIZE, .value = fps },
 
             // NVIDIA Specific controls
@@ -225,6 +240,8 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
             { .id = V4L2_CID_MPEG_VIDEOENC_NUM_BFRAMES, .value = 0 },
             { .id = V4L2_CID_MPEG_VIDEO_IDR_INTERVAL, .value = fps },
             { .id = V4L2_CID_MPEG_VIDEOENC_INSERT_SPS_PPS_AT_IDR, .value = true },
+
+            { .id = V4L2_CID_MPEG_VIDEOENC_QP_RANGE, .ptr = &qps },
         };
 
         v4l2_ext_controls ctrl_data {};
@@ -356,11 +373,14 @@ std::future<std::unique_ptr<NVEncoder::NVResult>> NVEncoder::encode_frame(Vision
         return !b.is_queued;
     });
 
-    assert(buf != buf_in.end());
+    if (buf == buf_in.end()) {
+        throw std::runtime_error("No free input buffers");
+    }
 
     //auto copy_start = std::chrono::steady_clock::now();
     memcpy(buf->planes[0].data, ipcbuf->y, ipcbuf->uv_offset);
     memcpy(buf->planes[1].data, ipcbuf->uv, ipcbuf->uv_offset / 2);
+
     //std::cout << "Copy time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - copy_start).count() << std::endl;
 
     auto &promise = encoder_promises[frame_write_index];
