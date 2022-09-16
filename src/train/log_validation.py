@@ -61,6 +61,9 @@ def full_validate_log(f: BinaryIO) -> bool:
                     cos_sim = cosine_similarity(logged_intermediate.flatten(), trt_intermediate.flatten())
                     print(f"intermediate cosine similarity: {cos_sim}")
                     validated_frames.append(evt.modelValidation.frameId)
+
+                    if cos_sim < .99:
+                        return False
                     
                 elif evt.which() == "modelValidation" and \
                     evt.modelValidation.modelType == log.ModelValidation.ModelType.visionInput:
@@ -82,6 +85,9 @@ def full_validate_log(f: BinaryIO) -> bool:
 
                     cos_sim = cosine_similarity(logged_y_slice.flatten(), y_slice.flatten())
                     print(f"y value cosine similarity: {cos_sim}")
+
+                    if cos_sim < .99:
+                        return False
 
         if all([frame > max(validated_frames) for frame in missing_frames]):
             return True

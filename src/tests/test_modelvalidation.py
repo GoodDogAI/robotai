@@ -3,7 +3,9 @@ import os
 import tensorrt as trt
 import numpy as np
 import unittest
-import png
+import tempfile
+
+from cereal import log
 
 from src.train.onnx_yuv import png_to_nv12m
 from src.config import HOST_CONFIG, BRAIN_CONFIGS
@@ -50,9 +52,31 @@ class TestModelValidation(unittest.TestCase):
             print(f"Cosine Similarity: {cosine_similarity(trt_intermediate_1[0], trt_intermediate_2[0]):.3%}")
             self.assertLess(cosine_similarity(trt_intermediate_1[0], trt_intermediate_2[0]), 0.60)
 
-
     def test_vision_intermediate_video(self):      
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
 
         with open(test_path, "rb") as f:
             self.assertTrue(full_validate_log(f))
+
+    def test_vision_intermediate_incorrect_results(self):
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
+
+        # Make a new log entry, where you purpusefully swap the referenced frames
+        with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf:
+            events = log.Event.read_multiple(f)
+        
+            for evt in events:
+                evt.which()
+
+                evt = evt.as_builder()
+
+                if evt.which() == "modelValidation" and \
+                    evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+                    evt.modelValidation.frameId += 45
+                
+                evt.write(tf)
+
+            tf.flush()
+            tf.seek(0)
+
+            self.assertFalse(full_validate_log(tf))
