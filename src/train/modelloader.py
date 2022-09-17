@@ -8,14 +8,14 @@ import importlib
 import hashlib
 import numpy as np
 from pathlib import Path
-from typing import Literal, Union, List, Tuple, Iterable
+from typing import Literal, Union, List, Tuple, Iterable, Dict
 from contextlib import contextmanager
 
 import polygraphy
 import polygraphy.backend.trt
 import onnx_graphsurgeon
 
-from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
+from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner, Profile, ShapeTuple
 from polygraphy.cuda import DeviceView
 
 from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
@@ -41,6 +41,22 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
     else:
         raise ValueError(f"Unsupported ONNX type {onnx_type}")
 
+def dynamic_shape_to_reference_shape(ort_shape: List[Union[int, str]], reference_dims: Dict[str, int]=None) -> List[int]:
+    DEFAULT_REFERENCE_DIMS = {
+        "batch_size": 1
+    }
+
+    if reference_dims is None:
+        reference_dims = DEFAULT_REFERENCE_DIMS
+
+    ref_shape = []
+    for axis in ort_shape:
+        if isinstance(axis, str):
+            ref_shape.append(reference_dims[axis])
+        else:
+            ref_shape.append(axis)
+    return ref_shape
+
 def get_reference_input(shape: List[int], dtype: np.dtype, model_type: Literal["vision"]) -> np.ndarray:
     if model_type == "vision":
         if dtype == np.uint8:
@@ -52,10 +68,10 @@ def get_reference_input(shape: List[int], dtype: np.dtype, model_type: Literal["
     else:
         raise NotImplementedError()
 
-def get_pt_feeddict(ort_sess: onnxruntime.InferenceSession, model_type: Literal["vision"]) -> dict:
+def get_pt_feeddict(ort_sess: onnxruntime.InferenceSession, model_type: Literal["vision"], reference_dims: Dict[str, int]=None) -> dict:
     pt_feed_dict = {}
     for ort_input in ort_sess.get_inputs():
-        ort_shape = ort_input.shape
+        ort_shape = dynamic_shape_to_reference_shape(ort_input.shape, reference_dims)
         ort_dtype = onnx_to_numpy_dtype(ort_input.type)
 
         pt_feed_dict[ort_input.name] = torch.from_numpy(get_reference_input(ort_shape, ort_dtype, model_type)).to(device="cuda")
@@ -129,7 +145,7 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
 
     ort_sess = onnxruntime.InferenceSession(onnx_path)
 
-    pt_feed_dict = get_pt_feeddict(ort_sess, model_type)
+    pt_feed_dict = get_pt_feeddict(ort_sess, model_type, {"batch_size": 32})
     ort_feed_dict = {k: v.cpu().numpy() for k, v in pt_feed_dict.items()}
 
     ort_outputs = ort_sess.run(None, ort_feed_dict)
@@ -141,6 +157,8 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
             trt_outputs = runner.infer({name: DeviceView(data.data_ptr(), data.shape, np.float32) for name, data in pt_feed_dict.items()})
 
         print(f"TRT inference time: {(time.perf_counter() - start)/100:.3f}s")
+
+        trt_outputs = runner.infer({name: DeviceView(data.data_ptr(), data.shape, np.float32) for name, data in pt_feed_dict.items()})
 
         # Check that the outputs are the same
         for index, ort_output_metadata in enumerate(ort_sess.get_outputs()):
@@ -180,6 +198,9 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
         "y": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
         "uv": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
     }
+    dynamic_axes = {
+        k: {0: "batch_size"} for k in inputs.keys()
+    }
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
                      DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
@@ -207,7 +228,7 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
         onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path, model_type)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
+        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=dynamic_axes)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model
@@ -275,7 +296,13 @@ def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
         trt_exists_and_validates = validate_onnx_trt(onnx_path, trt_path, model_type)
 
     if not trt_exists_and_validates:
-        build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False)) 
+        host_batch_size = config["host_batch_size"]
+        profiles = [Profile({
+            "y": ShapeTuple([1, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH], [host_batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH], [host_batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH]),
+            "uv": ShapeTuple([1, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH], [host_batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH], [host_batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH]),
+        })]
+
+        build_engine = EngineFromNetwork(NetworkFromOnnxPath(onnx_path), config=CreateConfig(fp16=False, profiles=profiles)) 
         build_engine = SaveEngine(build_engine, path=trt_path)
 
         with TrtRunner(build_engine) as runner:

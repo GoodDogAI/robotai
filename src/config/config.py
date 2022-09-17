@@ -67,6 +67,9 @@ MODEL_CONFIGS = dotdict({
 
         "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
         "intermediate_slice": 53,
+
+        # The largest batch size to optimize for on the Host Side
+        "host_batch_size": 32, 
     }
 })
 
