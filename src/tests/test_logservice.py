@@ -9,7 +9,7 @@ from src.logutil import sha256, LogHashes
 from src.tests.utils import artificial_logfile
 from src.web.main import app
 from src.web.dependencies import get_loghashes
-
+from src.config import HOST_CONFIG
 
 class LogServiceTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -41,7 +41,7 @@ class LogServiceTest(unittest.TestCase):
             resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
             self.assertEqual(resp.status_code, 400)
 
-    def test_post_log(self):
+    def test_post_artificial_log(self):
         with artificial_logfile() as tf:
             resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 200)
@@ -59,6 +59,13 @@ class LogServiceTest(unittest.TestCase):
             tf.seek(0)
             resp = self.client.post("/logs/", files={"logfile": tf})
             self.assertNotEqual(resp.status_code, 200)
+
+    def test_post_validated_log(self):
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
+
+        with open(test_path, "rb") as tf:
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
+            self.assertEqual(resp.status_code, 200)
 
     def test_post_invalid_hash(self):
         with artificial_logfile() as tf:

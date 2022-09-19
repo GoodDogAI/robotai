@@ -2,10 +2,12 @@ import io
 import os
 import random
 import string
+import tempfile
 import png
 import time
 import hashlib
 import re
+import shutil
 
 from typing import List
 
@@ -95,10 +97,14 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
         extra = ''.join(random.choices(string.ascii_letters, k=5))
         newfilename = os.path.join(lh.dir, f"{root}_{extra}{lh.extension}")
 
-    # Copy over to the final location doing a new validation
-    logfile.file.seek(0)
-    with open(newfilename, "wb") as f:
-        log_validation.full_validate_log(logfile.file, f)
+    # Copy to a tempfile, because capnp can't read full messages from a stream
+    with tempfile.NamedTemporaryFile("w+b") as tf, open(newfilename, "wb") as f:
+        logfile.file.seek(0)
+        shutil.copyfileobj(logfile.file, tf)
+        tf.seek(0)
+
+        # Copy over to the final location doing a new validation
+        log_validation.full_validate_log(tf, f)
 
     lh.update()
     await logfile.close()
