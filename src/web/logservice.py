@@ -19,6 +19,7 @@ from src.config import HOST_CONFIG
 from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, quick_validate_log
 from src.video import get_image_packets, decode_last_frame
+from src.train import log_validation
 import src.PyNvCodec as nvc
 
 router = APIRouter(prefix="/logs",
@@ -94,11 +95,10 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
         extra = ''.join(random.choices(string.ascii_letters, k=5))
         newfilename = os.path.join(lh.dir, f"{root}_{extra}{lh.extension}")
 
-    # Copy over to the final location
+    # Copy over to the final location doing a new validation
     logfile.file.seek(0)
-    with open(newfilename, "wb") as fp:
-        while byte_block := await logfile.read(65536):
-            fp.write(byte_block)
+    with open(newfilename, "wb") as f:
+        fully_validated = log_validation.full_validate_log(logfile.file, f)
 
     lh.update()
     await logfile.close()

@@ -55,14 +55,24 @@ class TestModelValidation(unittest.TestCase):
     def test_vision_intermediate_video(self):      
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
 
-        with open(test_path, "rb") as f:
-            self.assertTrue(full_validate_log(f))
+        with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf:
+            self.assertEqual(full_validate_log(f, tf), log.ModelValidation.ValidationStatus.validatedPassed)
+            
+            tf.seek(0)
+            events = log.Event.read_multiple(tf)
+
+            for evt in events:
+                if evt.which() == "modelValidation" and evt.modelValidation.frameId < 900: #900 is last frame which is not validated
+                    self.assertEqual(evt.modelValidation.serverValidated, log.ModelValidation.ValidationStatus.validatedPassed)
+                    self.assertLess(evt.modelValidation.serverSimilarity, 0.99)
+        
+
 
     def test_vision_intermediate_incorrect_results(self):
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
 
         # Make a new log entry, where you purpusefully swap the referenced frames
-        with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf:
+        with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf, tempfile.NamedTemporaryFile("w+b") as tf2:
             events = log.Event.read_multiple(f)
         
             for evt in events:
@@ -79,4 +89,4 @@ class TestModelValidation(unittest.TestCase):
             tf.flush()
             tf.seek(0)
 
-            self.assertFalse(full_validate_log(tf))
+            self.assertFalse(full_validate_log(tf, tf2))
