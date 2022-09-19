@@ -98,7 +98,7 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
     # Copy over to the final location doing a new validation
     logfile.file.seek(0)
     with open(newfilename, "wb") as f:
-        fully_validated = log_validation.full_validate_log(logfile.file, f)
+        log_validation.full_validate_log(logfile.file, f)
 
     lh.update()
     await logfile.close()

@@ -64,12 +64,11 @@ class TestModelValidation(unittest.TestCase):
             for evt in events:
                 if evt.which() == "modelValidation" and evt.modelValidation.frameId < 900: #900 is last frame which is not validated
                     self.assertEqual(evt.modelValidation.serverValidated, log.ModelValidation.ValidationStatus.validatedPassed)
-                    self.assertLess(evt.modelValidation.serverSimilarity, 0.99)
+                    self.assertGreater(evt.modelValidation.serverSimilarity, 0.99)
         
 
-
     def test_vision_intermediate_incorrect_results(self):
-        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
 
         # Make a new log entry, where you purpusefully swap the referenced frames
         with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf, tempfile.NamedTemporaryFile("w+b") as tf2:
@@ -89,4 +88,9 @@ class TestModelValidation(unittest.TestCase):
             tf.flush()
             tf.seek(0)
 
-            self.assertFalse(full_validate_log(tf, tf2))
+            self.assertEqual(full_validate_log(tf, tf2), log.ModelValidation.ValidationStatus.validatedFailed)
+
+            for evt in events:
+                if evt.which() == "modelValidation" and evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+                    self.assertEqual(evt.modelValidation.serverValidated, log.ModelValidation.ValidationStatus.valoidatedFailed)
+                    self.assertLess(evt.modelValidation.serverSimilarity, 0.90)

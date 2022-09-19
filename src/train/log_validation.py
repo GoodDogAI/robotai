@@ -90,7 +90,6 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                         cos_sim = cosine_similarity(logged_y_slice.flatten(), y_slice.flatten())
                         print(f"y value cosine similarity: {cos_sim}")
 
-                        evt.modelValidation.serverValidated = True
                         evt.modelValidation.serverSimilarity = float(cos_sim)
 
                         if cos_sim > .99:
