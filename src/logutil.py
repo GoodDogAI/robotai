@@ -90,7 +90,7 @@ class LogHashes:
             elif file in self.existing_files:
                 orig_sha = self.existing_files[file].orig_sha256
 
-            self.files[file] = LogSummary(filename=file, sha256=new_sha, orig_sha=orig_sha, last_modified=mtime)
+            self.files[file] = LogSummary(filename=file, sha256=new_sha, orig_sha256=orig_sha, last_modified=mtime)
 
         with open(path + "_temp", "w") as f:
             json.dump(jsonable_encoder(self.files), f)
