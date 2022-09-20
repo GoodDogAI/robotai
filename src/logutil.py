@@ -61,7 +61,7 @@ class LogHashes:
         self.dir = dir
         self.update()
 
-    def update(self):
+    def update(self, original_hashes: Dict[str, str] = {}):
         path = os.path.join(self.dir, DATA_FILE)
         if os.path.exists(path):
             self.existing_files = parse_file_as(Dict[str, LogSummary], path)
@@ -81,11 +81,16 @@ class LogHashes:
                 continue
 
             logger.warning(f"Hashing {filepath}")
+    
             new_sha = sha256(filepath)
-            if file not in self.existing_files:
-                self.files[file] = LogSummary(filename=file, sha256=new_sha, last_modified=mtime)
-            else:
-                self.files[file] = LogSummary(filename=file, orig_sha256=self.existing_files[file].orig_sha256, sha256=new_sha, last_modified=mtime)
+            orig_sha = new_sha
+
+            if file in original_hashes:
+                orig_sha = original_hashes[file]
+            elif file in self.existing_files:
+                orig_sha = self.existing_files[file].orig_sha256
+
+            self.files[file] = LogSummary(filename=file, sha256=new_sha, orig_sha=orig_sha, last_modified=mtime)
 
         with open(path + "_temp", "w") as f:
             json.dump(jsonable_encoder(self.files), f)

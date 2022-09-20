@@ -77,6 +77,9 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
     if lh.hash_exists(local_hash):
         raise HTTPException(status_code=500, detail="Log hash already exists")
 
+    if lh.filename_exists(logfile.filename):
+        raise HTTPException(status_code=500, detail="Log filename already exists")
+
     if sha256 != local_hash:
         raise HTTPException(status_code=400, detail="SHA256 did not match expected value")
 
@@ -91,11 +94,8 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
 
     # Determine a new filename
     newfilename = os.path.join(lh.dir, logfile.filename)
-
-    while os.path.exists(newfilename) or not newfilename.endswith(lh.extension):
-        root, ext = os.path.splitext(logfile.filename)
-        extra = ''.join(random.choices(string.ascii_letters, k=5))
-        newfilename = os.path.join(lh.dir, f"{root}_{extra}{lh.extension}")
+    if os.path.exists(newfilename):
+        raise HTTPException(status_code=500, detail="Log filename already exists")
 
     # Copy to a tempfile, because capnp can't read full messages from a stream
     with tempfile.NamedTemporaryFile("w+b") as tf, open(newfilename, "wb") as f:
@@ -106,7 +106,9 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
         # Copy over to the final location doing a new validation
         log_validation.full_validate_log(tf, f)
 
-    lh.update()
+    lh.update(original_hashes={
+        logfile.filename: local_hash
+    })
     await logfile.close()
 
 
