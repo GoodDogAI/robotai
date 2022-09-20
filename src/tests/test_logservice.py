@@ -57,8 +57,21 @@ class LogServiceTest(unittest.TestCase):
 
             # Posting the same log again should error out
             tf.seek(0)
-            resp = self.client.post("/logs/", files={"logfile": tf})
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertNotEqual(resp.status_code, 200)
+
+            # Change the locally stored version, to simulate performing model validation for example
+            with open(os.path.join(self.td.name, os.path.basename(tf.name)), "wb") as f:
+                f.write(b"Modified Log!")
+            self.lh.update()
+
+            self.assertNotEqual(self.lh.files[os.path.basename(tf.name)].sha256, self.lh.files[os.path.basename(tf.name)].orig_sha256)
+
+            # Posting the same log again should still error out
+            tf.seek(0)
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
+            self.assertEqual(resp.status_code, 500)
+
 
     def test_post_validated_log(self):
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")

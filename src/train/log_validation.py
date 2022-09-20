@@ -4,6 +4,7 @@ from einops import rearrange
 from typing import List, Dict, BinaryIO
 from capnp.lib import capnp
 from cereal import log
+from src.config.config import DEVICE_CONFIG
 from src.video import get_image_packets, decode_last_frame
 from src.train.modelloader import load_vision_model
 from contextlib import ExitStack
@@ -76,6 +77,9 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                 elif evt.which() == "modelValidation" and \
                     evt.modelValidation.modelType == log.ModelValidation.ModelType.visionInput:
                     print(f"Checking vision input {evt.modelValidation.modelFullName} on frame {evt.modelValidation.frameId}...")
+
+                    if evt.modelValidation.shape != [1, 1, 2, DEVICE_CONFIG.CAMERA_WIDTH]:
+                        continue
 
                     # Render the video frame which is being referred to
                     try:

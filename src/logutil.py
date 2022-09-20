@@ -9,6 +9,7 @@ from capnp.lib import capnp
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, parse_file_as
 from cereal import log
+from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -38,9 +39,13 @@ def quick_validate_log(f: BinaryIO) -> bool:
 @total_ordering
 class LogSummary(BaseModel):
     filename: str
-    orig_sha256: str
+    orig_sha256: Optional[str]
     sha256: str
     last_modified: int
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.orig_sha256 = self.orig_sha256 or self.sha256
 
     def __le__(self, other):
         return self.filename < other.filename
@@ -75,10 +80,10 @@ class LogHashes:
                 self.files[file] = self.existing_files[file]
                 continue
 
-            logger.info(f"Hashing {filepath}")
+            logger.warning(f"Hashing {filepath}")
             new_sha = sha256(filepath)
             if file not in self.existing_files:
-                self.files[file] = LogSummary(filename=file, orig_sha256=new_sha, sha256=new_sha, last_modified=mtime)
+                self.files[file] = LogSummary(filename=file, sha256=new_sha, last_modified=mtime)
             else:
                 self.files[file] = LogSummary(filename=file, orig_sha256=self.existing_files[file].orig_sha256, sha256=new_sha, last_modified=mtime)
 
@@ -93,7 +98,7 @@ class LogHashes:
         return list(self.files.values())
 
     def hash_exists(self, hash:str) -> bool:
-        return hash in [f.sha256 for f in self.files.values()]
+        return hash in {f.sha256 for f in self.files.values()} | {f.orig_sha256 for f in self.files.values()}
 
     def filename_exists(self, filename:str) -> bool:
         return filename in self.files
