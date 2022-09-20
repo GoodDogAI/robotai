@@ -64,6 +64,7 @@ class LogServiceTest(unittest.TestCase):
             with open(os.path.join(self.td.name, os.path.basename(tf.name)), "wb") as f:
                 f.write(b"Modified Log!")
 
+            self.lh.update()
             self.assertNotEqual(self.lh.files[os.path.basename(tf.name)].sha256, self.lh.files[os.path.basename(tf.name)].orig_sha256)
 
             # Posting the same log again should still error out
