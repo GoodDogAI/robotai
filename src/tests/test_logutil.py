@@ -32,12 +32,14 @@ class LogHashesTest(unittest.TestCase):
             # Annoying hack, because it uses modification time as a speedup
             time.sleep(0.01)
 
-            # Modifying a file changes the hash
+            # Modifying a file changes the hash, but keeps original hash
             with open(os.path.join(td, "test.log"), "wb") as f:
                 f.write(b"GoodbyeWorld")
 
             logutil.update()
             self.assertNotEqual(logutil.files, logutil2.files)
+            self.assertEqual(logutil.files["test.log"].orig_sha256, logutil2.files["test.log"].orig_sha256)
+            self.assertNotEqual(logutil.files["test.log"].orig_sha256, logutil.files["test.log"].sha256)
 
             # Delete a file and make sure it's removed from the loghashes
             os.unlink(os.path.join(td, "test.log"))

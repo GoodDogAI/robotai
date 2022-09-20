@@ -38,6 +38,7 @@ def quick_validate_log(f: BinaryIO) -> bool:
 @total_ordering
 class LogSummary(BaseModel):
     filename: str
+    orig_sha256: str
     sha256: str
     last_modified: int
 
@@ -75,7 +76,11 @@ class LogHashes:
                 continue
 
             logger.info(f"Hashing {filepath}")
-            self.files[file] = LogSummary(filename=file, sha256=sha256(filepath), last_modified=mtime)
+            new_sha = sha256(filepath)
+            if file not in self.existing_files:
+                self.files[file] = LogSummary(filename=file, orig_sha256=new_sha, sha256=new_sha, last_modified=mtime)
+            else:
+                self.files[file] = LogSummary(filename=file, orig_sha256=self.existing_files[file].orig_sha256, sha256=new_sha, last_modified=mtime)
 
         with open(path + "_temp", "w") as f:
             json.dump(jsonable_encoder(self.files), f)
