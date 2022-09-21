@@ -92,10 +92,14 @@ export function LogTimeline(props) {
         return <div className="timeline">Loading...</div>;
     }
 
-    const frameIds = [];
+    const frameIds = [], allFrameIds = [-1];
     for (const message of data) {
         if ("headEncodeData" in message){
             frameIds.push(message["headEncodeData"]["idx"]["frameId"]);
+            allFrameIds.push(message["headEncodeData"]["idx"]["frameId"]);
+        }
+        else {
+            allFrameIds.push(allFrameIds[allFrameIds.length - 1]);
         }
     }
 
@@ -131,7 +135,7 @@ export function LogTimeline(props) {
                 <tbody>
                     {table.getRowModel().rows.map((row) => {
                         return (
-                            <tr key={row.id} className={row.index === index ? "selected" : null} onClick={() => setIndex(row.index)}>
+                            <tr key={row.id} className={row.index === index ? "selected" : null} onClick={() => setIndex(allFrameIds[row.index])}>
                                 {row.getVisibleCells().map((cell) => (
                                     <td key={cell.id}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
