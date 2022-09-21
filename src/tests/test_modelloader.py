@@ -13,4 +13,5 @@ class TestModelLoaderTRT(unittest.TestCase):
         create_and_validate_onnx(BRAIN_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]["models"]["vision_model"], skip_cache=True)
 
     def test_trt(self):
-        create_and_validate_trt(BRAIN_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]["models"]["vision_model"], skip_cache=True)
+        onnx_path = create_and_validate_onnx(BRAIN_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]["models"]["vision_model"])
+        create_and_validate_trt(onnx_path, skip_cache=True)

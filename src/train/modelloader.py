@@ -5,6 +5,7 @@ import os
 import copy
 import time
 import importlib
+import json
 import hashlib
 import numpy as np
 from pathlib import Path
@@ -173,7 +174,8 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
     torch.backends.cudnn.allow_tf32 = False
 
-    # TODO The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
+    # The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
+    # However, I did some testing, and increasing to an optimal batch size will increase throughput maybe 2x, but at vast increase to code complexity
     batch_size = 1
     device = "cuda:0"
     # slice down the image size to the nearest multiple of the stride
@@ -253,22 +255,25 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     onnx.checker.check_model(onnx_model)
     onnx.save(onnx_model, final_onnx_path)
 
+    # Also save off the config that was used to generate this model, so that we can regerenate TRT models if the config ever changes in the future
+    with open(os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_config.json"), "w") as f:
+        json.dump(config, f)
+
     return final_onnx_path
 
 # Returns a path to a TRT model that matches the given model configuration
-def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
-    config = MODEL_CONFIGS[config_name]
-    assert config is not None, "Unable to find config"
+def create_and_validate_trt(onnx_path: str, skip_cache: bool=False) -> str:
+    json_config_path = onnx_path.replace("_final.onnx", "_config.json")
+    with open(json_config_path, "r") as f:
+        config = json.load(f)
+    assert config is not None, "Unable to find cached config"
     model_type = config["type"]
     assert model_type == "vision", "Config must be a vision model"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True) 
 
-    # TRT models must be made from ONNX files
-    onnx_path = create_and_validate_onnx(config_name)
-
     # Build the tensorRT engine
-    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}.engine")
+    trt_path = onnx_path.replace("_final.onnx", ".engine")
     trt_exists_and_validates = False
 
     if os.path.exists(trt_path) and not skip_cache:
