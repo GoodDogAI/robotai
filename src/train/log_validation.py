@@ -6,7 +6,7 @@ from capnp.lib import capnp
 from cereal import log
 from src.config.config import DEVICE_CONFIG
 from src.video import get_image_packets, decode_last_frame
-from src.train.modelloader import load_vision_model
+from src.train.modelloader import load_vision_model, load_all_models_in_log
 from contextlib import ExitStack
 import src.PyNvCodec as nvc
 
@@ -25,16 +25,17 @@ def get_log_validation_status(stats: List[ValidationStatus]) -> ValidationStatus
     else:
         return log.ModelValidation.ValidationStatus.validatedSkipped
 
+
 # Fully checks the log file, including validating any modelValidation type events
 def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
     validation_stats: List[ValidationStatus] = []
 
-    try:
-        events = log.Event.read_multiple(input)
-        
-        with ExitStack() as stack:
-            valid_engine = stack.enter_context(load_vision_model("yolov7-tiny-s53"))
+    with load_all_models_in_log(input) as models:
+        input.seek(0)
 
+        try:
+            events = log.Event.read_multiple(input)
+            
             for evt in events:
                 evt.which()
                 evt = evt.as_builder()
@@ -58,7 +59,7 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                         logged_intermediate = np.reshape(logged_intermediate, evt.modelValidation.shape)
                         y = rearrange(y.astype(np.float32), "h w -> 1 1 h w")
                         uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
-                        trt_outputs = valid_engine.infer({"y": y, "uv": uv})
+                        trt_outputs = models[evt.modelValidation.modelFullName].infer({"y": y, "uv": uv})
                         trt_intermediate = trt_outputs["intermediate"]
 
                         # Compare the output to the expected output
@@ -111,6 +112,6 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                 # Write the log entry to the output file
                 evt.write(output)
 
-        return get_log_validation_status(validation_stats)
-    except capnp.KjException as ex:
-        return log.ModelValidation.ValidationStatus.validatedFailed
+            return get_log_validation_status(validation_stats)
+        except capnp.KjException as ex:
+            return log.ModelValidation.ValidationStatus.validatedFailed

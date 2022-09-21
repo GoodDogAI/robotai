@@ -22,7 +22,7 @@ class TestModelValidation(unittest.TestCase):
             y2, uv2 = png_to_nv12m(f1)
 
 
-        with load_vision_model("yolov7-tiny-s53") as engine:
+        with load_vision_model("yolov7-tiny-1e32077b87df8487") as engine:
             trt_outputs = engine.infer({"y": np.copy(y1), "uv": np.copy(uv1)})
             trt_intermediate_1 = np.copy(trt_outputs["intermediate"])
 

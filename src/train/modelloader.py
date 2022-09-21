@@ -8,7 +8,7 @@ import importlib
 import hashlib
 import numpy as np
 from pathlib import Path
-from typing import Literal, Union, List, Tuple, Iterable
+from typing import Literal, Union, List, Tuple, Iterable, BinaryIO, Dict
 from contextlib import contextmanager
 
 import polygraphy
@@ -17,6 +17,7 @@ import onnx_graphsurgeon
 
 from polygraphy.backend.trt import CreateConfig, EngineFromNetwork, NetworkFromOnnxPath, EngineFromBytes, SaveEngine, TrtRunner
 from polygraphy.cuda import DeviceView
+from cereal import log
 
 from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
@@ -289,21 +290,42 @@ def create_and_validate_trt(config_name: str, skip_cache: bool=False) -> str:
 
     return trt_path
 
-# Loads a preconfigured model from a pytorch checkpoint,
-# if needed, it builds a new tensorRT engine, and verifies that the model results are identical
-@contextmanager
-def load_vision_model(config: str) -> polygraphy.backend.trt.TrtRunner:
-    trt_path = create_and_validate_trt(config)
+# Loads a pre-cached, pre generated vision model
+def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
+    trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}.engine")
+
+    if os.path.exists(trt_path):
+        print(f"Loading cached engine {trt_path}")
+    else:
+        print(f"Engine {trt_path} not found, creating it from ONNX")
+        onnx_final_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_final.onnx")
+        # TODO, Modify this so that generating an ONNX saves the necessary config stuff to a cached file, so it can be recreated
+        trt_path = create_and_validate_trt()
 
     with open(trt_path, "rb") as f:
         build_engine = EngineFromBytes(f.read())
 
+    runner = TrtRunner(build_engine)
+    return runner
+
+@contextmanager
+def load_all_models_in_log(input: BinaryIO) -> Dict[str, polygraphy.backend.trt.TrtRunner]:
+    input.seek(0)
+
+    models = {}
+
+    events = log.Event.read_multiple(input)   
+
+    for evt in events:
+        if evt.which() == "modelValidation" and evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+            if evt.modelValidation.modelFullName not in models:
+                models[evt.modelValidation.modelFullName] = load_vision_model(evt.modelValidation.modelFullName)
+
     try:
-        runner = TrtRunner(build_engine)
-        runner.activate()
-        yield runner
+        for model in models.values():
+            model.activate()
+        
+        yield models
     finally:
-        runner.deactivate()
-
-
-
+        for model in models.values():
+            model.deactivate()
