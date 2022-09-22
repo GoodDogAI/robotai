@@ -57,4 +57,4 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_trt_reward(self):
         onnx_path = create_and_validate_onnx(self.sampleRewardConfig)
-        create_and_validate_trt(onnx_path, skip_cache=False)
+        create_and_validate_trt(onnx_path, skip_cache=True)

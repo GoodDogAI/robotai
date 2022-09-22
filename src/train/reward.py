@@ -99,14 +99,15 @@ class ConvertCropVisionReward(torch.nn.Module):
 
 
 class ThresholdNMS(torch.nn.Module):
-    def __init__(self, threshold):
+    def __init__(self, iou_threshold, max_detections):
         super().__init__()
-        self.threshold = threshold
+        self.iou_threshold = iou_threshold
+        self.max_detections = max_detections
 
     def forward(self, yolo_bboxes):
         boxes = yolo_bboxes[0, ..., 0:4]
         # TODO Check the format for the boxes, convert to xyxy
 
         scores = yolo_bboxes[0, ..., 4] * torch.amax(yolo_bboxes[0, ..., 5:], dim=-1)
-        nms_indexes = torchvision.ops.nms(boxes, scores, iou_threshold=self.threshold)
-        return yolo_bboxes[0, nms_indexes]
+        nms_indexes = torchvision.ops.nms(boxes, scores, iou_threshold=self.iou_threshold)
+        return yolo_bboxes[0, nms_indexes][:self.max_detections]

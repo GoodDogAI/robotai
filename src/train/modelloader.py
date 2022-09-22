@@ -205,7 +205,9 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     if model_type == "vision":
         full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
     elif model_type == "reward":
-        full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size), vision_model, ThresholdNMS(config["detection_threshold"]))
+        full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
+                                             vision_model,
+                                             ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]))
     else:
         raise NotImplementedError()
 
@@ -234,16 +236,11 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         graph.fold_constants()
 
         for op in graph.nodes:
-            # The NonMaxSupression op is supported in both ONNX and TRT, but we need to manually configure the score threshold
+            # The NonMaxSupression op is supported in both ONNX and TRT, but we need to manually configure the IOU threshold
             # and set it to a fixed max output size
             if op.op == "NonMaxSuppression":
                 op.inputs[2].values = np.array([config["max_detections"]], dtype=np.int64) # Number of detections per class
                 op.inputs[3].values = np.array([config["iou_threshold"]], dtype=np.float32) # IOU threshold
-
-                if len(op.inputs) > 4:
-                    op.inputs[4].values = np.array([config["detection_threshold"]], dtype=np.float32) # Score threshold
-                else:
-                    op.inputs.append(onnx_graphsurgeon.Constant(name="detection_threshold", values=np.array([config["detection_threshold"]], dtype=np.float32)))
 
         graph.cleanup()
 
