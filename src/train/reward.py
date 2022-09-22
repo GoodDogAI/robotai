@@ -81,3 +81,29 @@ class SumCenteredObjectsPresentReward(torch.nn.Module):
 
     def forward(self, bboxes: torch.FloatTensor) -> torch.Tensor:
         return torch.tensor(sum_centered_objects_present(bboxes)) * self.reward_scale
+
+
+class ConvertCropVisionReward(torch.nn.Module):
+    def __init__(self, converter, cropper, vision_model, detection):
+        super().__init__()
+        self.converter = converter
+        self.cropper = cropper
+        self.vision_model = vision_model
+        self.detection = detection
+
+    def forward(self, y=None, uv=None, rgb=None):
+        img = self.converter(y, uv) 
+        img = self.cropper(img)
+        detections, extra_layers = self.vision_model(img)
+        return self.detection(detections), extra_layers
+
+
+class DetectionThreshold(torch.nn.Module):
+    def __init__(self, threshold):
+        super().__init__()
+        self.threshold = threshold
+
+    def forward(self, yolo_bboxes):
+        scores = yolo_bboxes[..., 4] * torch.amax(yolo_bboxes[..., 5:], dim=-1)
+        confidence_filter_mask = scores > self.threshold
+        return yolo_bboxes[confidence_filter_mask]

@@ -28,8 +28,12 @@ class TestModelLoaderTRT(unittest.TestCase):
             "type": "reward",
             "load_fn": "src.train.yolov7.load.load_yolov7",
             "input_format": "rgb",
-            "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
+            "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
 
+            # Input dimensions must be divisible by the stride
+            # In current situations, the image will be cropped to the nearest multiple of the stride
+            "dimension_stride": 32,
+            
             "class_weights": {
                 "person": 3,
                 "spoon": 10,

@@ -72,6 +72,7 @@ class NV12MToRGB(torch.nn.Module):
     def forward(self, y: torch.Tensor, uv: torch.Tensor) -> torch.Tensor:
         return nv12m_to_rgb(y, uv)
 
+
 class CenterCrop(torch.nn.Module):
     def __init__(self, size):
         super().__init__()
@@ -86,6 +87,7 @@ class CenterCrop(torch.nn.Module):
         x = (width - crop_width) // 2
         return image[:, :, y:y+crop_height, x:x+crop_width]
 
+
 class ConvertCropVision(torch.nn.Module):
     def __init__(self, converter, cropper, vision_model):
         super().__init__()
@@ -97,6 +99,7 @@ class ConvertCropVision(torch.nn.Module):
         img = self.converter(y, uv) 
         img = self.cropper(img)
         return self.vision_model(img)
+
 
 def get_onnx(func: Callable, args: Tuple) -> onnx.ModelProto:
     module = NV12MToRGB()

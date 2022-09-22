@@ -21,6 +21,7 @@ from polygraphy.cuda import DeviceView
 from cereal import log
 
 from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
+from src.train.reward import ConvertCropVisionReward, DetectionThreshold
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 from src.config.config import BRAIN_CONFIGS
 
@@ -193,7 +194,12 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     vision_model = load_fn(config["checkpoint"])
 
     # Make a module that is going to include the input format conversion and any required cropping
-    full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
+    if model_type == "vision":
+        full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
+    elif model_type == "reward":
+        full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size), vision_model, DetectionThreshold(config["detection_threshold"]))
+    else:
+        raise NotImplementedError()
 
     _ = full_model(**inputs)  # dry run
 
@@ -249,9 +255,7 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         graph.outputs = [final_output]
         graph.cleanup()
     elif model_type == "reward":
-        detection_output = tensors[config["detection_layer"]]
-
-        # pass
+        pass
 
 
     # Save the final onnx model, but do a shape inference one last time on it for convience in debugging
