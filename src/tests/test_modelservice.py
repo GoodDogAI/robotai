@@ -15,6 +15,13 @@ class ModelServiceTest(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(app)
 
+    def test_get_all_models(self):
+        resp = self.client.get("/models/")
+        self.assertEqual(resp.status_code, 200)
+
+        j = resp.json()
+        self.assertTrue(len(j) > 0)
+
     def test_model_onnx(self):
         resp = self.client.get("/models/brain/default/")
         self.assertEqual(resp.status_code, 200)

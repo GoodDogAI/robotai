@@ -9,7 +9,7 @@ import json
 import hashlib
 import numpy as np
 from pathlib import Path
-from typing import Literal, Union, List, Tuple, Iterable, BinaryIO, Dict
+from typing import Literal, Union, List, Tuple, Iterable, BinaryIO, Dict, Any
 from contextlib import contextmanager
 
 import polygraphy
@@ -44,7 +44,7 @@ def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
         raise ValueError(f"Unsupported ONNX type {onnx_type}")
 
 def get_reference_input(shape: List[int], dtype: np.dtype, model_type: Literal["vision"]) -> np.ndarray:
-    if model_type == "vision":
+    if model_type == "vision" or model_type == "reward":
         if dtype == np.uint8:
             return np.random.randint(low=16, high=235, size=shape, dtype=np.uint8)
         elif dtype == np.float32:
@@ -73,8 +73,7 @@ def _flatten_deep(x: Union[List, Tuple]) -> Iterable:
         yield x
 
 # Returns a unique path that includes a hash of the model config and checkpoint
-def model_fullname(config_name: str) -> str:
-    config = MODEL_CONFIGS[config_name]
+def model_fullname(config: Dict[str, Any]) -> str:
     assert config is not None, "Unable to find config"
     sha256_hash = hashlib.sha256()
 
@@ -157,11 +156,10 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
     return True
 
 # Returns a path to an onnx model that matches the given model configuration
-def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
-    config = MODEL_CONFIGS[config_name]
+def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> str:
     assert config is not None, "Unable to find config"
     model_type = config["type"]
-    assert model_type == "vision", "Config must be a vision model"
+    assert model_type in {"vision", "reward"}, "Config must be a vision model"
 
     assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
 
@@ -200,8 +198,8 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     _ = full_model(**inputs)  # dry run
 
     # Convert and validate the full base model to ONNX
-    orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_orig.onnx")
-    final_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_final.onnx")
+    orig_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config)}_orig.onnx")
+    final_onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config)}_final.onnx")
 
     onnx_exists_and_validates = False
 
@@ -234,19 +232,27 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     onnx_model = onnx.shape_inference.infer_shapes(onnx_model)
     graph = onnx_graphsurgeon.import_onnx(onnx_model)
     tensors = graph.tensors()
-    intermediate_output = tensors[config["intermediate_layer"]]
 
-    # Now, do a concatenation and slicing
-    
-    # inputs are [tensor, new_shape]
-    reshaped = graph.layer(inputs=[intermediate_output, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") 
+    if model_type == "vision":
+        # Extract the intermediate output
+        intermediate_output = tensors[config["intermediate_layer"]]
 
-    # inputs are [tensor, starts, ends, axes, steps]
-    final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32)
-    graph.layer(inputs=reshaped + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
+        # Now, do a concatenation and slicing
+        
+        # inputs are [tensor, new_shape]
+        reshaped = graph.layer(inputs=[intermediate_output, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") 
 
-    graph.outputs = [final_output]
-    graph.cleanup()
+        # inputs are [tensor, starts, ends, axes, steps]
+        final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32)
+        graph.layer(inputs=reshaped + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
+
+        graph.outputs = [final_output]
+        graph.cleanup()
+    elif model_type == "reward":
+        detection_output = tensors[config["detection_layer"]]
+
+        # pass
+
 
     # Save the final onnx model, but do a shape inference one last time on it for convience in debugging
     onnx.save(onnx_graphsurgeon.export_onnx(graph), final_onnx_path)
@@ -256,7 +262,7 @@ def create_and_validate_onnx(config_name: str, skip_cache: bool=False) -> str:
     onnx.save(onnx_model, final_onnx_path)
 
     # Also save off the config that was used to generate this model, so that we can regerenate TRT models if the config ever changes in the future
-    with open(os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config_name)}_config.json"), "w") as f:
+    with open(os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config)}_config.json"), "w") as f:
         json.dump(config, f)
 
     return final_onnx_path

@@ -33,7 +33,7 @@ def _get_reference_input(shape, dtype):
 
 @router.get("/")
 async def get_all_models() -> JSONResponse:
-    return { name: model | {"_fullname": model_fullname(name)} for name, model in
+    return { name: model | {"_fullname": model_fullname(model)} for name, model in
         MODEL_CONFIGS.items()
     }
 
@@ -45,7 +45,7 @@ async def get_default_brain_model() -> str:
     config["_fullname"] = brain_fullname(brain)
     
     for type, model in config["models"].items():
-        config["models"][type] = {"basename": model, "_fullname": model_fullname(model)}
+        config["models"][type] = {"basename": model, "_fullname": model_fullname(MODEL_CONFIGS[model])}
 
     return { brain: config }
 
@@ -54,23 +54,25 @@ async def get_model_config(model_name: str) -> JSONResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    return MODEL_CONFIGS[model_name] | {"_fullname": model_fullname(model_name)}
+    return MODEL_CONFIGS[model_name] | {"_fullname": model_fullname(MODEL_CONFIGS[model_name])}
 
 @router.get("/{model_name}/onnx")
 async def get_model_onnx(model_name: str) -> FileResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    onnx_path = create_and_validate_onnx(model_name)
+    config = MODEL_CONFIGS[model_name]
+    onnx_path = create_and_validate_onnx(config)
     return FileResponse(path=onnx_path, media_type="application/octet-stream", filename=os.path.basename(onnx_path),
-                        headers={"X-ModelFullname": model_fullname(model_name)})
+                        headers={"X-ModelFullname": model_fullname(config)})
 
 @router.get("/{model_name}/reference_input/{input_name}")
 async def get_model_reference_input(model_name: str, input_name: str) -> FileResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    onnx_path = create_and_validate_onnx(model_name)
+    config = MODEL_CONFIGS[model_name]
+    onnx_path = create_and_validate_onnx(config)
     ort_sess = onnxruntime.InferenceSession(onnx_path)
 
     all_input_shapes = {x.name:x.shape for x in ort_sess.get_inputs()}
@@ -89,7 +91,7 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
 
     return Response(content=file_data.getvalue(),
                     media_type="application/octet-stream",
-                    headers={"X-ModelFullname": model_fullname(model_name)})
+                    headers={"X-ModelFullname": model_fullname(config)})
     
     
 @router.get("/{model_name}/reference_output/{output_name}")
@@ -97,7 +99,8 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    onnx_path = create_and_validate_onnx(model_name)
+    config = MODEL_CONFIGS[model_name]
+    onnx_path = create_and_validate_onnx(config)
     ort_sess = onnxruntime.InferenceSession(onnx_path)
 
     feed_dict = {}
@@ -116,5 +119,5 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
 
     return Response(content=file_data.getvalue(),
                 media_type="application/octet-stream",
-                headers={"X-ModelFullname": model_fullname(model_name)})
+                headers={"X-ModelFullname": model_fullname(config)})
 

@@ -67,6 +67,23 @@ MODEL_CONFIGS = dotdict({
 
         "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
         "intermediate_slice": 53,
+    },
+
+    "yolov7-tiny-prioritize_centered_nms": {
+        "type": "reward",
+        "load_fn": "src.train.yolov7.load.load_yolov7",
+        "input_format": "rgb",
+        "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
+
+        "class_weights": {
+            "person": 3,
+            "spoon": 10,
+        },
+        "global_reward_scale": 0.10,
+
+        "detection_layer": "488",
+        "detection_threshold": 0.50,
+        "iou_threshold": 0.50,
     }
 })
 
