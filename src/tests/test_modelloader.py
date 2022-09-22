@@ -40,7 +40,7 @@ class TestModelLoaderTRT(unittest.TestCase):
             },
             "global_reward_scale": 0.10,
 
-            "detection_layer": "488",
+            "max_detections": 100,
             "detection_threshold": 0.50,
             "iou_threshold": 0.50,
         }
@@ -54,3 +54,7 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_onnx_reward(self):
         create_and_validate_onnx(self.sampleRewardConfig, skip_cache=True)
+
+    def test_trt_reward(self):
+        onnx_path = create_and_validate_onnx(self.sampleRewardConfig)
+        create_and_validate_trt(onnx_path, skip_cache=False)

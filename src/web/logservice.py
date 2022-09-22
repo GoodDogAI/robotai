@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse, Response
 
 from cereal import log
 from src.config import HOST_CONFIG
+from src.config.config import MODEL_CONFIGS
+from src.train.modelloader import load_vision_model
 
 from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, quick_validate_log
@@ -162,6 +164,34 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
 
     return response
+
+@router.get("/{logfile}/frame_reward/{frameid}")
+async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    try:
+        packets = get_image_packets(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), frameid)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Frame not found")
+        
+    y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
+    rgb = decode_last_frame(packets, pixel_format=nvc.PixelFormat.RGB)
+ 
+    # Load the default reward model
+    from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt, model_fullname
+    onnx_path = create_and_validate_onnx(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])
+    trt_path = create_and_validate_trt(onnx_path)
+
+    with load_vision_model(model_fullname(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])) as model:
+        bboxes = model.infer({"y": y, "uv": uv})
+
+    img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
+    img_data = io.BytesIO()
+    img.write(img_data)
+    response = Response(content=img_data.getvalue(), media_type="image/png")
+    return response
+
 
 @router.get("/{logfile}/thumbnail")
 async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):

@@ -38,6 +38,7 @@ HOST_CONFIG = dotdict({
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
     "DEFAULT_BRAIN_CONFIG": "orange-hippo-1",
+    "DEFAULT_REWARD_CONFIG": "yolov7-tiny-prioritize_centered_nms",
 
     "DEFAULT_DECODE_GPU_ID": 0,
 })
@@ -79,12 +80,15 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
+        "postprocess_fn": "src.train.yolov7.postprocess.prioritize_centered_nms",
+
         "class_weights": {
             "person": 3,
             "spoon": 10,
         },
         "global_reward_scale": 0.10,
 
+        "max_detections": 100,
         "detection_threshold": 0.25,
         "iou_threshold": 0.45,
     }

@@ -98,12 +98,15 @@ class ConvertCropVisionReward(torch.nn.Module):
         return self.detection(detections), extra_layers
 
 
-class DetectionThreshold(torch.nn.Module):
+class ThresholdNMS(torch.nn.Module):
     def __init__(self, threshold):
         super().__init__()
         self.threshold = threshold
 
     def forward(self, yolo_bboxes):
-        scores = yolo_bboxes[..., 4] * torch.amax(yolo_bboxes[..., 5:], dim=-1)
-        confidence_filter_mask = scores > self.threshold
-        return yolo_bboxes[confidence_filter_mask]
+        boxes = yolo_bboxes[0, ..., 0:4]
+        # TODO Check the format for the boxes, convert to xyxy
+
+        scores = yolo_bboxes[0, ..., 4] * torch.amax(yolo_bboxes[0, ..., 5:], dim=-1)
+        nms_indexes = torchvision.ops.nms(boxes, scores, iou_threshold=self.threshold)
+        return yolo_bboxes[0, nms_indexes]
