@@ -2,16 +2,6 @@ import torch
 import numpy as np
 import torchvision
 
-yolov7_class_num = 80
-
-yolov7_class_names = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign",
-  "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-  "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
-  "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-  "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table",
-  "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
-  "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
-
 
 def non_max_supression(input_bboxes: np.ndarray, iou_threshold: float = 0.50) -> np.ndarray:
     assert input_bboxes.shape[0] == 1, "This operation cannot be batched"
@@ -32,9 +22,9 @@ def non_max_supression(input_bboxes: np.ndarray, iou_threshold: float = 0.50) ->
 
     return input_bboxes[0, original_nms_boxes]
 
-def _all_centers(bboxes: torch.FloatTensor, width: int, height: int) -> torch.FloatTensor:
+def _all_centers(bboxes: torch.FloatTensor, width: int, height: int, center_epsilon: float) -> torch.FloatTensor:
     return torch.sqrt(((bboxes[..., 0] - width / 2) / width) ** 2 +
-                  ((bboxes[ ..., 1] - height / 2) / height) ** 2) + 0.1  # Small constant to prevent divide by zero explosion
+                  ((bboxes[ ..., 1] - height / 2) / height) ** 2) + center_epsilon  # Small constant to prevent divide by zero explosion
 
 
 
@@ -54,15 +44,16 @@ def prioritize_centered_objects(bboxes: np.ndarray, class_weights: dict) -> floa
 class SumCenteredObjectsPresentReward(torch.nn.Module):
     reward_scale: 1.0
 
-    def __init__(self, width, height, reward_scale):
+    def __init__(self, width, height, reward_scale, center_epsilon=0.1):
         super().__init__()
         self.width = width
         self.height = height
         self.reward_scale = reward_scale
+        self.center_epsilon = center_epsilon
 
     def forward(self, bboxes: torch.FloatTensor) -> torch.Tensor:
         all_probs = bboxes[..., 4] * torch.amax(bboxes[..., 5:], dim=-1)
-        all_centers = _all_centers(bboxes, self.width, self.height)
+        all_centers = _all_centers(bboxes, self.width, self.height, self.center_epsilon)
         
         sum = torch.sum(all_probs / all_centers)
 

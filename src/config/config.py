@@ -54,6 +54,15 @@ BRAIN_CONFIGS = dotdict({
     }
 })
 
+YOLOV7_CLASS_NAMES = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign",
+  "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
+  "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+  "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+  "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table",
+  "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+  "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"]
+
+
 # Configures how models turn from pytorch checkpoints into runnable objects on the host and device
 MODEL_CONFIGS = dotdict({
     "yolov7-tiny-s53": {
@@ -75,6 +84,7 @@ MODEL_CONFIGS = dotdict({
         "load_fn": "src.train.yolov7.load.load_yolov7",
         "input_format": "rgb",
         "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
+        "class_names": YOLOV7_CLASS_NAMES,
 
         # Input dimensions must be divisible by the stride
         # In current situations, the image will be cropped to the nearest multiple of the stride
