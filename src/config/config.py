@@ -90,17 +90,19 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "postprocess_fn": "src.train.yolov7.postprocess.prioritize_centered_nms",
-
-        "class_weights": {
-            "person": 3,
-            "spoon": 10,
-        },
-        "global_reward_scale": 0.10,
-
         "max_detections": 100,
-        "detection_threshold": 0.25,
         "iou_threshold": 0.45,
+
+        "reward_module": "src.train.reward.SumCenteredObjectsPresentReward",
+
+        "reward_kwargs": {
+            "class_weights": {
+                "person": 3,
+                "spoon": 10,
+            },
+            "reward_scale": 0.10,
+            "center_epsilon": 0.1,  
+        }
     }
 })
 

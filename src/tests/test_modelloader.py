@@ -4,7 +4,7 @@ import torch
 import tensorrt as trt
 import unittest
 
-from src.config import HOST_CONFIG, BRAIN_CONFIGS
+from src.config import YOLOV7_CLASS_NAMES
 from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt
 
 
@@ -24,25 +24,30 @@ class TestModelLoaderTRT(unittest.TestCase):
             "intermediate_slice": 53,
         }
 
-        self.sampleRewardConfig = {
+        self.sampleRewardConfig =  {
             "type": "reward",
             "load_fn": "src.train.yolov7.load.load_yolov7",
             "input_format": "rgb",
             "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
+            "class_names": YOLOV7_CLASS_NAMES,
 
             # Input dimensions must be divisible by the stride
             # In current situations, the image will be cropped to the nearest multiple of the stride
             "dimension_stride": 32,
-            
-            "class_weights": {
-                "person": 3,
-                "spoon": 10,
-            },
-            "global_reward_scale": 0.10,
 
             "max_detections": 100,
-            "detection_threshold": 0.50,
-            "iou_threshold": 0.50,
+            "iou_threshold": 0.45,
+
+            "reward_module": "src.train.reward.SumCenteredObjectsPresentReward",
+
+            "reward_kwargs": {
+                "class_weights": {
+                    "person": 3,
+                    "spoon": 10,
+                },
+                "reward_scale": 0.10,
+                "center_epsilon": 0.1,  
+            }
         }
 
     def test_onnx_vision(self):

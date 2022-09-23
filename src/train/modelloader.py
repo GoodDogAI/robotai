@@ -207,10 +207,15 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     if model_type == "vision":
         full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
     elif model_type == "reward":
+        assert config["reward_module"] == "src.train.reward.SumCenteredObjectsPresentReward", "Other modules not implemented yet"
         full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
                                              vision_model,
                                              ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]),
-                                             SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], reward_scale=config["global_reward_scale"]))
+                                             SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], 
+                                                                             class_names=config["class_names"],
+                                                                             class_weights=config["reward_kwargs"]["class_weights"],
+                                                                             reward_scale=config["reward_kwargs"]["reward_scale"],
+                                                                             center_epsilon=config["reward_kwargs"]["center_epsilon"]))
     else:
         raise NotImplementedError()
 
