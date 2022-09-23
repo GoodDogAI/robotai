@@ -107,7 +107,10 @@ export function LogTimeline(props) {
     return (
         <div className="timeline">
             <div className="frameContainer">
-                <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${frameIds[index]}`} alt={`frame${frameIds[index]}`}/>
+                <div style={{position: "relative"}}>
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${frameIds[index]}`} alt={`frame${frameIds[index]}`}   style={{position: "absolute", zIndex: 0}} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${frameIds[index]}`} alt={`reward${frameIds[index]}`} style={{position: "relative", zIndex: 1}} />
+                </div>
                 <div>
                     <span>Frame {index} / {frameIds.length} (ID{frameIds[index]})</span>
                     <FrameSlider frameIds={frameIds} index={index} onChangeIndex={setIndex}/>

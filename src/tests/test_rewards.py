@@ -53,7 +53,7 @@ class TestRewards(unittest.TestCase):
              trt_outputs = engine.infer({"y": y, "uv": uv})
 
         img = Image.open(png_path)
-        img = draw_bboxes_pil(img, trt_outputs["bboxes"], self.sampleRewardConfig["class_names"])
+        img = draw_bboxes_pil(img, trt_outputs["bboxes"], self.sampleRewardConfig)
         
         # SAVE PIL Image to file
         img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))

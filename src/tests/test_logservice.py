@@ -2,6 +2,7 @@ import unittest
 import tempfile
 import hashlib
 import os
+import io
 
 from fastapi.testclient import TestClient
 from cereal import log
@@ -10,6 +11,7 @@ from src.tests.utils import artificial_logfile
 from src.web.main import app
 from src.web.dependencies import get_loghashes
 from src.config import HOST_CONFIG
+from PIL import Image
 
 class LogServiceTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -111,7 +113,7 @@ class LogServiceRealDataTests(unittest.TestCase):
         self.td = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest")
         self.lh = LogHashes(self.td)
         app.dependency_overrides[get_loghashes] = lambda: self.lh
-        
+
         self.client = TestClient(app)
 
     def test_read_reward_frame(self):
@@ -119,6 +121,9 @@ class LogServiceRealDataTests(unittest.TestCase):
 
         resp = self.client.get(f"/logs/{test_log}/frame_reward/120")
         self.assertEqual(resp.status_code, 200)
+
+        img = Image.open(io.BytesIO(resp.content))
+        self.assertEqual(img.size, (1280, 720))
         
 
 

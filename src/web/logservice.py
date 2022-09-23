@@ -192,7 +192,7 @@ async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(g
 
     # Draw the bounding boxes on a transparent PNG the same size as the main image
     img = Image.new("RGBA", (y.shape[3], y.shape[2]), (0, 0, 0, 0))
-    draw_bboxes_pil(img, trt_outputs["bboxes"], reward_config["class_names"])
+    draw_bboxes_pil(img, trt_outputs["bboxes"], reward_config)
 
     img_data = io.BytesIO()
     img.save(img_data, format="PNG")

@@ -4,25 +4,6 @@ import torchvision
 from typing import Dict, List
 
 
-def non_max_supression(input_bboxes: np.ndarray, iou_threshold: float = 0.50) -> np.ndarray:
-    assert input_bboxes.shape[0] == 1, "This operation cannot be batched"
-
-    yolo_bboxes = torch.from_numpy(input_bboxes)[0]
-
-    boxes = torchvision.ops.box_convert(yolo_bboxes[..., 0:4], in_fmt="cxcywh", out_fmt="xyxy")
-    scores = yolo_bboxes[..., 4] * torch.amax(yolo_bboxes[..., 5:], dim=-1)
-
-    # Remove boxes that are below some low threshold
-    confidence_filter_mask = scores > 0.10
-    boxes = boxes[confidence_filter_mask]
-    scores = scores[confidence_filter_mask]
-    original_indexes = torch.arange(0, yolo_bboxes.shape[0], dtype=torch.int64)[confidence_filter_mask]
-
-    nms_boxes = torchvision.ops.nms(boxes, scores, iou_threshold=iou_threshold)
-    original_nms_boxes = original_indexes[nms_boxes]
-
-    return input_bboxes[0, original_nms_boxes]
-
 def _all_centers(bboxes: torch.FloatTensor, width: int, height: int, center_epsilon: float) -> torch.FloatTensor:
     return torch.sqrt(((bboxes[..., 0] - width / 2) / width) ** 2 +
                   ((bboxes[ ..., 1] - height / 2) / height) ** 2) + center_epsilon  # Small constant to prevent divide by zero explosion
