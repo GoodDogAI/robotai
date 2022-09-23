@@ -83,7 +83,7 @@ MODEL_CONFIGS = dotdict({
         "type": "reward",
         "load_fn": "src.train.yolov7.load.load_yolov7",
         "input_format": "rgb",
-        "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
+        "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-w6.pt",
         "class_names": YOLOV7_CLASS_NAMES,
 
         # Input dimensions must be divisible by the stride
