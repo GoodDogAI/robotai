@@ -106,6 +106,21 @@ class LogServiceTest(unittest.TestCase):
             self.assertEqual(len(resp.json()), 1)
             print(resp.json())
 
+class LogServiceRealDataTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.td = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest")
+        self.lh = LogHashes(self.td)
+        app.dependency_overrides[get_loghashes] = lambda: self.lh
+        
+        self.client = TestClient(app)
+
+    def test_read_reward_frame(self):
+        test_log = "alphalog-22c37d10-2022-9-16-21_21.log"
+
+        resp = self.client.get(f"/logs/{test_log}/frame_reward/120")
+        self.assertEqual(resp.status_code, 200)
+        
+
 
 if __name__ == '__main__':
     unittest.main()

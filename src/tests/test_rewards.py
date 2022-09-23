@@ -3,34 +3,14 @@ import torch
 import tensorrt as trt
 import unittest
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
+
 
 from src.config import HOST_CONFIG, YOLOV7_CLASS_NAMES
 from src.train.modelloader import model_fullname, load_vision_model
 from src.train.onnx_yuv import png_to_nv12m
 from src.train.reward import SumCenteredObjectsPresentReward
-
-
-def draw_bboxes_pil(png_path, bboxes, class_names) -> Image:
-    img = Image.open(png_path)
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.truetype("DejaVuSans.ttf", 20)
-    color = "red"
-
-    for row in bboxes:
-        cxcywh = row[0:4]
-        x1, y1 = cxcywh[0] - cxcywh[2] / 2, cxcywh[1] - cxcywh[3] / 2
-        x2, y2 = cxcywh[0] + cxcywh[2] / 2, cxcywh[1] + cxcywh[3] / 2
-
-        if row[4] > 0.15:
-            label = class_names[np.argmax(row[5:])]
-            txt_width, txt_height = font.getsize(label)
-            draw.rectangle([x1, y1, x2, y2], width=1, outline=color)  # plot
-            print("Found bbox:", cxcywh, label)
-
-            draw.rectangle([x1, y1 - txt_height + 4, x1 + txt_width, y1], fill=color)
-            draw.text((x1, y1 - txt_height + 1), label, fill=(255, 255, 255), font=font)
-    return img
+from src.utils.draw_bboxes import draw_bboxes_pil
 
 
 class TestRewards(unittest.TestCase):
@@ -72,7 +52,8 @@ class TestRewards(unittest.TestCase):
         with load_vision_model(self.model_fullname) as engine:
              trt_outputs = engine.infer({"y": y, "uv": uv})
 
-        img = draw_bboxes_pil(png_path, trt_outputs["bboxes"], self.sampleRewardConfig["class_names"])
+        img = Image.open(png_path)
+        img = draw_bboxes_pil(img, trt_outputs["bboxes"], self.sampleRewardConfig["class_names"])
         
         # SAVE PIL Image to file
         img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))

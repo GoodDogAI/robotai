@@ -1,13 +1,12 @@
 import io
 import os
-import random
-import string
 import tempfile
 import png
 import time
 import hashlib
 import re
 import shutil
+import numpy as np
 
 from typing import List
 
@@ -15,10 +14,14 @@ from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 
+from PIL import Image
+from einops import rearrange
+
 from cereal import log
 from src.config import HOST_CONFIG
 from src.config.config import MODEL_CONFIGS
 from src.train.modelloader import load_vision_model
+from src.utils.draw_bboxes import draw_bboxes_pil
 
 from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, quick_validate_log
@@ -166,7 +169,7 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     return response
 
 @router.get("/{logfile}/frame_reward/{frameid}")
-async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
@@ -176,18 +179,23 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
         raise HTTPException(status_code=404, detail="Frame not found")
         
     y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
-    rgb = decode_last_frame(packets, pixel_format=nvc.PixelFormat.RGB)
- 
+    y = rearrange(y.astype(np.float32), "h w -> 1 1 h w")
+    uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
+    
     # Load the default reward model
-    from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt, model_fullname
-    fullname = model_fullname(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])
+    from src.train.modelloader import model_fullname
+    reward_config = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG]
+    fullname = model_fullname(reward_config)
 
     with load_vision_model(fullname) as model:
-        bboxes = model.infer({"y": y, "uv": uv})
+        trt_outputs = model.infer({"y": y, "uv": uv})
 
-    img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
+    # Draw the bounding boxes on a transparent PNG the same size as the main image
+    img = Image.new("RGBA", (y.shape[3], y.shape[2]), (0, 0, 0, 0))
+    draw_bboxes_pil(img, trt_outputs["bboxes"], reward_config["class_names"])
+
     img_data = io.BytesIO()
-    img.write(img_data)
+    img.save(img_data, format="PNG")
     response = Response(content=img_data.getvalue(), media_type="image/png")
     return response
 
