@@ -97,8 +97,19 @@ MODEL_CONFIGS = dotdict({
 
         "reward_kwargs": {
             "class_weights": {
-                "person": 3,
-                "spoon": 10,
+                "person": 10,
+                "cat": 5,
+                "dog": 5,
+                "bird": 5,
+                "horse": 5,
+                "sheep": 5,
+                "cow": 5,
+                "elephant": 5,
+                "bear": 5,
+                "zebra": 5,
+                "giraffe": 5,
+                "tv": 0.5,
+                "book": 0.1,
             },
             "reward_scale": 0.10,
             "center_epsilon": 0.1,  

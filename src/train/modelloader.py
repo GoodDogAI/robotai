@@ -348,10 +348,12 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
     else:
         print(f"Engine {trt_path} not found, creating it from ONNX")
         
-        onnx_final_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_final.onnx")
-        # TODO, Modify this so that generating an ONNX saves the necessary config stuff to a cached file, so it can be recreated
-        trt_path = create_and_validate_trt()
-        raise NotImplementedError()
+        config_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_config.json")
+        with open(config_path, "r") as f:
+            config = json.load(f)
+
+        onnx_final_path = create_and_validate_onnx(config)
+        trt_path = create_and_validate_trt(onnx_final_path)
 
     with open(trt_path, "rb") as f:
         build_engine = EngineFromBytes(f.read())
