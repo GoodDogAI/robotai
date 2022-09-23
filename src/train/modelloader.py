@@ -30,6 +30,15 @@ from src.config.config import BRAIN_CONFIGS
 MODEL_MATCH_RTOL = 1e-4
 MODEL_MATCH_ATOL = 1e-4
 
+def update_model_config_caches():
+    for model_name, model_config in MODEL_CONFIGS.items():
+        config_cache_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(model_config)}_config.json")
+
+        if not os.path.exists(config_cache_path):
+            with open(config_cache_path, "w") as f:
+                json.dump(model_config, f, indent=4)
+
+
 def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
     if onnx_type == "tensor(float)":
         return np.float32
@@ -299,8 +308,7 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     onnx.save(onnx_model, final_onnx_path)
 
     # Also save off the config that was used to generate this model, so that we can regerenate TRT models if the config ever changes in the future
-    with open(os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config)}_config.json"), "w") as f:
-        json.dump(config, f)
+    update_model_config_caches()
 
     return final_onnx_path
 

@@ -183,7 +183,8 @@ async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(g
     uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
     
     # Load the default reward model
-    from src.train.modelloader import model_fullname
+    from src.train.modelloader import model_fullname, update_model_config_caches
+    update_model_config_caches()
     reward_config = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG]
     fullname = model_fullname(reward_config)
 
