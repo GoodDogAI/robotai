@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from einops import rearrange
 
 from cereal import log
@@ -193,6 +193,13 @@ async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(g
     # Draw the bounding boxes on a transparent PNG the same size as the main image
     img = Image.new("RGBA", (y.shape[3], y.shape[2]), (0, 0, 0, 0))
     draw_bboxes_pil(img, trt_outputs["bboxes"], reward_config)
+
+    # Add in the reward for fun debugging
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype("DejaVuSans.ttf", 20)
+    reward_label = f"Reward: {trt_outputs['reward']:.2f}"
+    txt_width, txt_height = font.getsize(reward_label)
+    draw.text((img.width - txt_width - 10, img.height - txt_height - 10), reward_label, fill=(255, 255, 255), font=font)
 
     img_data = io.BytesIO()
     img.save(img_data, format="PNG")
