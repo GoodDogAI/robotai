@@ -95,8 +95,13 @@ class ThresholdNMS(torch.nn.Module):
 
     def forward(self, yolo_bboxes):
         boxes = yolo_bboxes[0, ..., 0:4]
-        # TODO Check the format for the boxes, convert to xyxy
+
+        # Convert the boxes from cx, cy, w, h to xyxy
+        convert_matrix = torch.tensor([[1, 0, 1, 0], [0, 1, 0, 1], [-0.5, 0, 0.5, 0], [0, -0.5, 0, 0.5]],
+                                        dtype=torch.float32,
+                                        device=boxes.device)
+        boxes @= convert_matrix
 
         scores = yolo_bboxes[0, ..., 4] * torch.amax(yolo_bboxes[0, ..., 5:], dim=-1)
-        nms_indexes = torchvision.ops.nms(boxes, scores, iou_threshold=self.iou_threshold)
-        return yolo_bboxes[0, nms_indexes][:self.max_detections]
+        nms_indexes = torchvision.ops.nms(boxes, scores, iou_threshold=self.iou_threshold)[:self.max_detections]
+        return yolo_bboxes[0, nms_indexes]

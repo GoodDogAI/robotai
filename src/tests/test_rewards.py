@@ -15,13 +15,19 @@ def draw_bboxes_pil(png_path, bboxes, class_names) -> Image:
     draw = ImageDraw.Draw(img)
     fontsize = max(round(max(img.size) / 40), 12)
     font = ImageFont.truetype("DejaVuSans.ttf", fontsize)
+    color = "red"
 
-    for bbox in bboxes:
-        if bbox[4] > 0.15:
-            label = class_names[np.argmax(bbox[5:])]
+    for row in bboxes:
+        cxcywh = row[0:4]
+
+        if row[4] > 0.15:
+            label = class_names[np.argmax(row[5:])]
             txt_width, txt_height = font.getsize(label)
-            draw.text((bbox[0], bbox[1] - txt_height + 1), label, fill=(255, 255, 255), font=font)
-            draw.rectangle([bbox[0] - bbox[3] / 2, bbox[1] - bbox[4] / 2, bbox[0] + bbox[3] / 2, bbox[0] + bbox[4] / 2], outline="red")
+            draw.rectangle([cxcywh[0] - cxcywh[2] / 2, cxcywh[1] - cxcywh[3] / 2, cxcywh[0] + cxcywh[2] / 2, cxcywh[1] + cxcywh[3] / 2], width=1, outline=color)  # plot
+            print("Found bbox:", cxcywh, label)
+
+            # draw.rectangle([box[0], box[1] - txt_height + 4, box[0] + txt_width, box[1]], fill=color)
+            # draw.text((box[0], box[1] - txt_height + 1), label, fill=(255, 255, 255), font=font)
     return img
 
 
@@ -52,7 +58,7 @@ class TestRewards(unittest.TestCase):
         self.model_fullname = model_fullname(self.sampleRewardConfig)
 
     def test_reward_inference(self):
-        png_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "room.png")
+        png_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses.png")
         with open(png_path, "rb") as f1:
             y, uv = png_to_nv12m(f1)
 
@@ -62,4 +68,4 @@ class TestRewards(unittest.TestCase):
         img = draw_bboxes_pil(png_path, trt_outputs["bboxes"], yolov7_class_names)
         
         # SAVE PIL Image to file
-        img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "room_with_bboxes.png"))
+        img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))
