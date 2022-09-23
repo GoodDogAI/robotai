@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import torchvision
+from typing import Dict, List
 
 
 def non_max_supression(input_bboxes: np.ndarray, iou_threshold: float = 0.50) -> np.ndarray:
@@ -27,35 +28,36 @@ def _all_centers(bboxes: torch.FloatTensor, width: int, height: int, center_epsi
                   ((bboxes[ ..., 1] - height / 2) / height) ** 2) + center_epsilon  # Small constant to prevent divide by zero explosion
 
 
-
-def prioritize_centered_objects(bboxes: np.ndarray, class_weights: dict) -> float:
-    all_probs = bboxes[..., 4] * np.amax(bboxes[..., 5:], axis=-1)
-    all_centers = _all_centers(bboxes)
-
-    classes = np.argmax(bboxes[..., 5:], axis=-1)
-    factors = np.ones_like(all_probs)
-
-    for (cls, factor) in class_weights.items():
-        factors *= np.where(classes == class_names.index(cls), factor, 1.0)
-
-    return np.sum((all_probs * factors) / all_centers) * GLOBAL_REWARD_SCALE
-
-
 class SumCenteredObjectsPresentReward(torch.nn.Module):
-    reward_scale: 1.0
-
-    def __init__(self, width, height, reward_scale, center_epsilon=0.1):
+    def __init__(self, width, height, reward_scale=1.0, class_names: List[str]=None, class_weights: Dict[str, float]=None, center_epsilon=0.1):
         super().__init__()
         self.width = width
         self.height = height
         self.reward_scale = reward_scale
+        self.class_names = class_names
+        self.class_weights = class_weights
         self.center_epsilon = center_epsilon
+
+        if self.class_names and self.class_weights:
+            self.class_weight_data = []
+            for cls in class_names:
+                if cls in class_weights:
+                    self.class_weight_data.append(class_weights[cls])
+                else:
+                    self.class_weight_data.append(1.0)
 
     def forward(self, bboxes: torch.FloatTensor) -> torch.Tensor:
         all_probs = bboxes[..., 4] * torch.amax(bboxes[..., 5:], dim=-1)
         all_centers = _all_centers(bboxes, self.width, self.height, self.center_epsilon)
-        
-        sum = torch.sum(all_probs / all_centers)
+
+        if self.class_weights is not None:
+            all_classes = torch.argmax(bboxes[..., 5:], dim=-1)
+            all_classes_onehot = torch.nn.functional.one_hot(all_classes, num_classes=len(self.class_names)).float()
+            all_class_weights = torch.matmul(all_classes_onehot, torch.tensor(self.class_weight_data, dtype=torch.float32, device=bboxes.device))
+
+            sum = torch.sum((all_probs * all_class_weights) / all_centers)
+        else:
+            sum = torch.sum((all_probs) / all_centers)
 
         return sum * self.reward_scale
 

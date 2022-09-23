@@ -73,6 +73,7 @@ class TestRewards(unittest.TestCase):
         # SAVE PIL Image to file
         img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))
 
+
     def test_sum_centered_objects(self):
         center_epsilon = 0.1
 
@@ -112,3 +113,25 @@ class TestRewards(unittest.TestCase):
             else:
                 self.assertLess(fn(t1), fn(t2))
          
+        # Test that rewards are multiplied by the class probability
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 1.0, 0.5])), 5.0)
+
+        # Test that rewards are multiplied by the detection probability
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.5, 0.5])), 2.5)
+
+        # Test the global reward scale
+        fn_scaled = SumCenteredObjectsPresentReward(width=100, height=100, reward_scale=10.0, center_epsilon=center_epsilon)
+        self.assertEqual(fn_scaled(torch.tensor([50, 50, 100, 100, 1.0, 1.0])), 100.0)
+
+    def test_sum_centered_class_weights(self):
+        center_epsilon = 0.1
+
+        fn = SumCenteredObjectsPresentReward(width=100, height=100, reward_scale=1.0, class_names=["apples", "oranges", "pears"], class_weights={"oranges": 5}, center_epsilon=center_epsilon)
+
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 1.0, 1.0, 0.0, 0.0])), 10.0)
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 1.0, 0.0, 1.0, 0.0])), 50.0)
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 1.0, 0.0, 0.9, 1.0])), 10.0)
+
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 1.0, 0.0, 0.0])), 1.0)
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 0.0, 1.0, 0.0])), 5.0)
+        self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 0.0, 0.9, 1.0])), 1.0)
