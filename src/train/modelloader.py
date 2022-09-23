@@ -10,7 +10,7 @@ import hashlib
 import numpy as np
 from pathlib import Path
 from typing import Literal, Union, List, Tuple, Iterable, BinaryIO, Dict, Any
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 
 import polygraphy
 import polygraphy.backend.trt
@@ -21,7 +21,7 @@ from polygraphy.cuda import DeviceView
 from cereal import log
 
 from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
-from src.train.reward import ConvertCropVisionReward, ThresholdNMS
+from src.train.reward import ConvertCropVisionReward, ThresholdNMS, SumCenteredObjectsPresentReward
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
 from src.config.config import BRAIN_CONFIGS
 
@@ -116,7 +116,7 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str, model_type:Liter
         torch_output = torch_output.detach().cpu().numpy()
         ort_output = ort_outputs[i]
 
-        if model_type == "reward" and len(ort_output.shape) == 2 and ort_output.shape[-1] == 85:
+        if model_type == "reward":
             # TODO, ONNX works differently, because it needs to report a fixed number of outputs
             print("SKIPPING REWARD OUTPUT")
             continue
@@ -157,7 +157,8 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
             matches = np.isclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
             print(f"ONNX-TRT Output {index} matches: {matches / trt_output.size:.3%}")
 
-            if model_type == "reward" and len(trt_output.shape) == 2:
+            if model_type == "reward":
+                # TODO, you should match the single dimension reward output, and maybe the bboxes to some lower percentage
                 pass
             else:
                 assert np.allclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {index}"
@@ -207,7 +208,8 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     elif model_type == "reward":
         full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
                                              vision_model,
-                                             ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]))
+                                             ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]),
+                                             SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], reward_scale=config["global_reward_scale"]))
     else:
         raise NotImplementedError()
 
@@ -325,6 +327,7 @@ def create_and_validate_trt(onnx_path: str, skip_cache: bool=False) -> str:
     return trt_path
 
 # Loads a pre-cached, pre generated vision model
+@contextmanager
 def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}.engine")
 
@@ -340,7 +343,13 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
         build_engine = EngineFromBytes(f.read())
 
     runner = TrtRunner(build_engine)
-    return runner
+
+    try:
+        runner.activate()
+
+        yield runner
+    finally:
+        runner.deactivate()
 
 @contextmanager
 def load_all_models_in_log(input: BinaryIO) -> Dict[str, polygraphy.backend.trt.TrtRunner]:
@@ -350,16 +359,11 @@ def load_all_models_in_log(input: BinaryIO) -> Dict[str, polygraphy.backend.trt.
 
     events = log.Event.read_multiple(input)   
 
-    for evt in events:
-        if evt.which() == "modelValidation" and evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
-            if evt.modelValidation.modelFullName not in models:
-                models[evt.modelValidation.modelFullName] = load_vision_model(evt.modelValidation.modelFullName)
+    with ExitStack() as es:
+        for evt in events:
+            if evt.which() == "modelValidation" and evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
+                if evt.modelValidation.modelFullName not in models:
+                    model_context = load_vision_model(evt.modelValidation.modelFullName)
+                    models[evt.modelValidation.modelFullName] = es.enter_context(model_context)
 
-    try:
-        for model in models.values():
-            model.activate()
-        
         yield models
-    finally:
-        for model in models.values():
-            model.deactivate()

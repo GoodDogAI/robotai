@@ -32,24 +32,10 @@ def non_max_supression(input_bboxes: np.ndarray, iou_threshold: float = 0.50) ->
 
     return input_bboxes[0, original_nms_boxes]
 
-def _all_centers(bboxes: np.ndarray) -> np.ndarray:
-    return np.sqrt(((bboxes[..., 0] - input_w / 2) / input_w) ** 2 +
-                  ((bboxes[ ..., 1] - input_h / 2) / input_h) ** 2) + 0.1  # Small constant to prevent divide by zero explosion
+def _all_centers(bboxes: torch.FloatTensor, width: int, height: int) -> torch.FloatTensor:
+    return torch.sqrt(((bboxes[..., 0] - width / 2) / width) ** 2 +
+                  ((bboxes[ ..., 1] - height / 2) / height) ** 2) + 0.1  # Small constant to prevent divide by zero explosion
 
-
-def sum_centered_objects_present(bboxes: torch.FloatTensor) -> torch.float32:
-    all_probs = bboxes[..., 4] * np.amax(bboxes[..., 5:], axis=-1)
-    all_centers = _all_centers(bboxes)
-
-    return np.sum(all_probs / all_centers)
-
-
-def prioritize_centered_spoons_with_nms(bboxes: np.ndarray) -> float:
-    bboxes = non_max_supression(bboxes)
-    return prioritize_centered_objects(bboxes, class_weights={
-        "person": 3,
-        "spoon": 10,
-    })
 
 
 def prioritize_centered_objects(bboxes: np.ndarray, class_weights: dict) -> float:
@@ -65,37 +51,40 @@ def prioritize_centered_objects(bboxes: np.ndarray, class_weights: dict) -> floa
     return np.sum((all_probs * factors) / all_centers) * GLOBAL_REWARD_SCALE
 
 
-def prioritize_centered_objects_with_nms(bboxes: np.ndarray) -> float:
-    bboxes = non_max_supression(bboxes)
-    return prioritize_centered_objects(bboxes, class_weights={
-        "person": 3,
-        "spoon": 10,
-    })
-
 class SumCenteredObjectsPresentReward(torch.nn.Module):
     reward_scale: 1.0
 
-    def __init__(self, reward_scale):
+    def __init__(self, width, height, reward_scale):
         super().__init__()
+        self.width = width
+        self.height = height
         self.reward_scale = reward_scale
 
     def forward(self, bboxes: torch.FloatTensor) -> torch.Tensor:
-        return torch.tensor(sum_centered_objects_present(bboxes)) * self.reward_scale
+        all_probs = bboxes[..., 4] * torch.amax(bboxes[..., 5:], dim=-1)
+        all_centers = _all_centers(bboxes, self.width, self.height)
+        
+        sum = torch.sum(all_probs / all_centers)
+
+        return sum * self.reward_scale
 
 
 class ConvertCropVisionReward(torch.nn.Module):
-    def __init__(self, converter, cropper, vision_model, detection):
+    def __init__(self, converter, cropper, vision_model, detection, reward_fn):
         super().__init__()
         self.converter = converter
         self.cropper = cropper
         self.vision_model = vision_model
         self.detection = detection
+        self.reward_fn = reward_fn
 
-    def forward(self, y=None, uv=None, rgb=None):
+    def forward(self, y=None, uv=None):
         img = self.converter(y, uv) 
         img = self.cropper(img)
         detections, extra_layers = self.vision_model(img)
-        return self.detection(detections), extra_layers
+        bboxes = self.detection(detections)
+        reward = self.reward_fn(bboxes)
+        return reward, bboxes
 
 
 class ThresholdNMS(torch.nn.Module):

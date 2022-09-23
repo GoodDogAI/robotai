@@ -180,10 +180,9 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
  
     # Load the default reward model
     from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt, model_fullname
-    onnx_path = create_and_validate_onnx(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])
-    trt_path = create_and_validate_trt(onnx_path)
+    fullname = model_fullname(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])
 
-    with load_vision_model(model_fullname(MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG])) as model:
+    with load_vision_model(fullname) as model:
         bboxes = model.infer({"y": y, "uv": uv})
 
     img = png.from_array(rgb, 'RGB', info={'bitdepth': 8})
