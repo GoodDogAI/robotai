@@ -51,9 +51,9 @@ class SumCenteredObjectsPresentReward(torch.nn.Module):
         all_centers = _all_centers(bboxes, self.width, self.height, self.center_epsilon)
 
         if self.class_weights is not None:
+            _weight_data = torch.tensor(self.class_weight_data, dtype=torch.float32, device=bboxes.device)
             all_classes = torch.argmax(bboxes[..., 5:], dim=-1)
-            all_classes_onehot = torch.nn.functional.one_hot(all_classes, num_classes=len(self.class_names)).float()
-            all_class_weights = torch.matmul(all_classes_onehot, torch.tensor(self.class_weight_data, dtype=torch.float32, device=bboxes.device))
+            all_class_weights = torch.gather(_weight_data, 0, all_classes)
 
             sum = torch.sum((all_probs * all_class_weights) / all_centers)
         else:

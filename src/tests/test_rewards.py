@@ -45,16 +45,20 @@ class TestRewards(unittest.TestCase):
             # Input dimensions must be divisible by the stride
             # In current situations, the image will be cropped to the nearest multiple of the stride
             "dimension_stride": 32,
-            
-            "class_weights": {
-                "person": 3,
-                "spoon": 10,
-            },
-            "global_reward_scale": 0.10,
 
             "max_detections": 100,
-            "detection_threshold": 0.50,
-            "iou_threshold": 0.50,
+            "iou_threshold": 0.45,
+
+            "reward_module": "src.train.reward.SumCenteredObjectsPresentReward",
+
+            "reward_kwargs": {
+                "class_weights": {
+                    "person": 3,
+                    "spoon": 10,
+                },
+                "reward_scale": 0.10,
+                "center_epsilon": 0.1,  
+            }
         }
 
         # If the model is not cached, create and validate it
@@ -135,3 +139,12 @@ class TestRewards(unittest.TestCase):
         self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 1.0, 0.0, 0.0])), 1.0)
         self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 0.0, 1.0, 0.0])), 5.0)
         self.assertEqual(fn(torch.tensor([50, 50, 100, 100, 0.1, 0.0, 0.9, 1.0])), 1.0)
+
+        # Test with multiple classes
+        self.assertEqual(fn(torch.tensor([[50, 50, 100, 100, 1.0, 1.0, 0.0, 0.0],
+                                          [50, 50, 100, 100, 1.0, 1.0, 0.0, 0.0]])), 20.0)
+
+        self.assertEqual(fn(torch.tensor([[50, 50, 100, 100, 1.0, 1.0, 0.0, 0.0],
+                                          [50, 50, 100, 100, 1.0, 0.0, 1.0, 0.0],
+                                          [50, 50, 100, 100, 1.0, 1.0, 0.0, 0.0]])), 70.0)
+
