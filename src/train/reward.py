@@ -81,10 +81,10 @@ class ConvertCropVisionReward(torch.nn.Module):
     def forward(self, y=None, uv=None):
         img = self.converter(y, uv) 
         img = self.cropper(img)
-        detections, extra_layers = self.vision_model(img)
-        bboxes = self.detection(detections)
+        raw_detections, extra_layers = self.vision_model(img)
+        bboxes = self.detection(raw_detections)
         reward = self.reward_fn(bboxes)
-        return reward, bboxes
+        return reward, bboxes, raw_detections
 
 
 class ThresholdNMS(torch.nn.Module):

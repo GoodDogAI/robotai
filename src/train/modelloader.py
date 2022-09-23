@@ -109,15 +109,16 @@ def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str, model_type:Liter
     ort_feed_dict = {k: v.cpu().numpy() for k, v in pt_feed_dict.items()}
 
     torch_outputs = pt_model(**pt_feed_dict)
-    ort_outputs = ort_sess.run(None, ort_feed_dict)
+    output_names = [output.name for output in ort_sess.get_outputs()]
+    ort_outputs = ort_sess.run(output_names, ort_feed_dict)
+    
 
     # Check that the outputs are the same
     for i, torch_output in enumerate(_flatten_deep(torch_outputs)):
         torch_output = torch_output.detach().cpu().numpy()
         ort_output = ort_outputs[i]
 
-        if model_type == "reward":
-            # TODO, ONNX works differently, because it needs to report a fixed number of outputs
+        if model_type == "reward" and output_names[i] != "raw_detections":
             print("SKIPPING REWARD OUTPUT")
             continue
 
@@ -157,8 +158,8 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
             matches = np.isclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL).sum()
             print(f"ONNX-TRT Output {index} matches: {matches / trt_output.size:.3%}")
 
-            if model_type == "reward":
-                # TODO, you should match the single dimension reward output, and maybe the bboxes to some lower percentage
+            if model_type == "reward" and ort_output_metadata.name != "raw_detections":
+                # We check to see that at least the raw_detections match exactly on reward-type models, the NMS algorithms are slighly mismatched between PT and ONNX
                 pass
             else:
                 assert np.allclose(ort_output, trt_output, rtol=MODEL_MATCH_RTOL, atol=MODEL_MATCH_ATOL), f"Output mismatch {index}"
@@ -226,7 +227,13 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         onnx_exists_and_validates = validate_pt_onnx(full_model, orig_onnx_path, model_type)
     
     if not onnx_exists_and_validates:
-        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), verbose=False, opset_version=12, dynamic_axes=None)
+        output_names = None
+
+        if model_type == "reward":
+            output_names = ["reward", "bboxes", "raw_detections"]
+
+        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), output_names=output_names,
+                          verbose=False, opset_version=12, dynamic_axes=None)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
         onnx.checker.check_model(onnx_model)  # check onnx model

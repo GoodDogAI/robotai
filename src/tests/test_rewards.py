@@ -13,21 +13,22 @@ from src.train.reward import yolov7_class_names
 def draw_bboxes_pil(png_path, bboxes, class_names) -> Image:
     img = Image.open(png_path)
     draw = ImageDraw.Draw(img)
-    fontsize = max(round(max(img.size) / 40), 12)
-    font = ImageFont.truetype("DejaVuSans.ttf", fontsize)
+    font = ImageFont.truetype("DejaVuSans.ttf", 20)
     color = "red"
 
     for row in bboxes:
         cxcywh = row[0:4]
+        x1, y1 = cxcywh[0] - cxcywh[2] / 2, cxcywh[1] - cxcywh[3] / 2
+        x2, y2 = cxcywh[0] + cxcywh[2] / 2, cxcywh[1] + cxcywh[3] / 2
 
         if row[4] > 0.15:
             label = class_names[np.argmax(row[5:])]
             txt_width, txt_height = font.getsize(label)
-            draw.rectangle([cxcywh[0] - cxcywh[2] / 2, cxcywh[1] - cxcywh[3] / 2, cxcywh[0] + cxcywh[2] / 2, cxcywh[1] + cxcywh[3] / 2], width=1, outline=color)  # plot
+            draw.rectangle([x1, y1, x2, y2], width=1, outline=color)  # plot
             print("Found bbox:", cxcywh, label)
 
-            # draw.rectangle([box[0], box[1] - txt_height + 4, box[0] + txt_width, box[1]], fill=color)
-            # draw.text((box[0], box[1] - txt_height + 1), label, fill=(255, 255, 255), font=font)
+            draw.rectangle([x1, y1 - txt_height + 4, x1 + txt_width, y1], fill=color)
+            draw.text((x1, y1 - txt_height + 1), label, fill=(255, 255, 255), font=font)
     return img
 
 
