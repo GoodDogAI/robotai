@@ -45,7 +45,6 @@ class LogSummary(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.orig_sha256 = self.orig_sha256 or self.sha256
 
     def __le__(self, other):
         return self.filename < other.filename
@@ -83,12 +82,13 @@ class LogHashes:
             logger.warning(f"Hashing {filepath}")
     
             new_sha = sha256(filepath)
-            orig_sha = new_sha
 
             if file in original_hashes:
                 orig_sha = original_hashes[file]
             elif file in self.existing_files:
                 orig_sha = self.existing_files[file].orig_sha256
+            else:
+                orig_sha = new_sha
 
             self.files[file] = LogSummary(filename=file, sha256=new_sha, orig_sha256=orig_sha, last_modified=mtime)
 
