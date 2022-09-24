@@ -147,11 +147,9 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
                         custom_encoder={bytes: lambda data_obj: None}))
 
 @router.get("/{logfile}/frame/{frameid}")
-async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
-
-    start = time.perf_counter()
 
     try:
         packets = get_image_packets(os.path.join(lh.dir, logfile), frameid)
@@ -163,12 +161,11 @@ async def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_
     img_data = io.BytesIO()
     img.save(img_data, format="JPEG")
     response = Response(content=img_data.getvalue(), media_type="image/jpeg")
-    #print(f"Took {round(1000 * (time.perf_counter() - start))} ms")
 
     return response
 
 @router.get("/{logfile}/frame_reward/{frameid}")
-async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
@@ -208,7 +205,7 @@ async def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(g
 
 
 @router.get("/{logfile}/thumbnail")
-async def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
