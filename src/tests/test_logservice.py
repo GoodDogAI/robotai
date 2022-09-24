@@ -116,6 +116,15 @@ class LogServiceRealDataTests(unittest.TestCase):
 
         self.client = TestClient(app)
 
+    def test_read_frame(self):
+        test_log = "alphalog-22c37d10-2022-9-16-21_21.log"
+
+        resp = self.client.get(f"/logs/{test_log}/frame/120")
+        self.assertEqual(resp.status_code, 200)
+
+        img = Image.open(io.BytesIO(resp.content))
+        self.assertEqual(img.size, (1280, 720))
+
     def test_read_reward_frame(self):
         test_log = "alphalog-22c37d10-2022-9-16-21_21.log"
 

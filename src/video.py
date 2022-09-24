@@ -145,7 +145,8 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
 
     assert len(frames) > 0, "Need to send at least one frame"
     assert frames[0].shape[0] == height, "First dimension must be the height"
-    assert frames[0].shape[1] == width * 3, "Second dimension must be width * 3 (RGBRGBRGB...)"
+    assert frames[0].shape[1] == width
+    assert frames[0].shape[2] == 3, "Second dimension must be  3 (RGBRGBRGB...)"
 
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
                                 'fps': '15', 'rc': 'vbr', 'gop': '15', 'bf': '0',

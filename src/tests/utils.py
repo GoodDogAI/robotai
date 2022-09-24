@@ -32,9 +32,9 @@ def artificial_logfile(count: int = 1, video: bool = False):
     f.close()
 
 def get_test_image(color: Tuple[int, int, int], width: int, height: int) -> np.ndarray:
-    img = np.zeros(shape=(height, width * 3), dtype=np.uint8)
-    img[:, 0::3] = color[0]
-    img[:, 1::3] = color[1]
-    img[:, 2::3] = color[2]
+    img = np.zeros(shape=(height, width, 3), dtype=np.uint8)
+    img[:, :, 0] = color[0]
+    img[:, :, 1] = color[1]
+    img[:, :, 2] = color[2]
 
     return img
