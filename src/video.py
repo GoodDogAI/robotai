@@ -1,5 +1,4 @@
 from ast import Bytes
-import os
 import numpy as np
 
 from typing import List
@@ -47,7 +46,7 @@ def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     surface = nv_rgb.Execute(surface, nv_cc)
     nv_dl.DownloadSingleSurface(surface, frame_rgb)
 
-    return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, -1))
+    return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, -1))
 
 def _nv12_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     frame_yuv = np.ndarray(shape=(0), dtype=np.uint8)
