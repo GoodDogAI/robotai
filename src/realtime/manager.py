@@ -101,7 +101,7 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("loggerd"),
         NativeProcess("micd"),
         NativeProcess("odrived"),
-        #.NativeProcess("simplebgcd"),
+        NativeProcess("simplebgcd"),
         NativeProcess("braind", ["--vision_model", models["vision_model"]]),
     ]
 
