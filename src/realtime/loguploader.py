@@ -1,4 +1,4 @@
-import re
+import signal
 import os
 import time
 import requests
@@ -53,15 +53,20 @@ def main():
     watch_flags = flags.CREATE | flags.DELETE | flags.MOVED_TO | flags.MOVED_FROM
     wd = inotify.add_watch(lh.dir, watch_flags)
 
-    while True:
-        if any(e.name.endswith(lh.extension) for e in inotify.read(timeout=1000, read_delay=100)):
-            logger.warning(f"Got inotify updating lhes")
-            lh.update()
-            sync(lh)
-
+    try:
+        while True:
+            if any(e.name.endswith(lh.extension) for e in inotify.read(timeout=1000, read_delay=100)):
+                logger.warning(f"Got inotify updating lhes")
+                lh.update()
+                sync(lh)
+    except KeyboardInterrupt:
+        logger.warning("Log uploader got exit signal, finishing sync")
 
     inotify.close()
-    logger.warning("DONE")
+    lh.update()
+    sync(lh)
+
+    logger.warning("Log uploader done")
 
 if __name__ == "__main__":
     logging.basicConfig()

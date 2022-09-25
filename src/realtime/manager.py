@@ -103,7 +103,6 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("odrived"),
         #.NativeProcess("simplebgcd"),
         NativeProcess("braind", ["--vision_model", models["vision_model"]]),
-        PythonProcess("loguploader", "src.realtime.loguploader", nice=15), # Keep it lower priority
     ]
 
 async def main():
@@ -112,15 +111,21 @@ async def main():
     models = prepare_brain_models()
     procs = get_procs(models)
 
+    # Log uploader runs seperately, until it finishes, also keep it lower priority
+    log_uploader_proc = PythonProcess("loguploader", "src.realtime.loguploader", nice=15)
+
     logger.warning("Starting manager...")
 
     for proc in procs:
         logger.warning(f"Starting {proc.name}...")
         await proc.start()
 
+    logger.warning("Starting log uploader...")
+    await log_uploader_proc.start()
+
     done, pending = await asyncio.wait([proc.join() for proc in procs], return_when=asyncio.FIRST_COMPLETED)
 
-    logger.warning(f"Done: {done}")
+    logger.warning(f"First task finished: {done}")
 
     for proc in procs:
         try:
@@ -130,6 +135,11 @@ async def main():
                 logger.info(f"Killed {proc.name}")
         except Exception as e:
             logger.exception(f"Could not kill {proc.name}")
+
+    # Run the log uploader until it is 
+    log_uploader_proc.kill()
+    logger.warning("Waiting for log uploader to finish...")
+    await log_uploader_proc.join()
 
     logger.info("Manager finished")
 
