@@ -12,7 +12,7 @@ class TestModelLoaderTRT(unittest.TestCase):
     def setUp(self) -> None:
         self.sampleVisionConfig = {
             "type": "vision",
-            "load_fn": "src.train.yolov7.load.load_yolov7",
+            "load_fn": "src.models.yolov7.load.load_yolov7",
             "input_format": "rgb",
             "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
 
@@ -26,7 +26,7 @@ class TestModelLoaderTRT(unittest.TestCase):
 
         self.sampleRewardConfig =  {
             "type": "reward",
-            "load_fn": "src.train.yolov7.load.load_yolov7",
+            "load_fn": "src.models.yolov7.load.load_yolov7",
             "input_format": "rgb",
             "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
             "class_names": YOLOV7_CLASS_NAMES,

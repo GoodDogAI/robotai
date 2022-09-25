@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import torch
 import wandb
 
-from src.train.model_vae import VanillaVAE
+from src.models.model_vae import VanillaVAE
 from src.train.videoloader import build_datapipe
 from torch.utils.data import DataLoader
 from pytorch_lightning.loggers import WandbLogger
