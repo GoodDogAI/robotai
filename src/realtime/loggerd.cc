@@ -50,6 +50,7 @@ static void close_message(Message *m) {
 int main(int argc, char *argv[])
 {
     bool started_logging { false };
+    size_t msgs_in_log { 0 };
     size_t last_10_sec_bytes { 0 };
     size_t last_10_sec_msgs { 0 };
     auto last_10_sec_time { std::chrono::steady_clock::now() };
@@ -118,11 +119,11 @@ int main(int argc, char *argv[])
             if (started_logging) {
                 log.write(msg->getData(), msg->getSize());
                 log.flush();
+                msgs_in_log++;
             }
 
             last_10_sec_bytes += msg->getSize();
             last_10_sec_msgs++;
-           //std::cout << "Wrote event " << event.getHeadEncodeData().getIdx().getEncodeId() << std::endl;
         }        
 
         const auto cur_time = std::chrono::steady_clock::now();
@@ -135,6 +136,15 @@ int main(int argc, char *argv[])
         if (cur_time - log_start > std::chrono::seconds(LOG_DURATION_SECONDS)) {
             need_to_rotate = true;
         }
+    }
+
+    // Once you've exited, close the current log, and rename it properly
+    if (msgs_in_log > 0) {
+        log.close();
+        auto log_final_filename { log_filename };
+        log_final_filename.replace_extension("");
+        fmt::print("Doing final rename of {} to {}\n", log_filename.string(), log_final_filename.string());
+        fs::rename(log_filename, log_final_filename);
     }
 
     return EXIT_SUCCESS;
