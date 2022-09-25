@@ -25,10 +25,10 @@ function formatSize(bytes) {
 }
 
 function FrameSlider(props) {
-    const { frameIds, index, onChangeIndex } = props;
+    const { allFrameIds, index, onChangeIndex } = props;
 
     return (
-        <input className="frameSlider" type="range" min="0" max={frameIds.length} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
+        <input className="frameSlider" type="range" min="0" max={allFrameIds.length} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
     );
 }
 
@@ -44,11 +44,11 @@ export function LogTimeline(props) {
         }
       );
 
-    const [index, setIndex] = useState(0);
+    const [logIndex, setLogIndex] = useState(0);
 
     // Reset the frame index back to zero if the logname changes
     useEffect(() => {
-        setIndex(0);
+        setLogIndex(0);
     }, [logName]);
 
     const columnHelper = createColumnHelper();
@@ -67,7 +67,7 @@ export function LogTimeline(props) {
         columnHelper.accessor('json', {
             accessorFn: (row, index) => JSON.stringify(row, null, 2),
             cell: info => {
-                if (info.row.index === index) 
+                if (info.row.index === logIndex) 
                     return (<pre className="messageData">{info.getValue()}</pre>)
             }
         }),
@@ -108,12 +108,12 @@ export function LogTimeline(props) {
         <div className="timeline">
             <div className="frameContainer">
                 <div style={{position: "relative"}}>
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${frameIds[index]}`} alt={`frame${frameIds[index]}`}   style={{position: "absolute", zIndex: 0}} />
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${frameIds[index]}`} alt={`reward${frameIds[index]}`} style={{position: "relative", zIndex: 1}} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${allFrameIds[logIndex]}`} alt={`frame${allFrameIds[logIndex]}`}   style={{position: "absolute", zIndex: 0}} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${allFrameIds[logIndex]}`} alt={`reward${allFrameIds[logIndex]}`} style={{position: "relative", zIndex: 1}} />
                 </div>
                 <div>
-                    <span>Frame {index} / {frameIds.length} (ID{frameIds[index]})</span>
-                    <FrameSlider frameIds={frameIds} index={index} onChangeIndex={setIndex}/>
+                    <span>Frame {allFrameIds[logIndex]} / {frameIds.length} (ID{allFrameIds[logIndex]})</span>
+                    <FrameSlider allFrameIds={allFrameIds} index={logIndex} onChangeIndex={setLogIndex}/>
                 </div>
             </div>
             <h5>{logName}</h5>
@@ -138,7 +138,7 @@ export function LogTimeline(props) {
                 <tbody>
                     {table.getRowModel().rows.map((row) => {
                         return (
-                            <tr key={row.id} className={row.index === index ? "selected" : null} onClick={() => setIndex(allFrameIds[row.index])}>
+                            <tr key={row.id} className={row.index === logIndex ? "selected" : null} onClick={() => setLogIndex(row.index)}>
                                 {row.getVisibleCells().map((cell) => (
                                     <td key={cell.id}>
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

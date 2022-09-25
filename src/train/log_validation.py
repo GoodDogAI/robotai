@@ -51,9 +51,6 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
 
                         y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
 
-                        # TODO Better control over which model is loaded, and then only load it once?
-                        # Load in the model runner for the model in question
-
                         # Run the model on the frame
                         logged_intermediate = np.array(list(evt.modelValidation.data), dtype=np.float32)
                         logged_intermediate = np.reshape(logged_intermediate, evt.modelValidation.shape)

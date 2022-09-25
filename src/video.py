@@ -1,5 +1,4 @@
 from ast import Bytes
-import os
 import numpy as np
 
 from typing import List
@@ -47,7 +46,7 @@ def _rgb_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     surface = nv_rgb.Execute(surface, nv_cc)
     nv_dl.DownloadSingleSurface(surface, frame_rgb)
 
-    return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, -1))
+    return frame_rgb.reshape((DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH, -1))
 
 def _nv12_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     frame_yuv = np.ndarray(shape=(0), dtype=np.uint8)
@@ -146,7 +145,8 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
 
     assert len(frames) > 0, "Need to send at least one frame"
     assert frames[0].shape[0] == height, "First dimension must be the height"
-    assert frames[0].shape[1] == width * 3, "Second dimension must be width * 3 (RGBRGBRGB...)"
+    assert frames[0].shape[1] == width
+    assert frames[0].shape[2] == 3, "Second dimension must be  3 (RGBRGBRGB...)"
 
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
                                 'fps': '15', 'rc': 'vbr', 'gop': '15', 'bf': '0',

@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from models.common import Conv, DWConv
-from src.train.yolov7.utils.google_utils import attempt_download
+from src.models.yolov7.utils.google_utils import attempt_download
 
 
 class CrossConv(nn.Module):

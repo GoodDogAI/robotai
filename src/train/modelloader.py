@@ -185,6 +185,12 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
 
+    # Save off the config that will be used to generate this model, so that we can regerenate TRT models if the config ever changes in the future
+    config_cache_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{model_fullname(config)}_config.json")
+
+    with open(config_cache_path, "w") as f:
+        json.dump(config, f, indent=4)
+
     # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
     # in PyTorch 1.12 and later.
     torch.backends.cuda.matmul.allow_tf32 = False
@@ -299,16 +305,12 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
     elif model_type == "reward":
         pass
 
-
     # Save the final onnx model, but do a shape inference one last time on it for convience in debugging
     onnx.save(onnx_graphsurgeon.export_onnx(graph), final_onnx_path)
     onnx_model = onnx.load(final_onnx_path)
     onnx_model = onnx.shape_inference.infer_shapes(onnx_model)
     onnx.checker.check_model(onnx_model)
     onnx.save(onnx_model, final_onnx_path)
-
-    # Also save off the config that was used to generate this model, so that we can regerenate TRT models if the config ever changes in the future
-    update_model_config_caches()
 
     return final_onnx_path
 

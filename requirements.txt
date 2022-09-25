@@ -10,6 +10,9 @@ fastapi
 # For serving the backend
 uvicorn
 
+# For making the --reload option of uvicorn work nicely
+watchfiles
+
 # For unittesting fastapi
 requests
 
