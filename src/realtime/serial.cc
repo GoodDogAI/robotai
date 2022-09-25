@@ -13,6 +13,16 @@
 
 #include "serial.h"
 
+speed_t get_speed_t_from_int(int baudrate) {
+    switch (baudrate) {
+        case 9600: return B9600;
+        case 19200: return B19200;
+        case 38400: return B38400;
+        case 57600: return B57600;
+        case 115200: return B115200;
+        default: throw std::runtime_error(fmt::format("Unsupported baudrate: {}", baudrate));
+    }
+}
 
 Serial::Serial(std::string d, int b):  device(d), baudrate(b) {
     fd = open(d.c_str(), O_RDWR);
@@ -30,8 +40,8 @@ Serial::Serial(std::string d, int b):  device(d), baudrate(b) {
         throw std::runtime_error("Could not open device");
     }
 
-    cfsetispeed(&tty, baudrate);
-    cfsetospeed(&tty, baudrate);
+    cfsetispeed(&tty, get_speed_t_from_int(baudrate));
+    cfsetospeed(&tty, get_speed_t_from_int(baudrate));
 
     // Set Local modes according to https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
     tty.c_cflag &= ~CRTSCTS;
