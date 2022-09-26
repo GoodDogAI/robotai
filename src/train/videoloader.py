@@ -12,7 +12,7 @@ import torchdata.datapipes as dp
 from src.config import HOST_CONFIG, DEVICE_CONFIG
 
 
-def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
+def surface_to_y_uv(surface: nvc.Surface) -> torch.Tensor:
     """
     Converts an NV12 surface to cuda float Y,UV tensor.
     """
@@ -31,15 +31,12 @@ def surface_to_tensor(surface: nvc.Surface) -> torch.Tensor:
     height = surf_plane.Height() * 2 // 3
     y_tensor = img_tensor[:height]
     uv_tensor = img_tensor[height:]
-    uv_tensor = uv_tensor.repeat_interleave(2, dim=0)
-
-    merged_tensor = torch.stack((y_tensor, uv_tensor)) 
     
-    merged_tensor = merged_tensor.type(dtype=torch.cuda.FloatTensor)
-    merged_tensor = torch.divide(merged_tensor, 255.0)
-    merged_tensor = torch.clamp(merged_tensor, 0.0, 1.0)
+    # Convert to float in range [16, 235], [16, 240]
+    y_tensor = torch.unsqueeze(y_tensor, 0).float()
+    uv_tensor = torch.unsqueeze(uv_tensor, 0).float()
 
-    return merged_tensor
+    return y_tensor, uv_tensor
 
 
 @dp.functional_datapipe("decode_log_frames")
@@ -74,7 +71,7 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                     surface = self.nv_dec.DecodeSurfaceFromPacket(packet)
 
                     if not surface.Empty():
-                        yield surface_to_tensor(surface)
+                        yield surface_to_y_uv(surface)
 
             while True:
                 surface = self.nv_dec.FlushSingleSurface()
@@ -82,7 +79,7 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                 if surface.Empty():
                     break
                 else:
-                    yield surface_to_tensor(surface)
+                    yield surface_to_y_uv(surface)
 
 
 def build_datapipe(root_dir=HOST_CONFIG.RECORD_DIR, train_or_valid: Literal["train", "valid"]="train", split: float=0.90):

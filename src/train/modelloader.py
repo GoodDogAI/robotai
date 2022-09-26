@@ -355,7 +355,7 @@ def create_and_validate_trt(onnx_path: str, skip_cache: bool=False) -> str:
 
     return trt_path
 
-# Loads a pre-cached, pre generated vision model
+# Loads a pre-cached, pre generated vision / reward model
 @contextmanager
 def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}.engine")

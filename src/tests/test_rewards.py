@@ -61,6 +61,8 @@ class TestRewards(unittest.TestCase):
         img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))
 
     def test_reward_pt_to_trt_real_image(self):
+        # The modelloader tests things with random fake images, so it's reward values are always around 0, and the reward is not fully tested
+        # So, you always want to have a separate test that uses a real image and checks that the reward values match up
         png_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses.png")
         with open(png_path, "rb") as f1:
             y, uv = png_to_nv12m(f1)
