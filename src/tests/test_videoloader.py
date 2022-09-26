@@ -1,6 +1,7 @@
 import unittest
 import time
 import torch
+import random
 import numpy as np
 from torch.utils.data import DataLoader
 
@@ -64,8 +65,16 @@ class VideoLoaderTest(unittest.TestCase):
         print(f"{count / (time.perf_counter() - start):0.1f} fps")
   
     def test_train(self):
-        datapipe = build_datapipe().header(200)
+        # TODO, a big issue now is that we have four separate cuda streams doing one things here
+        # Pytorch is running one, the VPF is running one, and each of the vision models run one
+        # This could cause sync issues, and it's sort of under control now, only because there is a lot of host-device copying going on
+
+        datapipe = build_datapipe().header(1000)
         dl = DataLoader(dataset=datapipe, batch_size=1)
+
+        n = random.randint(0, 500)
+        nth_intermdiate = None
+        nth_reward = None
 
         with load_vision_model(model_fullname(self.sampleVisionConfig)) as intermediate_engine, \
              load_vision_model(model_fullname(self.sampleRewardConfig)) as reward_engine:
@@ -84,6 +93,10 @@ class VideoLoaderTest(unittest.TestCase):
                                                "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
 
                 reward = torch.tensor(rewards["reward"], dtype=torch.float32, device=y.device)                                                       
+
+                if count == n:
+                    nth_intermediate = torch.clone(intermediate)
+                    nth_reward = torch.clone(reward)
 
                 count += 1
 
