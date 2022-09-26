@@ -11,8 +11,6 @@ from src.train.modelloader import load_vision_model, model_fullname
 from src.train.videoloader import build_datapipe
 
 class VideoLoaderTest(unittest.TestCase):
-    max_elements = 1000
-
     def setUp(self) -> None:
         self.sampleVisionConfig = {
             "type": "vision",
@@ -58,7 +56,7 @@ class VideoLoaderTest(unittest.TestCase):
         start = time.perf_counter()
         count = 0
 
-        for x in build_datapipe().header(self.max_elements):
+        for x in build_datapipe().header(1000):
             count += 1
 
         print(f"Took {time.perf_counter() - start:0.2f} seconds")
@@ -66,7 +64,7 @@ class VideoLoaderTest(unittest.TestCase):
         print(f"{count / (time.perf_counter() - start):0.1f} fps")
   
     def test_train(self):
-        datapipe = build_datapipe().header(self.max_elements)
+        datapipe = build_datapipe().header(200)
         dl = DataLoader(dataset=datapipe, batch_size=1)
 
         with load_vision_model(model_fullname(self.sampleVisionConfig)) as intermediate_engine, \
@@ -78,10 +76,14 @@ class VideoLoaderTest(unittest.TestCase):
             for y, uv in dl:
                 # Use DeviceView to keep tensors on the GPU
                 intermediates = intermediate_engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
-                                                           "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=False)
+                                                           "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
+
+                intermediate = torch.tensor(intermediates["intermediate"], dtype=torch.float32, device=y.device)                                                           
 
                 rewards = reward_engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
-                                               "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=False)
+                                               "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
+
+                reward = torch.tensor(rewards["reward"], dtype=torch.float32, device=y.device)                                                       
 
                 count += 1
 
