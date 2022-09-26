@@ -40,8 +40,15 @@ Serial::Serial(std::string d, int b):  device(d), baudrate(b) {
         throw std::runtime_error("Could not open device");
     }
 
-    cfsetispeed(&tty, get_speed_t_from_int(baudrate));
-    cfsetospeed(&tty, get_speed_t_from_int(baudrate));
+    if (cfsetispeed(&tty, get_speed_t_from_int(baudrate)) != 0) {
+        fmt::print(stderr, "Error {} from cfsetispeed: {}\n", errno, strerror(errno));
+        throw std::runtime_error("Could not open device");
+    }
+    
+    if (cfsetospeed(&tty, get_speed_t_from_int(baudrate)) != 0) {
+        fmt::print(stderr, "Error {} from cfsetospeed: {}\n", errno, strerror(errno));
+        throw std::runtime_error("Could not open device");
+    }
 
     // Set Local modes according to https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
     tty.c_cflag &= ~CRTSCTS;
