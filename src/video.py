@@ -153,7 +153,7 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
                                  'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M', 'maxbitrate': '20M'}, format=nvc.PixelFormat.NV12, gpu_id=HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
 
     nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
-                                                    color_range=nvc.ColorRange.MPEG)
+                                            color_range=nvc.ColorRange.MPEG)
 
     nv_ul = nvc.PyFrameUploader(width, height, nvc.PixelFormat.RGB, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
     nv_rgb2yuv = nvc.PySurfaceConverter(width, height, nvc.PixelFormat.RGB, nvc.PixelFormat.YUV420, HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
