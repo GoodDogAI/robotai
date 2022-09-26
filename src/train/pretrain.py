@@ -32,5 +32,3 @@ if __name__ == '__main__':
     trainer = pl.Trainer(gpus=1, amp_level="O2", amp_backend="apex", max_epochs=4, default_root_dir=rootdir, logger=wandb_logger, val_check_interval=100, limit_val_batches=10, accumulate_grad_batches=4)
 
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
-
-    torch.onnx.export(model, next(iter(train_loader)).cpu(), "pretrain_vae.onnx")

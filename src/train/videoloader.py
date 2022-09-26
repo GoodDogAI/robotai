@@ -7,6 +7,8 @@ from typing import Iterator, List, Literal
 
 from cereal import log
 from src.video import V4L2_BUF_FLAG_KEYFRAME
+from src.train.modelloader import load_vision_model
+from polygraphy.cuda import DeviceView
 
 import torchdata.datapipes as dp
 from src.config import HOST_CONFIG, DEVICE_CONFIG
@@ -33,8 +35,8 @@ def surface_to_y_uv(surface: nvc.Surface) -> torch.Tensor:
     uv_tensor = img_tensor[height:]
     
     # Convert to float in range [16, 235], [16, 240]
-    y_tensor = torch.unsqueeze(y_tensor, 0).float()
-    uv_tensor = torch.unsqueeze(uv_tensor, 0).float()
+    y_tensor = torch.unsqueeze(torch.unsqueeze(y_tensor, 0), 0).float()
+    uv_tensor = torch.unsqueeze(torch.unsqueeze(uv_tensor, 0), 0).float()
 
     return y_tensor, uv_tensor
 
@@ -80,6 +82,31 @@ class LogImageFrameDecoder(dp.iter.IterDataPipe):
                     break
                 else:
                     yield surface_to_y_uv(surface)
+
+
+@dp.functional_datapipe("calculate_intermediate_and_reward")
+class IntermediateRewardCalculator(dp.iter.IterDataPipe):
+    def __init__(self, source_datapipe, **kwargs) -> None:
+        self.source_datapipe = source_datapipe
+        self.kwargs = kwargs
+
+        self.intermediate_engine = kwargs["intermediate_engine"]
+        self.reward_engine = kwargs["reward_engine"]
+                                           
+
+    def __iter__(self) -> Iterator[torch.Tensor]:
+         for y, uv in self.source_datapipe:
+            intermediates = self.intermediate_engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
+                                                            "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
+
+            intermediate = torch.tensor(intermediates["intermediate"], dtype=torch.float32, device=y.device)                                                           
+
+            rewards = self.reward_engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
+                                            "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
+
+            reward = torch.tensor(rewards["reward"], dtype=torch.float32, device=y.device)                   
+
+            yield intermediate, reward
 
 
 def build_datapipe(root_dir=HOST_CONFIG.RECORD_DIR, train_or_valid: Literal["train", "valid"]="train", split: float=0.90):
