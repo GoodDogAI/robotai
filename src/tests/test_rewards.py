@@ -2,12 +2,14 @@ import os
 import torch
 import tensorrt as trt
 import unittest
+import importlib
 import numpy as np
+
 from PIL import Image
 
 
 from src.config import HOST_CONFIG, YOLOV7_CLASS_NAMES
-from src.train.modelloader import model_fullname, load_vision_model
+from src.train.modelloader import model_fullname, load_vision_model, create_pt_model
 from src.train.onnx_yuv import png_to_nv12m
 from src.train.reward import SumCenteredObjectsPresentReward
 from src.utils.draw_bboxes import draw_bboxes_pil
@@ -17,7 +19,7 @@ class TestRewards(unittest.TestCase):
     def setUp(self) -> None:
         self.sampleRewardConfig = {
             "type": "reward",
-            "load_fn": "src.train.yolov7.load.load_yolov7",
+            "load_fn": "src.models.yolov7.load.load_yolov7",
             "input_format": "rgb",
             "checkpoint": "/home/jake/robotai/_checkpoints/yolov7.pt",
             "class_names": YOLOV7_CLASS_NAMES,
@@ -58,7 +60,26 @@ class TestRewards(unittest.TestCase):
         # SAVE PIL Image to file
         img.save(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses_with_bboxes.png"))
 
+    def test_reward_pt_to_trt_real_image(self):
+        png_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "horses.png")
+        with open(png_path, "rb") as f1:
+            y, uv = png_to_nv12m(f1)
 
+        pt_model = create_pt_model(self.sampleRewardConfig)
+        device = "cuda"
+
+        y_pt = torch.from_numpy(y).to(device)
+        uv_pt = torch.from_numpy(uv).to(device)
+
+        reward, bboxes, raw_detections = pt_model(y=y_pt, uv=uv_pt)
+        reward = reward.cpu().detach().numpy()
+
+        # Check this against the TRT
+        with load_vision_model(self.model_fullname) as engine:
+             trt_outputs = engine.infer({"y": y, "uv": uv})
+
+             self.assertAlmostEqual(reward, trt_outputs["reward"], places=3)
+        
     def test_sum_centered_objects(self):
         center_epsilon = 0.1
 

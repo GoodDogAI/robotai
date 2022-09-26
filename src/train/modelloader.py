@@ -175,6 +175,37 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
 
     return True
 
+def create_pt_model(config: Dict[str, Any]) -> torch.nn.Module:
+    model_type = config["type"]
+    assert model_type in {"vision", "reward"}, "Config must be a vision model"
+
+    # Load the original pytorch model
+    # Import and call function by string from the config
+    load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
+    load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
+    vision_model = load_fn(config["checkpoint"])
+
+    internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
+                        DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+
+    # Make a module that is going to include the input format conversion and any required cropping
+    if model_type == "vision":
+        full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
+    elif model_type == "reward":
+        assert config["reward_module"] == "src.train.reward.SumCenteredObjectsPresentReward", "Other modules not implemented yet"
+        full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
+                                             vision_model,
+                                             ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]),
+                                             SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], 
+                                                                             class_names=config["class_names"],
+                                                                             class_weights=config["reward_kwargs"]["class_weights"],
+                                                                             reward_scale=config["reward_kwargs"]["reward_scale"],
+                                                                             center_epsilon=config["reward_kwargs"]["center_epsilon"]))
+    else:
+        raise NotImplementedError()
+
+    return full_model
+
 # Returns a path to an onnx model that matches the given model configuration
 def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> str:
     assert config is not None, "Unable to find config"
@@ -208,31 +239,7 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         "uv": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
     }
 
-    internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
-                     DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
-  
-
-    # Load the original pytorch model
-    # Import and call function by string from the config
-    load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
-    load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
-    vision_model = load_fn(config["checkpoint"])
-
-    # Make a module that is going to include the input format conversion and any required cropping
-    if model_type == "vision":
-        full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
-    elif model_type == "reward":
-        assert config["reward_module"] == "src.train.reward.SumCenteredObjectsPresentReward", "Other modules not implemented yet"
-        full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
-                                             vision_model,
-                                             ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]),
-                                             SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], 
-                                                                             class_names=config["class_names"],
-                                                                             class_weights=config["reward_kwargs"]["class_weights"],
-                                                                             reward_scale=config["reward_kwargs"]["reward_scale"],
-                                                                             center_epsilon=config["reward_kwargs"]["center_epsilon"]))
-    else:
-        raise NotImplementedError()
+    full_model = create_pt_model(config)
 
     _ = full_model(**inputs)  # dry run
 
