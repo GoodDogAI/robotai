@@ -51,6 +51,76 @@ BRAIN_CONFIGS = dotdict({
         },
 
         "audio_resampler": "test1",
+        "msgvec": {
+            "obs": [
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.vel",
+                    "index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "index": -1,
+                    "timeout": 0.01,
+                    "filter": {
+                        "field": "type",
+                        "op": "eq",
+                        "value": "mainBattery",
+                    },
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 13.5],
+                        "vec_range": [-1, 1],
+                    }
+                },
+                
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "vision",
+                    "index": -1,
+                }
+            ],
+
+            "act": [
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.leftMotor.vel",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ],
+        }
     }
 })
 
