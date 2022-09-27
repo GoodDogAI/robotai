@@ -13,6 +13,13 @@
             "justMyCode": true
         },
         {
+            "name": "Python: Convert Old Bags",
+            "type": "python",
+            "request": "launch",
+            "module": "src.utils.bag2log",
+            "justMyCode": true
+        },
+        {
             "type": "cppdbg",
             "request": "launch",
             "name": "Launch braind",

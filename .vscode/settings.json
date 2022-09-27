@@ -86,7 +86,13 @@
         "queue": "cpp",
         "stack": "cpp",
         "__node_handle": "cpp",
-        "__memory": "cpp"
+        "__memory": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "numbers": "cpp",
+        "ranges": "cpp",
+        "semaphore": "cpp",
+        "stop_token": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

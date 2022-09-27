@@ -9,7 +9,7 @@ from pytorch_lightning.loggers import WandbLogger
 import torch.nn as nn
 import torch.nn.functional as F
 from src.config.config import MODEL_CONFIGS, HOST_CONFIG
-from src.train.videodataset import VideoFrameDataset
+from src.train.videodataset import IntermediateRewardDataset
 from src.train.modelloader import load_vision_model, model_fullname
 from torch.utils.data import DataLoader
 
@@ -34,7 +34,7 @@ class SimpleNet(pl.LightningModule):
         return optimizer
 
     def training_step(self, train_batch, batch_idx):
-        intermediate = train_batch["intermediate"][0]
+        intermediate = train_batch["intermediate"]
         reward = train_batch["reward"]
 
         x_hat = self(intermediate)
@@ -44,7 +44,7 @@ class SimpleNet(pl.LightningModule):
         return loss
 
     def validation_step(self, val_batch, batch_idx):
-        intermediate = val_batch["intermediate"][0]
+        intermediate = val_batch["intermediate"]
         reward = val_batch["reward"]
 
         x_hat = self(intermediate)
@@ -69,38 +69,15 @@ if __name__ == '__main__':
     wandb_logger = WandbLogger()
     trainer = pl.Trainer(gpus=1, amp_level="O2", amp_backend="apex", default_root_dir=rootdir, logger=wandb_logger, val_check_interval=1.0, accumulate_grad_batches=1)
 
-    with load_vision_model(model_fullname(MODEL_CONFIGS["yolov7-tiny-s53"])) as intermediate_engine, \
-        load_vision_model(model_fullname(MODEL_CONFIGS["yolov7-tiny-prioritize_centered_nms"])) as reward_engine:
+    ds = IntermediateRewardDataset(base_path="/media/storage/robotairecords/converted")
+    ds.download_and_prepare()
+    ds = ds.as_dataset().with_format("torch")    
 
-        ds = VideoFrameDataset(base_path=HOST_CONFIG.RECORD_DIR)
-        ds.download_and_prepare()
+    for x in ds["validation"]:
+        print(x)
 
-        def mapfn(example):
-            feed = {
-                "y": np.expand_dims(example["y"], 0),
-                "uv": np.expand_dims(example["uv"], 0),
-            }
-
-            intermediates = intermediate_engine.infer(feed, copy_outputs_to_host=True)
-            rewards = reward_engine.infer(feed, copy_outputs_to_host=True)
-            
-            return {
-                "intermediate": intermediates["intermediate"],
-                "reward": rewards["reward"],
-            }
-    
-
-        ds = ds.as_dataset()
-        print(ds)
-
-        ds = ds.with_format("numpy").map(mapfn, writer_batch_size=1, remove_columns=["y", "uv"], cache_file_names={"train": "train-mapped.arrow", "validation": "validation-mapped.arrow"})
-        ds = ds.with_format("torch")    
-
-        for x in ds["validation"]:
-            print(x)
-
-        train_loader = DataLoader(dataset=ds["train"], batch_size=64, shuffle=True)
-        valid_loader = DataLoader(dataset=ds["validation"], batch_size=64, shuffle=True)
+    train_loader = DataLoader(dataset=ds["train"], batch_size=64, shuffle=True)
+    valid_loader = DataLoader(dataset=ds["validation"], batch_size=64, shuffle=True)
 
 
-        trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
+    trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)

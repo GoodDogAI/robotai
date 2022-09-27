@@ -51,7 +51,6 @@ def convert(bag_file: str, logfile: str):
                 resized = resized.crop((l, 0, resized.width - l, resized.height))
 
             resized = np.array(resized)
-            resized = resized.reshape((resized.shape[0], -1))
             resized_frames.append(resized)
 
         video_packets = create_video(resized_frames)
@@ -65,6 +64,8 @@ def convert(bag_file: str, logfile: str):
                 dat.idx.flags = V4L2_BUF_FLAG_KEYFRAME
             else:
                 dat.idx.flags = 0
+
+            dat.idx.frameId = idx
                 
             evt.write(lf)
 
@@ -76,7 +77,6 @@ if __name__ == "__main__":
 
     paths = glob.glob("/media/storage/bagfiles/newbot_nov21/*.bag")
 
-    #_do_convert(paths[0])
     with Pool(processes=8) as pool:
         pool.map(_do_convert, paths)
        
