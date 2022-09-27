@@ -56,7 +56,10 @@ FetchContent_Declare(npy
         )
 FetchContent_MakeAvailable(npy)
 
-
+FetchContent_Declare(json 
+        URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz
+        )
+FetchContent_MakeAvailable(json)
 
 # If we are not on the Jetson platform, then we need to build the VPF and get TensorRT specially
 if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
@@ -157,6 +160,9 @@ target_link_libraries(
 
 add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
+
+add_library(msgvec src/msgvec/msgvec.cc)
+target_link_libraries(msgvec PRIVATE fmt::fmt nlohmann_json::nlohmann_json)
 
 add_executable(odrived src/realtime/odrived.cc ${MASTER_CONFIG_H})
 target_link_libraries(
