@@ -46,3 +46,6 @@ onnx
 # We only use ONNX as an intermediate format between PyTorch and TensorRT, but
 # we occasionally want to check that the PT and ONNX models are equivalent.
 onnxruntime
+
+# HuggingFace datasets, which has great support for caching to local arrow files
+datasets

@@ -10,6 +10,7 @@ _pretrain_logs/
 MNIST/
 lightning_logs/
 *.onnx
+*.arrow
 
 cereal/tmp/
 

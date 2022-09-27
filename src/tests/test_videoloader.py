@@ -63,7 +63,19 @@ class VideoLoaderTest(unittest.TestCase):
         print(f"Took {time.perf_counter() - start:0.2f} seconds")
         print(f"Loaded {count} frames")
         print(f"{count / (time.perf_counter() - start):0.1f} fps")
-  
+
+    def test_pyarrow(self):
+        with load_vision_model(model_fullname(self.sampleVisionConfig)) as intermediate_engine, \
+             load_vision_model(model_fullname(self.sampleRewardConfig)) as reward_engine:
+
+            for intm, rew in build_datapipe().header(50).calculate_intermediate_and_reward(intermediate_engine=intermediate_engine, reward_engine=reward_engine):
+                intm = pa.Tensor.from_numpy(intm.cpu().numpy())
+                rew = rew.item()
+                row = pa.Table.from_pydict({"intermediate": [intm], "reward": [rew]})
+                print(row)
+
+
+        
     def test_train(self):
         # TODO, a big issue now is that we have four separate cuda streams doing one things here
         # Pytorch is running one, the VPF is running one, and each of the vision models run one

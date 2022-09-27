@@ -35,8 +35,8 @@ def surface_to_y_uv(surface: nvc.Surface) -> torch.Tensor:
     uv_tensor = img_tensor[height:]
     
     # Convert to float in range [16, 235], [16, 240]
-    y_tensor = torch.unsqueeze(torch.unsqueeze(y_tensor, 0), 0).float()
-    uv_tensor = torch.unsqueeze(torch.unsqueeze(uv_tensor, 0), 0).float()
+    y_tensor = torch.unsqueeze(y_tensor, 0).float()
+    uv_tensor = torch.unsqueeze(uv_tensor, 0).float()
 
     return y_tensor, uv_tensor
 
