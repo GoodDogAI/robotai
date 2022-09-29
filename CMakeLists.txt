@@ -137,6 +137,7 @@ add_custom_command(
 include_directories(
     src/include
     src/config
+    src/msgvec
     "${CEREAL_INCLUDE_DIRS}"
     "${CEREAL_INCLUDE_DIRS}/.."
 )
@@ -190,6 +191,18 @@ target_compile_options(pymsgvec PRIVATE -Wno-shadow)
 set_target_properties(pymsgvec PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec
 )
+
+add_executable(msgvec_tests src/tests/ctest_msgvec.cc)
+target_link_libraries(
+    msgvec_tests
+    PRIVATE 
+        msgvec
+        ${CEREAL_LIBRARIES}
+        nlohmann_json::nlohmann_json
+        CapnProto::capnp
+        Catch2::Catch2WithMain
+)
+catch_discover_tests(msgvec_tests)
 
 
 add_executable(odrived src/realtime/odrived.cc ${MASTER_CONFIG_H})
@@ -269,7 +282,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     )
     
     add_executable(encoderd_tests 
-        src/tests/test_nvencoder.cc 
+        src/tests/ctest_nvencoder.cc 
         src/realtime/nvencoder.cc 
         src/realtime/nvvisionbuf.cc
         ${MASTER_CONFIG_H}
