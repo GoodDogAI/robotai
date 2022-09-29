@@ -12,4 +12,7 @@ cdef class PyMsgVec:
         del self.c_msgvec
 
     def obs_size(self):
-        return self.c_msgvec.obsSize()
+        return self.c_msgvec.obs_size()
+
+    def input(self, obs: bytes):
+        self.c_msgvec.input(obs)

@@ -1,7 +1,13 @@
 #include <vector>
 #include <functional>
-#include <nlohmann/json.hpp>
 #include <iostream>
+
+#include <nlohmann/json.hpp>
+
+#include <capnp/message.h>
+#include <capnp/serialize-packed.h>
+#include <capnp/schema.h>
+#include <capnp/dynamic.h>
 
 #include "msgvec.h"
 
@@ -56,11 +62,31 @@
     ],
 }
 */
-MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)), m_obsVector(this->obsSize()) {
+MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)), m_obsVector(this->obs_size()) {
 
 }
 
-size_t MsgVec::obsSize() const {
+
+void MsgVec::input(const std::vector<uint8_t> &bytes) {
+    capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
+    auto event = cmsg.getRoot<cereal::Event>();
+    this->input(event);
+
+    std::cout << "INPUT WHICH: " << event.which() << std::endl;
+}
+
+void MsgVec::input(const cereal::Event::Reader &evt) {
+    // Cast to a dynamic reader
+    // auto schema = capnp::Schema::from<cereal::Event>();
+    // capnp::DynamicStruct::Reader reader = capnp::DynamicStruct::Reader(schema, evt);
+   // capnp::DynamicStruct::Reader reader = evt;
+
+    // if (reader.has("voltage")) {
+    //     std::cout << "has voltage" << std::endl;
+    // }
+}
+
+size_t MsgVec::obs_size() const {
     size_t size = 0;
 
     for (auto &obs : m_config["obs"]) {

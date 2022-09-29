@@ -163,7 +163,13 @@ add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
 
 add_library(msgvec SHARED src/msgvec/msgvec.cc)
-target_link_libraries(msgvec PUBLIC fmt::fmt nlohmann_json::nlohmann_json)
+target_link_libraries(
+    msgvec 
+    PUBLIC 
+        fmt::fmt 
+        nlohmann_json::nlohmann_json
+        CapnProto::capnp
+    )
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/_pymsgvec.cpp

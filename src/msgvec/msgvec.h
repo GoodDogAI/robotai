@@ -12,16 +12,17 @@ class MsgVec {
         MsgVec(const std::string &jsonConfig);
 
         // Feeds in messages, will update internal state
+        void input(const std::vector<uint8_t> &bytes);
         void input(const cereal::Event::Reader &evt);
 
-        size_t obsSize() const;
-        size_t actSize() const;
+        size_t obs_size() const;
+        size_t act_size() const;
 
         // Returns the current observation vector, given the most recent messages
-        bool getObsVector(float *obsVector);
+        bool get_obs_vector(float *obsVector);
 
         // Given an action vector output from the RL model, returns the list of messages to send
-        std::vector<const cereal::Event::Reader> getActionCommands(const std::vector<float> &act);
+        std::vector<const cereal::Event::Reader> get_action_command(const std::vector<float> &act);
 
 
     private:
