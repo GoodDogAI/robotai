@@ -1,6 +1,7 @@
 #include <vector>
 #include <functional>
-//#include <nlohmann/json.hpp>
+#include <nlohmann/json.hpp>
+#include <iostream>
 
 #include "msgvec.h"
 
@@ -55,5 +56,6 @@
     ],
 }
 */
-MsgVec::MsgVec(const std::string &jsonConfig): m_config(jsonConfig) {
+MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)) {
+    std::cout << "MsgVec::MsgVec Loaded\n" << m_config["obs"]   << std::endl;
 }

@@ -1,8 +1,10 @@
 #include <string>
 #include <functional>
+#include <nlohmann/json.hpp>
+
 #include "cereal/messaging/messaging.h"
 
-//using json = nlohmann::json;
+using json = nlohmann::json;
 
 class MsgVec {
     public:
@@ -23,5 +25,5 @@ class MsgVec {
 
 
     private:
-        std::string m_config;
+        json m_config;
 };

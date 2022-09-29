@@ -162,8 +162,8 @@ target_link_libraries(
 add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
 
-add_library(msgvec src/msgvec/msgvec.cc)
-target_link_libraries(msgvec PRIVATE fmt::fmt nlohmann_json::nlohmann_json)
+add_library(msgvec SHARED src/msgvec/msgvec.cc)
+target_link_libraries(msgvec PUBLIC fmt::fmt nlohmann_json::nlohmann_json)
 
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/_pymsgvec.cpp
@@ -176,7 +176,8 @@ add_custom_command(
       ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pxd
   )
 
-Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp src/msgvec/msgvec.cc)
+Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp)
+target_link_libraries(pymsgvec PRIVATE msgvec)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
 target_compile_options(pymsgvec PRIVATE -Wno-shadow)
 set_target_properties(pymsgvec PROPERTIES
