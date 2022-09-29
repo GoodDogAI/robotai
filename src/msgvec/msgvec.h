@@ -26,4 +26,6 @@ class MsgVec {
 
     private:
         json m_config;
+        std::vector<float> m_obsVector;
+        std::vector<float> m_actVector;
 };

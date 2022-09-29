@@ -10,3 +10,6 @@ cdef class PyMsgVec:
 
     def __dealloc__(self):
         del self.c_msgvec
+
+    def obs_size(self):
+        return self.c_msgvec.obsSize()

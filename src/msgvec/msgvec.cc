@@ -56,6 +56,20 @@
     ],
 }
 */
-MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)) {
-    std::cout << "MsgVec::MsgVec Loaded\n" << m_config["obs"]   << std::endl;
+MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)), m_obsVector(this->obsSize()) {
+
+}
+
+size_t MsgVec::obsSize() const {
+    size_t size = 0;
+
+    for (auto &obs : m_config["obs"]) {
+        if (obs["type"] == "msg") {
+            size += 1;
+        } else if (obs["type"] == "vision") {
+            size += 1;
+        }
+    }
+
+    return size;
 }
