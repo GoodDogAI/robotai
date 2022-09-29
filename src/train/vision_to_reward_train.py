@@ -5,6 +5,7 @@ import numpy as np
 import pyarrow as pa
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,11 +19,20 @@ class SimpleNet(pl.LightningModule):
         super().__init__()
        
         self.net = nn.Sequential(
-            nn.Linear(17003, 1000),
-            nn.ReLU(),
-            nn.Linear(1000, 100),
-            nn.ReLU(),
-            nn.Linear(100, 1),
+            nn.Flatten(),
+            nn.Linear(17003, 1024),
+            nn.CELU(),
+
+            nn.Linear(1024, 1024),
+            nn.CELU(),
+
+            nn.Linear(1024, 512),
+            nn.CELU(),
+
+            nn.Linear(512, 256),
+            nn.CELU(),
+
+            nn.Linear(256, 1),
         )
         self.lr = lr
 
@@ -30,8 +40,10 @@ class SimpleNet(pl.LightningModule):
         return self.net(intermediate)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
-        return optimizer
+        optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr, weight_decay=1e-4)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+        return {"optimizer": optimizer,
+                "lr_scheduler": scheduler}
 
     def training_step(self, train_batch, batch_idx):
         intermediate = train_batch["intermediate"]
@@ -39,7 +51,7 @@ class SimpleNet(pl.LightningModule):
 
         x_hat = self(intermediate)
 
-        loss = F.mse_loss(x_hat, reward)
+        loss = F.mse_loss(x_hat[:, 0], reward)
         self.log('train_loss', loss)
         return loss
 
@@ -49,7 +61,7 @@ class SimpleNet(pl.LightningModule):
 
         x_hat = self(intermediate)
 
-        loss = F.mse_loss(x_hat, reward)
+        loss = F.mse_loss(x_hat[:, 0], reward)
         self.log('val_loss', loss)
         return loss
 
@@ -67,7 +79,9 @@ model = SimpleNet(lr=1e-3)
 if __name__ == '__main__':
     wandb.init(dir=rootdir, project="vision_to_reward_1")
     wandb_logger = WandbLogger()
-    trainer = pl.Trainer(gpus=1, amp_level="O2", amp_backend="apex", default_root_dir=rootdir, logger=wandb_logger, val_check_interval=1.0, accumulate_grad_batches=1)
+    
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+    trainer = pl.Trainer(gpus=1, amp_level="O2", amp_backend="apex", default_root_dir=rootdir, logger=wandb_logger, val_check_interval=1.0, max_epochs=20, accumulate_grad_batches=1, callbacks=[lr_monitor])
 
     ds = IntermediateRewardDataset(base_path="/media/storage/robotairecords/converted")
     ds.download_and_prepare()
@@ -78,6 +92,5 @@ if __name__ == '__main__':
 
     train_loader = DataLoader(dataset=ds["train"], batch_size=64, shuffle=True)
     valid_loader = DataLoader(dataset=ds["validation"], batch_size=64, shuffle=True)
-
 
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)

@@ -186,7 +186,7 @@ def create_pt_model(config: Dict[str, Any]) -> torch.nn.Module:
     vision_model = load_fn(config["checkpoint"])
 
     internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
-                        DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+                     DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
 
     # Make a module that is going to include the input format conversion and any required cropping
     if model_type == "vision":
