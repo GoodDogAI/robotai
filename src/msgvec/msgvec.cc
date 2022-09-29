@@ -73,17 +73,19 @@ void MsgVec::input(const std::vector<uint8_t> &bytes) {
     this->input(event);
 
     std::cout << "INPUT WHICH: " << event.which() << std::endl;
+    //fmt::print("INPUT WHICH: {}\n", (uint16_t)event.which());
 }
 
 void MsgVec::input(const cereal::Event::Reader &evt) {
     // Cast to a dynamic reader
-    // auto schema = capnp::Schema::from<cereal::Event>();
-    // capnp::DynamicStruct::Reader reader = capnp::DynamicStruct::Reader(schema, evt);
-   // capnp::DynamicStruct::Reader reader = evt;
+    capnp::DynamicStruct::Reader reader = evt;
 
-    // if (reader.has("voltage")) {
-    //     std::cout << "has voltage" << std::endl;
-    // }
+    if (reader.has("voltage")) {
+        std::cout << "has voltage" << std::endl;
+    }
+    else {
+        std::cout << "no voltage" << std::endl;
+    }
 }
 
 size_t MsgVec::obs_size() const {

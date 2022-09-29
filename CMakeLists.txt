@@ -148,7 +148,7 @@ add_compile_options(-Wunused -Werror -Wshadow)
 
 set(MASTER_CONFIG_H "${CMAKE_SOURCE_DIR}/src/config/config.h")
 
-add_executable(loggerd src/realtime/loggerd.cc ${CAPNP_SRCS} ${MASTER_CONFIG_H})
+add_executable(loggerd src/realtime/loggerd.cc ${MASTER_CONFIG_H})
 target_link_libraries(
     loggerd 
     PRIVATE 
@@ -162,11 +162,12 @@ target_link_libraries(
 add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
 
-add_library(msgvec SHARED src/msgvec/msgvec.cc)
+add_library(msgvec src/msgvec/msgvec.cc)
+set_property(TARGET msgvec PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(
     msgvec 
     PUBLIC 
-        fmt::fmt 
+        ${CEREAL_LIBRARIES}
         nlohmann_json::nlohmann_json
         CapnProto::capnp
     )

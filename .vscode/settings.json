@@ -93,7 +93,8 @@
         "ranges": "cpp",
         "semaphore": "cpp",
         "stop_token": "cpp",
-        "ios": "cpp"
+        "ios": "cpp",
+        "locale": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",
