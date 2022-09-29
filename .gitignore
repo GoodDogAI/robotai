@@ -20,6 +20,8 @@ src/camerad
 src/encoderd
 src/loggerd
 
+src/msgvec/_*.cpp
+
 # When configure fails, SCons outputs these
 config.log
 .sconf_temp

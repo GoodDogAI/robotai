@@ -166,8 +166,8 @@ add_library(msgvec src/msgvec/msgvec.cc)
 target_link_libraries(msgvec PRIVATE fmt::fmt nlohmann_json::nlohmann_json)
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.cpp
-    COMMAND ${Python3_EXECUTABLE} -m cython --cplus ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pyx
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/_pymsgvec.cpp
+    COMMAND ${Python3_EXECUTABLE} -m cython --cplus ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pyx -o ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/_pymsgvec.cpp
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec
     DEPENDS
       ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/msgvec.cc
@@ -176,7 +176,7 @@ add_custom_command(
       ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pxd
   )
 
-Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/pymsgvec.cpp)
+Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp src/msgvec/msgvec.cc)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
 target_compile_options(pymsgvec PRIVATE -Wno-shadow)
 set_target_properties(pymsgvec PROPERTIES
