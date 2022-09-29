@@ -19,7 +19,7 @@ TEST_CASE( "Proess a simple message", "[msgvec]" ) {
                 "index": -1,
                 "timeout": 0.01,
                 "filter": {
-                    "field": "type",
+                    "field": "voltage.type",
                     "op": "eq",
                     "value": "mainBattery"
                 },
