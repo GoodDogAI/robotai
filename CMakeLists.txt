@@ -177,9 +177,12 @@ add_custom_command(
   )
 
 Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/pymsgvec.cpp)
-
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
 target_compile_options(pymsgvec PRIVATE -Wno-shadow)
+
+# Run the install command to move the built module into the source tree for use with python
+install(FILES $<TARGET_FILE:pymsgvec> DESTINATION src/msgvec)
+
 
 add_executable(odrived src/realtime/odrived.cc ${MASTER_CONFIG_H})
 target_link_libraries(
