@@ -1,10 +1,59 @@
 #include <vector>
 #include <functional>
-#include <nlohmann/json.hpp>
+//#include <nlohmann/json.hpp>
 
 #include "msgvec.h"
 
 
-MsgVec::MsgVec(std::string jsonConfig, std::function<int(std::vector<float>)> visionIntermediateProvider) {
+/*
+ "msgvec": {
+    "obs": [
+        {
+            "type": "msg",
+            "path": "voltage.volts",
+            "index": -1,
+            "timeout": 0.01,
+            "filter": {
+                "field": "type",
+                "op": "eq",
+                "value": "mainBattery",
+            },
+            "transform": {
+                "type": "rescale",
+                "msg_range": [0, 13.5],
+                "vec_range": [-1, 1],
+            }
+        },
 
+        {
+            "type": "vision",
+            "index": -1,
+        }
+    ],
+
+    "act": [
+        {
+            "type": "msg",
+            "path": "odriveCommand.leftMotor.vel",
+            "timeout": 0.01,
+            "transform": {
+                "type": "identity",
+            },
+        },
+
+        { 
+            "type": "msg",
+            "path": "headCommand.pitchAngle",
+            "index": -1,
+            "timeout": 0.01,
+            "transform": {
+                "type": "rescale",
+                "vec_range": [-1, 1],
+                "msg_range": [-45.0, 45.0],
+            },
+        },
+    ],
+}
+*/
+MsgVec::MsgVec(const std::string &jsonConfig): m_config(jsonConfig) {
 }

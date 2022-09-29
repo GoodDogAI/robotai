@@ -2,10 +2,12 @@
 #include <functional>
 #include "cereal/messaging/messaging.h"
 
+//using json = nlohmann::json;
 
 class MsgVec {
     public:
-        MsgVec(std::string jsonConfig, std::function<int(std::vector<float>)> visionIntermediateProvider);
+        //, std::function<int(std::vector<float>)> visionIntermediateProvider
+        MsgVec(const std::string &jsonConfig);
 
         // Feeds in messages, will update internal state
         void input(const cereal::Event::Reader &evt);
@@ -21,5 +23,5 @@ class MsgVec {
 
 
     private:
-        std::string m_jsonConfig;
+        std::string m_config;
 };

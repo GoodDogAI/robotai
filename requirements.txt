@@ -22,6 +22,9 @@ python-multipart
 # For sending out image frames for debugging on the webui
 pypng
 
+# For accessing C modules from Python
+Cython
+
 # For keeping process titles neat when running in realtime mode
 setproctitle
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 include(CMakePrintHelpers)
 
-project(RobotAI LANGUAGES CXX)
+project(RobotAI LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -144,6 +144,7 @@ include_directories(
 # Make sure warnings are treated as errors
 add_compile_options(-Wunused -Werror -Wshadow)
 
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(MASTER_CONFIG_H "${CMAKE_SOURCE_DIR}/src/config/config.h")
 
@@ -163,6 +164,22 @@ target_link_libraries(serial PUBLIC fmt::fmt)
 
 add_library(msgvec src/msgvec/msgvec.cc)
 target_link_libraries(msgvec PRIVATE fmt::fmt nlohmann_json::nlohmann_json)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.cpp
+    COMMAND ${Python3_EXECUTABLE} -m cython --cplus ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pyx
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec
+    DEPENDS
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/msgvec.cc
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/msgvec.h
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pyx
+      ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec/pymsgvec.pxd
+  )
+
+Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/pymsgvec.cpp)
+
+# Cython has a bug where it produces code with shadow warnings, so we need to supress them here
+target_compile_options(pymsgvec PRIVATE -Wno-shadow)
 
 add_executable(odrived src/realtime/odrived.cc ${MASTER_CONFIG_H})
 target_link_libraries(
