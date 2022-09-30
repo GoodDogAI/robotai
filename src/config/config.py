@@ -69,7 +69,7 @@ BRAIN_CONFIGS = dotdict({
                     "index": -1,
                     "timeout": 0.01,
                     "filter": {
-                        "field": "type",
+                        "field": "voltage.type",
                         "op": "eq",
                         "value": "mainBattery",
                     },
