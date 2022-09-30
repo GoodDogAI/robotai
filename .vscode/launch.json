@@ -45,6 +45,19 @@
                     "text": "handle SIGUSR2 nostop noprint pass"
                 }
             ]
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Launch ctest_msgvec",
+            "program": "${workspaceRoot}/build/msgvec_tests",
+            "cwd": "${workspaceRoot}",
+            "setupCommands": [
+                {
+                    "description": "ignore SIGUSR2 signal",
+                    "text": "handle SIGUSR2 nostop noprint pass"
+                }
+            ]
         }
     ]
 }

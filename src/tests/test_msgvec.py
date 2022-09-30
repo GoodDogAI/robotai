@@ -58,7 +58,7 @@ class TestMsgVec(unittest.TestCase):
 
         event = log.Event.new_message()
         event.init("voltage")
-        event.voltage.volts = 13.0
+        event.voltage.volts = 13.23
 
         msgvec.input(event.to_bytes())
         

@@ -79,15 +79,19 @@ void MsgVec::input(const std::vector<uint8_t> &bytes) {
 
 capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, const std::string &dottedPath) {
     capnp::DynamicStruct::Reader value = root;
+    std::string curPath = dottedPath;
 
     while (true) {
-        auto dotPos = dottedPath.find('.');
+        auto dotPos = curPath.find('.');
         if (dotPos == std::string::npos) {
-            return root.get(dottedPath);
+            //std::cout << "GETTING: " << curPath << std::endl;
+            return value.get(curPath);
         }
 
-        auto field = dottedPath.substr(0, dotPos);
-        value = root.get(field).as<capnp::DynamicStruct>();
+        auto field = curPath.substr(0, dotPos);
+        curPath = curPath.substr(dotPos + 1);
+        //std::cout << "FIELD: " << field << " " << value.has(field) << std::endl;
+        value = value.get(field).as<capnp::DynamicStruct>();
     }
 
     return value;
@@ -102,7 +106,7 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     }
 
     std::cout << "EVENT TYPE: " << event_type << std::endl;
-    std::cout << "value: " << get_dotted_value(msg, path).as<float>() << std::endl;
+    std::cout << "value: '" << get_dotted_value(msg, path).as<float>() << "'" << std::endl;
 
     return msg.has(event_type);
 }

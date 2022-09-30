@@ -41,8 +41,8 @@ TEST_CASE( "Proess a simple message", "[msgvec]" ) {
     vdat.setVolts(13.2);
     vdat.setType(cereal::Voltage::Type::MAIN_BATTERY);
 
-    auto vwords = capnp::messageToFlatArray(vmsg);
-    auto msgr = capnp::readDataStruct<cereal::Event>(vwords);
+    // auto vwords = capnp::messageToFlatArray(vmsg);
+    // auto msgr = capnp::readDataStruct<cereal::Event>(vwords);
 
-    msgvec.input(msgr);
+    msgvec.input(vevent);
 }
