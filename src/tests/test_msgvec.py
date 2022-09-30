@@ -43,7 +43,7 @@ class TestMsgVec(unittest.TestCase):
                 "index": -1,
                 "timeout": 0.01,
                 "filter": {
-                    "field": "type",
+                    "field": "voltage.type",
                     "op": "eq",
                     "value": "mainBattery",
                 },
@@ -60,5 +60,5 @@ class TestMsgVec(unittest.TestCase):
         event.init("voltage")
         event.voltage.volts = 13.23
 
-        msgvec.input(event.to_bytes())
+        self.assertTrue(msgvec.input(event.to_bytes()))
         

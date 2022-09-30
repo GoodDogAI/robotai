@@ -63,34 +63,22 @@
     ],
 }
 */
-MsgVec::MsgVec(const std::string &jsonConfig): m_config(json::parse(jsonConfig)), m_obsVector(this->obs_size()) {
+MsgVec::MsgVec(const std::string &jsonConfig):
+ m_config(json::parse(jsonConfig)), m_obsVector(this->obs_size()) {
 
 }
 
-
-void MsgVec::input(const std::vector<uint8_t> &bytes) {
-    capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
-    auto event = cmsg.getRoot<cereal::Event>();
-    this->input(event);
-
-    std::cout << "INPUT WHICH: " << event.which() << std::endl;
-    //fmt::print("INPUT WHICH: {}\n", (uint16_t)event.which());
-}
-
-capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, const std::string &dottedPath) {
+capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
     capnp::DynamicStruct::Reader value = root;
-    std::string curPath = dottedPath;
 
     while (true) {
-        auto dotPos = curPath.find('.');
+        auto dotPos = dottedPath.find('.');
         if (dotPos == std::string::npos) {
-            //std::cout << "GETTING: " << curPath << std::endl;
-            return value.get(curPath);
+            return value.get(dottedPath);
         }
 
-        auto field = curPath.substr(0, dotPos);
-        curPath = curPath.substr(dotPos + 1);
-        //std::cout << "FIELD: " << field << " " << value.has(field) << std::endl;
+        auto field = dottedPath.substr(0, dotPos);
+        dottedPath = dottedPath.substr(dotPos + 1);
         value = value.get(field).as<capnp::DynamicStruct>();
     }
 
@@ -105,22 +93,63 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
         event_type = path.substr(0, pos);
     }
 
-    std::cout << "EVENT TYPE: " << event_type << std::endl;
-    std::cout << "value: '" << get_dotted_value(msg, path).as<float>() << "'" << std::endl;
+    if (!msg.has(event_type)) {
+        return false;
+    }
+ 
+    if (!obs.contains("filter")) {
+        return true;
+    }
 
-    return msg.has(event_type);
+    if (obs["filter"].contains("field")) {
+        const std::string &field = obs["filter"]["field"];
+        const std::string &op = obs["filter"]["op"];
+        auto value = get_dotted_value(msg, field);
+
+        if (op == "eq") {
+            if (value.getType() == capnp::DynamicValue::Type::ENUM) {
+                const std::string &filterEnumStr = obs["filter"]["value"];
+                auto enumSchema = value.as<capnp::DynamicEnum>().getSchema();
+                auto filterEnumerant = enumSchema.getEnumerantByName(filterEnumStr);
+     
+                KJ_IF_MAYBE(msgEnumerant, value.as<capnp::DynamicEnum>().getEnumerant()) {
+                    return *msgEnumerant == filterEnumerant;
+                } else {
+                    return false;
+                }
+            } else if (value.getType() == capnp::DynamicValue::Type::TEXT) {
+                return value.as<capnp::Text>() == obs["filter"]["value"];
+            } else {
+                std::cerr << "Unknown type for field " << field << std::endl;
+                return false;
+            }
+        }
+        else {
+            throw std::runtime_error("Unknown filter op: " + op);
+        }
+    }
+
+    return true;
 }
 
-void MsgVec::input(const cereal::Event::Reader &evt) {
+bool MsgVec::input(const std::vector<uint8_t> &bytes) {
+    capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
+    auto event = cmsg.getRoot<cereal::Event>();
+    return this->input(event);
+}
+
+bool MsgVec::input(const cereal::Event::Reader &evt) {
     // Cast to a dynamic reader, so we can access the fields by name
     capnp::DynamicStruct::Reader reader = evt;
 
     // Iterate over each possible msg observation
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
-            std::cout << "MATCHED" << std::endl;
+            return true;
         }
     }
+
+    return false;
 }
 
 size_t MsgVec::obs_size() const {

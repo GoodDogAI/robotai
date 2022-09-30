@@ -14,5 +14,5 @@ cdef class PyMsgVec:
     def obs_size(self):
         return self.c_msgvec.obs_size()
 
-    def input(self, obs: bytes):
-        self.c_msgvec.input(obs)
+    def input(self, obs: bytes) -> bool:
+        return self.c_msgvec.input(obs)

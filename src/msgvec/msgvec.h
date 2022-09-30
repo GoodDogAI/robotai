@@ -12,8 +12,8 @@ class MsgVec {
         MsgVec(const std::string &jsonConfig);
 
         // Feeds in messages, will update internal state
-        void input(const std::vector<uint8_t> &bytes);
-        void input(const cereal::Event::Reader &evt);
+        bool input(const std::vector<uint8_t> &bytes);
+        bool input(const cereal::Event::Reader &evt);
 
         size_t obs_size() const;
         size_t act_size() const;

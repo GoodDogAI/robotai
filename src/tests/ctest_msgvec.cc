@@ -10,7 +10,7 @@
 #include "config.h"
 
 
-TEST_CASE( "Proess a simple message", "[msgvec]" ) {
+TEST_CASE( "Process a simple message", "[msgvec]" ) {
    MsgVec msgvec{R"(
         {
             "obs": [{

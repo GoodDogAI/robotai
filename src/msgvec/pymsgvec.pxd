@@ -3,6 +3,7 @@
 
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from libcpp cimport bool
 
 cdef extern from "msgvec.h":
     cdef cppclass MsgVec:
@@ -10,5 +11,5 @@ cdef extern from "msgvec.h":
         size_t obs_size()
         size_t act_size()
 
-        void input(const vector[uchar] &bytes)
+        bool input(const vector[uchar] &bytes) except +
 

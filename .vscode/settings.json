@@ -95,7 +95,8 @@
         "stop_token": "cpp",
         "ios": "cpp",
         "locale": "cpp",
-        "__string": "cpp"
+        "__string": "cpp",
+        "__config": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",
