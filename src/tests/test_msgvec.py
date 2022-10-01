@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import time
 from cereal import log
 from src.msgvec.pymsgvec import PyMsgVec
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
@@ -19,10 +20,16 @@ class TestMsgVec(unittest.TestCase):
         default_cfg = BRAIN_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]
         msgvec = PyMsgVec(json.dumps(default_cfg["msgvec"]).encode("utf-8"))
 
+        start = time.perf_counter()
+        count = 0
+
         with open(log_path, "rb") as f:
             events = log.Event.read_multiple(f)
             for evt in events:
                 msgvec.input(evt.as_builder().to_bytes())
+                count += 1
+
+        print(f"Processed {count} events in {time.perf_counter() - start} seconds")
 
 
     def test_obs_size(self):
