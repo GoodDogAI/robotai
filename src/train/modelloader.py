@@ -364,6 +364,7 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
         print(f"Loading cached engine {trt_path}")
     else:
         print(f"Engine {trt_path} not found, creating it from ONNX")
+        update_model_config_caches()
         
         config_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_config.json")
         with open(config_path, "r") as f:

@@ -24,6 +24,7 @@ class IntermediateRewardDataset(datasets.GeneratorBasedBuilder):
             version="0.0.1",
             features=datasets.Features(
                 {
+                    #"intermediate": datasets.Array2D(shape=(1, 17003), dtype="float32"),
                     "intermediate": datasets.Array2D(shape=(1, 17003), dtype="float32"),
                     "reward": datasets.Value("float32"),
                 }
@@ -60,7 +61,7 @@ class IntermediateRewardDataset(datasets.GeneratorBasedBuilder):
 
         key_queue = []
 
-        with load_vision_model(model_fullname(MODEL_CONFIGS["yolov7-tiny-s53"])) as intermediate_engine, \
+        with load_vision_model(model_fullname(MODEL_CONFIGS["yolov7-tiny-s11"])) as intermediate_engine, \
              load_vision_model(model_fullname(MODEL_CONFIGS["yolov7-tiny-prioritize_centered_nms"])) as reward_engine:
 
             def process_frame(y, uv):

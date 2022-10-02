@@ -13,7 +13,6 @@ from polygraphy.cuda import DeviceView
 import torchdata.datapipes as dp
 from src.config import HOST_CONFIG, DEVICE_CONFIG
 
-
 def surface_to_y_uv(surface: nvc.Surface) -> torch.Tensor:
     """
     Converts an NV12 surface to cuda float Y,UV tensor.
@@ -22,6 +21,7 @@ def surface_to_y_uv(surface: nvc.Surface) -> torch.Tensor:
         raise RuntimeError('Surface shall be of NV12 pixel format')
 
     surf_plane = surface.PlanePtr()
+
     img_tensor = pnvc.DptrToTensor(surf_plane.GpuMem(),
                                    surf_plane.Width(),
                                    surf_plane.Height(),
