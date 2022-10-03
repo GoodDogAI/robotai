@@ -75,10 +75,22 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        event = log.Event.new_message()
-        event.init("voltage")
-        event.voltage.volts = 13.23
-        event.voltage.type = "mainBattery"
+        self.assertEqual(msgvec.obs_size(), 1)
+        self.assertEqual(msgvec.get_obs_vector(), [0.0])
 
-        self.assertTrue(msgvec.input(event.to_bytes()))
-        
+        def _sendAndAssert(voltage, vector):
+            event = log.Event.new_message()
+            event.init("voltage")
+            event.voltage.volts = voltage
+            event.voltage.type = "mainBattery"
+
+            self.assertTrue(msgvec.input(event.to_bytes()))
+
+            self.assertAlmostEqual(msgvec.get_obs_vector()[0], vector, places=3)
+
+        _sendAndAssert(0.0, -1.0)
+        _sendAndAssert(13.5, 1.0)
+        _sendAndAssert(6.75, 0.0)
+
+        _sendAndAssert(-1000.0, -1.0)
+        _sendAndAssert(1000.0, 1.0)

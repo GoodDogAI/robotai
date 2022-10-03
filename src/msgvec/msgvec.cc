@@ -133,6 +133,23 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
 }
 
 float get_vector_value(const capnp::DynamicStruct::Reader &msg, const json &obs) {
+    float rawValue = get_dotted_value(msg, obs["path"]).as<float>();
+
+    if (obs.contains("transform")) {
+        const std::string &transformType = obs["transform"]["type"];
+        if (transformType == "identity") {
+            return rawValue;
+        } else if (transformType == "rescale") {
+            const std::vector<float> &msgRange = obs["transform"]["msg_range"];
+            const std::vector<float> &vecRange = obs["transform"]["vec_range"];
+
+            return std::clamp((rawValue - msgRange[0]) / (msgRange[1] - msgRange[0]) * (vecRange[1] - vecRange[0]) + vecRange[0], vecRange[0], vecRange[1]);
+        } else {
+            throw std::runtime_error("Unknown transform type: " + transformType);
+        }
+    }
+
+    return rawValue;
 }
 
 bool MsgVec::input(const std::vector<uint8_t> &bytes) {
@@ -150,7 +167,7 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
-            m_obsVector[index] = get_vector_value(reader);
+            m_obsVector[index] = get_vector_value(reader, obs);
             return true;
         }
 
@@ -172,4 +189,9 @@ size_t MsgVec::obs_size() const {
     }
 
     return size;
+}
+
+bool MsgVec::get_obs_vector(float *obsVector) {
+    std::copy(m_obsVector.begin(), m_obsVector.end(), obsVector);
+    return true;
 }

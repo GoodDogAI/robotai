@@ -12,4 +12,5 @@ cdef extern from "msgvec.h":
         size_t act_size()
 
         bool input(const vector[uchar] &bytes) except +
+        bool get_obs_vector(float *obsVector) except +
 
