@@ -1,6 +1,7 @@
 #include <vector>
 #include <functional>
 #include <string_view>
+#include <algorithm>
 #include <iostream>
 
 #include <nlohmann/json.hpp>
@@ -77,7 +78,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
                     throw std::runtime_error("msgvec: msg index must be negative");
                 }
 
-                m_obsHistory[obs_index] = std::deque<float>(std::abs(static_cast<int64_t>(obs["index"])), 0.0f);
+                m_obsHistory[obs_index] = std::deque<float>(std::abs(obs["index"].get<int64_t>()), 0.0f);
                 m_obsSize += 1;
             } 
             else if (obs["index"].is_array()) {
@@ -87,7 +88,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
                     throw std::runtime_error("msgvec: msg indexes must be negative");
                 }
 
-                m_obsHistory[obs_index] = std::deque<float>(obs["index"].size(), 0.0f);
+                m_obsHistory[obs_index] = std::deque<float>(std::abs(*std::min_element(indices.begin(), indices.end())), 0.0f);
                 m_obsSize += obs["index"].size();
             }            
             else {
@@ -95,7 +96,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
             }
         }
         else if (obs["type"] == "vision") {
-            m_obsSize += static_cast<uint64_t>(obs["size"]);
+            m_obsSize += obs["size"].get<int64_t>();
         }
         else {
             throw std::runtime_error("Unknown observation type");
@@ -205,7 +206,8 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
-            
+            m_obsHistory[index].push_front(get_vector_value(reader, obs));
+            m_obsHistory[index].pop_back();
             processed = true;
         }
 
@@ -220,6 +222,26 @@ size_t MsgVec::obs_size() const {
 }
 
 bool MsgVec::get_obs_vector(float *obsVector) {
+    size_t index = 0;
+    size_t curpos = 0;
+
+    for (auto &obs : m_config["obs"]) {
+        if (obs["type"] == "msg") {
+            if (obs["index"].is_number()) {
+                obsVector[index] = m_obsHistory[index][std::abs(obs["index"].get<int64_t>()) - 1];
+                curpos++;
+            } else if (obs["index"].is_array()) {
+                std::vector<int64_t> indices = obs["index"];
+                for (size_t i = 0; i < indices.size(); i++) {
+                    obsVector[index + i] = m_obsHistory[index][std::abs(indices[i]) - 1];
+                }
+                curpos += indices.size();
+            }
+        } else if (obs["type"] == "vision") {
+        }
+
+        index++;
+    }
 
     return true;
 }

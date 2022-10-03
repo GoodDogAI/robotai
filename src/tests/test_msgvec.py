@@ -231,6 +231,51 @@ class TestMsgVec(unittest.TestCase):
         self.assertTrue(msgvec.input(event.to_bytes()))
         self.assertEqual(msgvec.get_obs_vector(), [1.0, 2.0])
 
+    def test_single_larger_index(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -5,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.obs_size(), 1)
+        self.assertEqual(msgvec.get_obs_vector(), [0.0])
+
+        feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        expected = [[0],
+                    [0],
+                    [0],
+                    [0],
+                    [1],
+                    [2],
+                    [3],
+                    [4],
+                    [5]]
+
+        for feed, expect in zip(feeds, expected):
+            event = log.Event.new_message()
+            event.init("voltage")
+            event.voltage.volts = feed
+            event.voltage.type = "mainBattery"
+
+            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertEqual(msgvec.get_obs_vector(), expect)
+
     def test_multi_index(self):
         config = {"obs": [
             {
@@ -245,8 +290,8 @@ class TestMsgVec(unittest.TestCase):
                 },
                 "transform": {
                     "type": "rescale",
-                    "msg_range": [0, 13.5],
-                    "vec_range": [-1, 1],
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
                 }
             },
 
@@ -256,11 +301,25 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(msgvec.obs_size(), 3)
         self.assertEqual(msgvec.get_obs_vector(), [0.0, 0.0, 0.0])
 
-        event = log.Event.new_message()
-        event.init("voltage")
-        event.voltage.volts = 13.5
-        event.voltage.type = "mainBattery"
+        feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        expected = [[1, 0, 0],
+                    [2, 1, 0],
+                    [3, 2, 0],
+                    [4, 3, 0],
+                    [5, 4, 1],
+                    [6, 5, 2],
+                    [7, 6, 3],
+                    [8, 7, 4],
+                    [9, 8, 5]]
 
-        self.assertTrue(msgvec.input(event.to_bytes()))
-        self.assertEqual(msgvec.get_obs_vector(), [1.0, 0.0, 0.0])
+        for feed, expect in zip(feeds, expected):
+            event = log.Event.new_message()
+            event.init("voltage")
+            event.voltage.volts = feed
+            event.voltage.type = "mainBattery"
+
+            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertEqual(msgvec.get_obs_vector(), expect)
+
+
 
