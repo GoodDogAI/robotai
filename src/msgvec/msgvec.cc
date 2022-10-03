@@ -163,18 +163,19 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
     capnp::DynamicStruct::Reader reader = evt;
 
     // Iterate over each possible msg observation
+    bool processed = false;
     size_t index = 0;
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
             m_obsVector[index] = get_vector_value(reader, obs);
-            return true;
+            processed = true;
         }
 
         index++;
     }
 
-    return false;
+    return processed;
 }
 
 size_t MsgVec::obs_size() const {
