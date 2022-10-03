@@ -31,6 +31,51 @@ class TestMsgVec(unittest.TestCase):
 
         print(f"Processed {count} events in {time.perf_counter() - start} seconds")
 
+    def test_init_index(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": 0,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+
+        with self.assertRaises(Exception):
+            PyMsgVec(json.dumps(config).encode("utf-8"))
+
+    def test_init_multiindex(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": [-1, -2, 0],
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+
+        with self.assertRaises(Exception):
+            PyMsgVec(json.dumps(config).encode("utf-8"))
 
     def test_obs_size(self):
         config = {"obs": [
@@ -53,6 +98,49 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
         self.assertEqual(msgvec.obs_size(), 1)
+
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -4,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        self.assertEqual(msgvec.obs_size(), 1)
+
+
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": [-1, -5],
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        self.assertEqual(msgvec.obs_size(), 2)
 
     def test_input(self):
         config = {"obs": [
@@ -142,3 +230,37 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertTrue(msgvec.input(event.to_bytes()))
         self.assertEqual(msgvec.get_obs_vector(), [1.0, 2.0])
+
+    def test_multi_index(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": [-1, -2, -5],
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.obs_size(), 3)
+        self.assertEqual(msgvec.get_obs_vector(), [0.0, 0.0, 0.0])
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        self.assertTrue(msgvec.input(event.to_bytes()))
+        self.assertEqual(msgvec.get_obs_vector(), [1.0, 0.0, 0.0])
+

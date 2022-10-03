@@ -64,8 +64,45 @@
 }
 */
 MsgVec::MsgVec(const std::string &jsonConfig):
- m_config(json::parse(jsonConfig)), m_obsVector(this->obs_size()) {
+ m_config(json::parse(jsonConfig)) {
 
+    // Fill up each deque with zeros to initialize
+    size_t obs_index = 0;
+    m_obsSize = 0;
+
+    for (auto &obs: m_config["obs"]) {
+        if (obs["type"] == "msg") {
+            if (obs["index"].is_number()) {
+                if (obs["index"] >= 0) {
+                    throw std::runtime_error("msgvec: msg index must be negative");
+                }
+
+                m_obsHistory[obs_index] = std::deque<float>(std::abs(static_cast<int64_t>(obs["index"])), 0.0f);
+                m_obsSize += 1;
+            } 
+            else if (obs["index"].is_array()) {
+                std::vector<int64_t> indices = obs["index"];
+
+                if (std::any_of(indices.begin(), indices.end(), [](int64_t i) { return i >= 0; })) {
+                    throw std::runtime_error("msgvec: msg indexes must be negative");
+                }
+
+                m_obsHistory[obs_index] = std::deque<float>(obs["index"].size(), 0.0f);
+                m_obsSize += obs["index"].size();
+            }            
+            else {
+                throw std::runtime_error("msgvec: msg index must be an array or number");
+            }
+        }
+        else if (obs["type"] == "vision") {
+            m_obsSize += static_cast<uint64_t>(obs["size"]);
+        }
+        else {
+            throw std::runtime_error("Unknown observation type");
+        }
+      
+        obs_index++;
+    }
 }
 
 capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -168,7 +205,7 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
-            m_obsVector[index] = get_vector_value(reader, obs);
+            
             processed = true;
         }
 
@@ -179,20 +216,10 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
 }
 
 size_t MsgVec::obs_size() const {
-    size_t size = 0;
-
-    for (auto &obs : m_config["obs"]) {
-        if (obs["type"] == "msg") {
-            size += 1;
-        } else if (obs["type"] == "vision") {
-            size += 1;
-        }
-    }
-
-    return size;
+    return m_obsSize;
 }
 
 bool MsgVec::get_obs_vector(float *obsVector) {
-    std::copy(m_obsVector.begin(), m_obsVector.end(), obsVector);
+
     return true;
 }

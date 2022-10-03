@@ -1,5 +1,8 @@
 #include <string>
 #include <functional>
+#include <map>
+#include <vector>
+#include <deque>
 #include <nlohmann/json.hpp>
 
 #include "cereal/messaging/messaging.h"
@@ -27,8 +30,8 @@ class MsgVec {
 
     private:
         json m_config;
-        std::vector<float> m_obsVector;
+        size_t m_obsSize;
         std::vector<float> m_actVector;
 
-        
+        std::map<int, std::deque<float>> m_obsHistory;
 };
