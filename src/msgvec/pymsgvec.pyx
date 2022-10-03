@@ -1,9 +1,14 @@
 # distutils: language = c++
 
 from libcpp.vector cimport vector
+from cpython cimport array
 
 from pymsgvec cimport MsgVec
 from typing import List
+
+from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
+from capnp.lib.capnp cimport _DynamicStructReader, _DynamicStructBuilder
+
 
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
@@ -17,6 +22,9 @@ cdef class PyMsgVec:
     def obs_size(self):
         return self.c_msgvec.obs_size()
 
+    def act_size(self):
+        return self.c_msgvec.act_size()
+
     def input(self, obs: bytes) -> bool:
         return self.c_msgvec.input(obs)
 
@@ -24,3 +32,15 @@ cdef class PyMsgVec:
         cdef vector[float] obs_vector = vector[float](self.c_msgvec.obs_size())
         self.c_msgvec.get_obs_vector(obs_vector.data())
         return list(obs_vector)
+
+    def get_action_command(self, act: List[float]):
+        assert len(act) == self.c_msgvec.act_size()
+        cdef array.array a = array.array('f', act)
+
+        result = self.c_msgvec.get_action_command(a.data.as_floats)
+        pyresult = []
+
+        for r in result:
+            pyresult.append(_DynamicStructBuilder()._init(r, None))
+
+        return pyresult

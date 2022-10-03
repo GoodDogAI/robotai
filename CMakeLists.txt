@@ -16,6 +16,7 @@ set(Python_FIND_VIRTUALENV FIRST)
 find_package(Python3 3.8 COMPONENTS Interpreter Development REQUIRED)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
 
+
 # Set the default location for the jetson multimedia sdk
 set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
 
@@ -171,6 +172,7 @@ target_link_libraries(
         ${CEREAL_LIBRARIES}
         nlohmann_json::nlohmann_json
         CapnProto::capnp
+        CapnProto::capnp-rpc
     )
 
 add_custom_command(
@@ -185,9 +187,10 @@ add_custom_command(
   )
 
 Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp)
+target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB})
 target_link_libraries(pymsgvec PRIVATE msgvec)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
-target_compile_options(pymsgvec PRIVATE -Wno-shadow)
+target_compile_options(pymsgvec PRIVATE -Wno-shadow -Wno-unused)
 set_target_properties(pymsgvec PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec
 )

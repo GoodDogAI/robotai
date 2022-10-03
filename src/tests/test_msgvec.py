@@ -321,5 +321,26 @@ class TestMsgVec(unittest.TestCase):
             self.assertTrue(msgvec.input(event.to_bytes()))
             self.assertEqual(msgvec.get_obs_vector(), expect)
 
+    def test_act_basic(self):
+        config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
 
 
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.act_size(), 1)
+
+        result = msgvec.get_action_command([1.0])
+
+        print(result)
+ 
+
+    

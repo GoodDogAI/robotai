@@ -36,6 +36,7 @@
 
         {
             "type": "vision",
+            "size": 123,
             "index": -1,
         }
     ],
@@ -104,6 +105,16 @@ MsgVec::MsgVec(const std::string &jsonConfig):
       
         obs_index++;
     }
+
+    m_actSize = 0;
+    for (auto &act: m_config["act"]) {
+        if (act["type"] == "msg") {
+            m_actSize += 1;
+        }
+        else {
+            throw std::runtime_error("Unknown action type");
+        }
+    }
 }
 
 capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -123,13 +134,18 @@ capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader 
     return value;
 }
 
+std::string get_event_type(const std::string &dotted_path) {
+    auto dotPos = dotted_path.find('.');
+    if (dotPos == std::string::npos) {
+        return dotted_path;
+    }
+
+    return dotted_path.substr(0, dotPos);
+}
+
 bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     const std::string &path = obs["path"];
-    std::string event_type{};
-    auto pos = path.find('.');
-    if (pos != std::string::npos) {
-        event_type = path.substr(0, pos);
-    }
+    std::string event_type {get_event_type(path)};
 
     if (!msg.has(event_type)) {
         return false;
@@ -221,6 +237,10 @@ size_t MsgVec::obs_size() const {
     return m_obsSize;
 }
 
+size_t MsgVec::act_size() const {
+    return m_actSize;
+}
+
 bool MsgVec::get_obs_vector(float *obsVector) {
     size_t index = 0;
     size_t curpos = 0;
@@ -244,4 +264,25 @@ bool MsgVec::get_obs_vector(float *obsVector) {
     }
 
     return true;
+}
+
+std::vector<capnp::DynamicStruct::Builder> MsgVec::get_action_command(const float *actVector) {
+    std::map<std::string, capnp::DynamicStruct::Builder> msgs;
+
+    for (auto &act : m_config["act"]) {
+        std::string event_type {get_event_type(act["path"])};
+
+        MessageBuilder msg;
+        capnp::DynamicStruct::Builder event = msg.initEvent(true);
+        event.init(event_type);
+
+        msgs[event_type] = event;
+    }
+
+    std::vector<capnp::DynamicStruct::Builder> ret;
+    for (const auto& [key, value] : msgs) {
+        ret.push_back(value);
+    }
+    return ret;
+    
 }

@@ -5,6 +5,8 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
+from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
+
 cdef extern from "msgvec.h":
     cdef cppclass MsgVec:
         MsgVec(const string &jsonConfig) except +
@@ -13,4 +15,6 @@ cdef extern from "msgvec.h":
 
         bool input(const vector[uchar] &bytes) except +
         bool get_obs_vector(float *obsVector) except +
+        vector[DynamicStruct_Builder] get_action_command(const float *actVector) except +
+
 
