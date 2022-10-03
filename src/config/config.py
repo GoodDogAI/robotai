@@ -149,7 +149,7 @@ MODEL_CONFIGS = dotdict({
         "intermediate_slice": 53,
     },
 
-    "yolov7-tiny-s11": {
+    "yolov7-tiny-final3-s53": {
         "type": "vision",
         "load_fn": "src.models.yolov7.load.load_yolov7",
         "input_format": "rgb",
@@ -159,8 +159,8 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
-        "intermediate_slice": 11,
+        "intermediate_layer": ["onnx::Conv_351", "onnx::Conv_379", "onnx::Conv_365"], 
+        "intermediate_slice": 53,
     },
 
     "yolov7-tiny-prioritize_centered_nms": {

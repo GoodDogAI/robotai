@@ -267,6 +267,7 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         print("Confirmed ONNX model is valid")
 
         # Use graph surgeon to simplify the model, but make no other changes for now
+        onnx_model = onnx.shape_inference.infer_shapes(onnx_model)
         graph = onnx_graphsurgeon.import_onnx(onnx_model)
         graph.toposort()
         graph.fold_constants()
@@ -296,16 +297,24 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
 
     if model_type == "vision":
         # Extract the intermediate output
-        intermediate_output = tensors[config["intermediate_layer"]]
+    
+        if isinstance(config["intermediate_layer"], str):
+            intermediate_output = [tensors[config["intermediate_layer"]]]
+        else:
+            intermediate_output = [tensors[l] for l in config["intermediate_layer"]]
 
-        # Now, do a concatenation and slicing
-        
         # inputs are [tensor, new_shape]
-        reshaped = graph.layer(inputs=[intermediate_output, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") 
+        reshaped = [graph.layer(inputs=[intermediate, np.array([0, -1])], outputs=["intermediate_reshape"], op="Reshape") for intermediate in intermediate_output]
+
+        # Now, concat if needed
+        if len(reshaped) > 1:
+            concat = graph.layer(inputs=[rs[0] for rs in reshaped], outputs=["intermediate_concat"], op="Concat", attrs={"axis": 1})
+        else:
+            concat = reshaped[0]
 
         # inputs are [tensor, starts, ends, axes, steps]
         final_output = onnx_graphsurgeon.Variable("intermediate", dtype=np.float32)
-        graph.layer(inputs=reshaped + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
+        graph.layer(inputs=concat + [np.array([0]), np.array([-1]), np.array([1]), np.array([config["intermediate_slice"]])], outputs=[final_output], op="Slice")
 
         graph.outputs = [final_output]
         graph.cleanup()

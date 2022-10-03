@@ -102,34 +102,37 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     }
 
     if (obs["filter"].contains("field")) {
-        const std::string &field = obs["filter"]["field"];
-        const std::string &op = obs["filter"]["op"];
-        auto value = get_dotted_value(msg, field);
+        const std::string &filter_field = obs["filter"]["field"];
+        const std::string &filter_op = obs["filter"]["op"];
+        auto filter_value = get_dotted_value(msg, filter_field);
 
-        if (op == "eq") {
-            if (value.getType() == capnp::DynamicValue::Type::ENUM) {
+        if (filter_op == "eq") {
+            if (filter_value.getType() == capnp::DynamicValue::Type::ENUM) {
                 const std::string &filterEnumStr = obs["filter"]["value"];
-                auto enumSchema = value.as<capnp::DynamicEnum>().getSchema();
+                auto enumSchema = filter_value.as<capnp::DynamicEnum>().getSchema();
                 auto filterEnumerant = enumSchema.getEnumerantByName(filterEnumStr);
      
-                KJ_IF_MAYBE(msgEnumerant, value.as<capnp::DynamicEnum>().getEnumerant()) {
+                KJ_IF_MAYBE(msgEnumerant, filter_value.as<capnp::DynamicEnum>().getEnumerant()) {
                     return *msgEnumerant == filterEnumerant;
                 } else {
                     return false;
                 }
-            } else if (value.getType() == capnp::DynamicValue::Type::TEXT) {
-                return value.as<capnp::Text>() == obs["filter"]["value"];
+            } else if (filter_value.getType() == capnp::DynamicValue::Type::TEXT) {
+                return filter_value.as<capnp::Text>() == obs["filter"]["value"];
             } else {
-                std::cerr << "Unknown type for field " << field << std::endl;
+                std::cerr << "Unknown type for field " << filter_field << std::endl;
                 return false;
             }
         }
         else {
-            throw std::runtime_error("Unknown filter op: " + op);
+            throw std::runtime_error("Unknown filter op: " + filter_op);
         }
     }
 
     return true;
+}
+
+float get_vector_value(const capnp::DynamicStruct::Reader &msg, const json &obs) {
 }
 
 bool MsgVec::input(const std::vector<uint8_t> &bytes) {
@@ -143,10 +146,15 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
     capnp::DynamicStruct::Reader reader = evt;
 
     // Iterate over each possible msg observation
+    size_t index = 0;
+
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
+            m_obsVector[index] = get_vector_value(reader);
             return true;
         }
+
+        index++;
     }
 
     return false;

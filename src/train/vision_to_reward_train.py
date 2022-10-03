@@ -20,7 +20,10 @@ class SimpleNet(pl.LightningModule):
        
         self.net = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(81920, 1024),
+            nn.Linear(8502, 4096),
+            nn.CELU(),
+
+            nn.Linear(4096, 1024),
             nn.CELU(),
 
             nn.Linear(1024, 1024),
@@ -83,7 +86,7 @@ if __name__ == '__main__':
     lr_monitor = LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(gpus=1, amp_level="O2", amp_backend="apex", default_root_dir=rootdir, logger=wandb_logger, val_check_interval=1.0, max_epochs=20, accumulate_grad_batches=1, callbacks=[lr_monitor])
 
-    ds = IntermediateRewardDataset(base_path="/media/storage/robotairecords/converted", config_name="s11")
+    ds = IntermediateRewardDataset(base_path="/media/storage/robotairecords/converted", config_name="s53-deeper")
     ds.download_and_prepare()
     ds = ds.as_dataset().with_format("torch")    
 

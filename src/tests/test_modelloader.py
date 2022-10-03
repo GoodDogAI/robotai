@@ -24,6 +24,20 @@ class TestModelLoaderTRT(unittest.TestCase):
             "intermediate_slice": 53,
         }
 
+        self.sampleVisionConfigMultiLayers = {
+            "type": "vision",
+            "load_fn": "src.models.yolov7.load.load_yolov7",
+            "input_format": "rgb",
+            "checkpoint": "/home/jake/robotai/_checkpoints/yolov7-tiny.pt",
+
+            # Input dimensions must be divisible by the stride
+            # In current situations, the image will be cropped to the nearest multiple of the stride
+            "dimension_stride": 32,
+
+            "intermediate_layer": ["onnx::Conv_351", "onnx::Conv_379", "onnx::Conv_365"], 
+            "intermediate_slice": 53,
+        }
+
         self.sampleRewardConfig =  {
             "type": "reward",
             "load_fn": "src.models.yolov7.load.load_yolov7",
@@ -62,4 +76,8 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_trt_reward(self):
         onnx_path = create_and_validate_onnx(self.sampleRewardConfig)
+        create_and_validate_trt(onnx_path, skip_cache=True)
+
+    def test_multilayer_intermediate_concat(self):
+        onnx_path = create_and_validate_onnx(self.sampleVisionConfigMultiLayers, skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
