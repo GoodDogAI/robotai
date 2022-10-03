@@ -5,7 +5,7 @@ import tensorrt as trt
 import unittest
 
 from src.config import YOLOV7_CLASS_NAMES
-from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt
+from src.train.modelloader import create_and_validate_onnx, create_and_validate_trt, model_fullname, get_vision_model_size
 
 
 class TestModelLoaderTRT(unittest.TestCase):
@@ -66,6 +66,10 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_onnx_vision(self):
         create_and_validate_onnx(self.sampleVisionConfig, skip_cache=True)
+
+    def test_get_vision_model_size(self):
+        fullname = model_fullname(self.sampleVisionConfig)
+        self.assertEqual(get_vision_model_size(fullname), 17003)
 
     def test_trt_vision(self):
         onnx_path = create_and_validate_onnx(self.sampleVisionConfig)

@@ -20,6 +20,7 @@ class SimpleNet(pl.LightningModule):
        
         self.net = nn.Sequential(
             nn.Flatten(),
+            nn.BatchNorm1d(29754, momentum=0.01),
             nn.Linear(29754, 1024),
             nn.CELU(),
 

@@ -364,6 +364,23 @@ def create_and_validate_trt(onnx_path: str, skip_cache: bool=False) -> str:
 
     return trt_path
 
+
+def get_vision_model_size(full_name: str) -> int:
+    onnx_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_final.onnx")
+
+    if not os.path.exists(onnx_path):
+        raise AssertionError("Model does not exist")
+
+    onnx_model = onnx.load(onnx_path)
+    for out in onnx_model.graph.output:
+        if out.name == "intermediate":
+            assert len(out.type.tensor_type.shape.dim) == 2, "Intermediate output must be 2D (batch, features)"
+            return out.type.tensor_type.shape.dim[1].dim_value
+
+    raise KeyError("Unable to find output layer/size")
+
+
+
 # Loads a pre-cached, pre generated vision / reward model
 @contextmanager
 def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:

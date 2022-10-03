@@ -94,6 +94,7 @@ BRAIN_CONFIGS = dotdict({
 
                 {
                     "type": "vision",
+                    "size": 17003,
                     "index": -1,
                 }
             ],
