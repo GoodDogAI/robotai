@@ -285,7 +285,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
     std::vector<kj::Array<capnp::word>> ret;
     for (auto& [event_type, msg] : msgs) {
         //std::cout << capnp::prettyPrint(msg.).flatten().cStr() << std::endl;
-        ret.push_back(capnp::messageToFlatArray(dynamic_cast<capnp::MessageBuilder&>(msg)));
+        ret.push_back(std::move(capnp::messageToFlatArray(dynamic_cast<capnp::MessageBuilder&>(msg))));
     }
     return ret;
     

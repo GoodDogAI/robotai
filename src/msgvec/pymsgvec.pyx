@@ -6,11 +6,13 @@ from cpython cimport array
 from pymsgvec cimport MsgVec
 from typing import List
 
-from capnp.includes.schema_cpp cimport WordArray
+from cereal import log
+from capnp.includes.schema_cpp cimport WordArray, WordArrayPtr
 from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
 
-from capnp.lib.capnp cimport _DynamicStructReader, _DynamicStructBuilder
 
+cdef extern from "<utility>" namespace "std":
+    vector[WordArray] move(vector[WordArray]) # Cython has no function templates
 
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
@@ -39,7 +41,15 @@ cdef class PyMsgVec:
         assert len(act) == self.c_msgvec.act_size()
         cdef array.array a = array.array('f', act)
 
-        cdef vector[WordArray] result = self.c_msgvec.get_action_command(a.data.as_floats)
+        cdef vector[WordArray] result = move(self.c_msgvec.get_action_command(a.data.as_floats))
         pyresult = []
+
+        cdef array.array word_array_template = array.array('L', [])
+        cdef array.array newarray
+        for i in range(result.size()):
+            newarray = array.clone(word_array_template, 0, True)
+            array.extend_buffer(word_array_template, <char *>result[i].begin(), result[i].size())
+            with log.Event.from_bytes(newarray.tobytes()) as msg:
+                pyresult.append(msg)
 
         return pyresult
