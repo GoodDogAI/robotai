@@ -144,6 +144,26 @@ capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader 
     return value;
 }
 
+void set_dotted_value(capnp::DynamicStruct::Builder &root, std::string dottedPath, const capnp::DynamicValue::Reader &value) {
+    capnp::DynamicStruct::Builder builder = root;
+
+    while (true) {
+        auto dotPos = dottedPath.find('.');
+        if (dotPos == std::string::npos) {
+            builder.set(dottedPath, value);
+            return;
+        }
+
+        auto field = dottedPath.substr(0, dotPos);
+        dottedPath = dottedPath.substr(dotPos + 1);
+
+        if (!builder.has(field)) {
+            builder.init(field);
+        }
+        builder = builder.get(field).as<capnp::DynamicStruct>();
+    }
+}
+
 std::string get_event_type(const std::string &dotted_path) {
     auto dotPos = dotted_path.find('.');
     if (dotPos == std::string::npos) {
@@ -289,8 +309,9 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
         }
 
         capnp::DynamicStruct::Builder dyn = msgs[event_type].getRoot<cereal::Event>();
-        auto vmsg = dyn.init("voltage").as<capnp::DynamicStruct>();
-        vmsg.set("volts", actVector[act_index]);
+        // auto vmsg = dyn.init("voltage").as<capnp::DynamicStruct>();
+        // vmsg.set("volts", actVector[act_index]);
+        set_dotted_value(dyn, act["path"], actVector[act_index]);
 
         act_index++;
     }
