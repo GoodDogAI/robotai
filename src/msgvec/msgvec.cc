@@ -2,6 +2,7 @@
 #include <functional>
 #include <string_view>
 #include <algorithm>
+#include <set>
 #include <iostream>
 
 #include <nlohmann/json.hpp>
@@ -108,6 +109,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
     }
 
     m_actSize = 0;
+    // Also verify that all action paths are unique
+    std::set<std::string> actPaths;
     for (auto &act: m_config["act"]) {
         if (act["type"] == "msg") {
             m_actSize += 1;
@@ -115,6 +118,12 @@ MsgVec::MsgVec(const std::string &jsonConfig):
         else {
             throw std::runtime_error("Unknown action type");
         }
+
+        if (actPaths.find(act["path"]) != actPaths.end()) {
+            throw std::runtime_error("msgvec: action paths must be unique");
+        }
+
+        actPaths.insert(act["path"]);
     }
 }
 
