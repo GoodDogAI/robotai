@@ -341,6 +341,7 @@ class TestMsgVec(unittest.TestCase):
         result = msgvec.get_action_command([1.0])
 
         print(result)
+        print(result[0].voltage)
  
 
     

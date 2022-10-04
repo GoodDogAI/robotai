@@ -9,6 +9,7 @@
 #include <capnp/message.h>
 #include <capnp/serialize-packed.h>
 #include <capnp/schema.h>
+#include <capnp/pretty-print.h>
 #include <capnp/dynamic.h>
 
 #include "msgvec.h"
@@ -266,22 +267,25 @@ bool MsgVec::get_obs_vector(float *obsVector) {
     return true;
 }
 
-std::vector<capnp::DynamicStruct::Builder> MsgVec::get_action_command(const float *actVector) {
-    std::map<std::string, capnp::DynamicStruct::Builder> msgs;
+std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
+    std::map<std::string, MessageBuilder> msgs;
+
+    size_t act_index = 0;
 
     for (auto &act : m_config["act"]) {
         std::string event_type {get_event_type(act["path"])};
 
-        MessageBuilder msg;
-        capnp::DynamicStruct::Builder event = msg.initEvent(true);
-        event.init(event_type);
+        if (msgs.count(event_type) == 0) {
+            msgs[event_type].initEvent(true);
+        }
 
-        msgs[event_type] = event;
+        act_index++;
     }
 
-    std::vector<capnp::DynamicStruct::Builder> ret;
-    for (const auto& [key, value] : msgs) {
-        ret.push_back(value);
+    std::vector<kj::Array<capnp::word>> ret;
+    for (auto& [event_type, msg] : msgs) {
+        //std::cout << capnp::prettyPrint(msg.).flatten().cStr() << std::endl;
+        ret.push_back(capnp::messageToFlatArray(dynamic_cast<capnp::MessageBuilder&>(msg)));
     }
     return ret;
     

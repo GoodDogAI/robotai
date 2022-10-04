@@ -27,7 +27,7 @@ class MsgVec {
         bool get_obs_vector(float *obsVector);
 
         // Given an action vector output from the RL model, returns the list of messages to send
-        std::vector<capnp::DynamicStruct::Builder> get_action_command(const float *actVector);
+        std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);
 
 
     private:

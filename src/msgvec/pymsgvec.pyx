@@ -6,7 +6,9 @@ from cpython cimport array
 from pymsgvec cimport MsgVec
 from typing import List
 
+from capnp.includes.schema_cpp cimport WordArray
 from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
+
 from capnp.lib.capnp cimport _DynamicStructReader, _DynamicStructBuilder
 
 
@@ -37,10 +39,7 @@ cdef class PyMsgVec:
         assert len(act) == self.c_msgvec.act_size()
         cdef array.array a = array.array('f', act)
 
-        result = self.c_msgvec.get_action_command(a.data.as_floats)
+        cdef vector[WordArray] result = self.c_msgvec.get_action_command(a.data.as_floats)
         pyresult = []
-
-        for r in result:
-            pyresult.append(_DynamicStructBuilder()._init(r, None))
 
         return pyresult

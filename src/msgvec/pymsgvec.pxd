@@ -5,6 +5,7 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
+from capnp.includes.schema_cpp cimport WordArray
 from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
 
 cdef extern from "msgvec.h":
@@ -15,6 +16,6 @@ cdef extern from "msgvec.h":
 
         bool input(const vector[uchar] &bytes) except +
         bool get_obs_vector(float *obsVector) except +
-        vector[DynamicStruct_Builder] get_action_command(const float *actVector) except +
+        vector[WordArray] get_action_command(const float *actVector) except +
 
 
