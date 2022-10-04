@@ -279,6 +279,10 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
             msgs[event_type].initEvent(true);
         }
 
+        capnp::DynamicStruct::Builder dyn = msgs[event_type].getRoot<cereal::Event>();
+        auto vmsg = dyn.init("voltage").as<capnp::DynamicStruct>();
+        vmsg.set("volts", actVector[act_index]);
+
         act_index++;
     }
 

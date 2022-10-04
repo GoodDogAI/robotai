@@ -48,8 +48,9 @@ cdef class PyMsgVec:
         cdef array.array newarray
         for i in range(result.size()):
             newarray = array.clone(word_array_template, 0, True)
-            array.extend_buffer(word_array_template, <char *>result[i].begin(), result[i].size())
+            array.extend_buffer(newarray, <char *>result[i].begin(), result[i].size())
             with log.Event.from_bytes(newarray.tobytes()) as msg:
+                print(msg)
                 pyresult.append(msg)
 
         return pyresult

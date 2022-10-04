@@ -338,10 +338,31 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(msgvec.act_size(), 1)
 
-        result = msgvec.get_action_command([1.0])
+        for i in range(1000):
+            result = msgvec.get_action_command([i])
 
+            msgvec.get_action_command([0.0])
+            msgvec.get_action_command([-1.0])
+                
+            self.assertAlmostEqual(result[0].voltage.volts, i, places=3)
+
+    def test_allocate_tons(self):
+        config = {"obs": [], "act": []}
+        for i in range(1000):
+            config["act"].append( {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                });
+    
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        self.assertEqual(msgvec.act_size(), 1000)
+
+        result = msgvec.get_action_command([5.0] * 1000)
         print(result)
-        print(result[0].voltage)
- 
+
 
     
