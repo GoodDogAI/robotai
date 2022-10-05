@@ -12,6 +12,17 @@
 using json = nlohmann::json;
 
 class MsgVec {
+    enum class ActionStatus {
+        WAITING_FOR_ACTIONS,
+        ACTION_VEC_READY,
+    };
+
+    struct InputStatus {
+        bool message_processed = false;
+        ActionStatus act_status = ActionStatus::WAITING_FOR_ACTIONS;
+    };
+
+
     public:
         //, std::function<int(std::vector<float>)> visionIntermediateProvider
         MsgVec(const std::string &jsonConfig);
@@ -23,7 +34,8 @@ class MsgVec {
         size_t obs_size() const;
         size_t act_size() const;
 
-        // Returns the current observation vector, given the most recent messages
+        // Writes out the current observation vector, given the most recent messages
+        // Returns true if all observations match their timestamps
         bool get_obs_vector(float *obsVector);
 
         // Returns the current action vector, given the most recent messages
@@ -39,4 +51,5 @@ class MsgVec {
         std::vector<float> m_actVector;
 
         std::map<int, std::deque<float>> m_obsHistory;
+        std::map<int, std::deque<uint64_t>> m_obsHistoryTimestamps;
 };

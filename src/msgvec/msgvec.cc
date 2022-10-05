@@ -108,6 +108,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
                 }
 
                 m_obsHistory[obs_index] = std::deque<float>(std::abs(obs["index"].get<int64_t>()), 0.0f);
+                m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(std::abs(obs["index"].get<int64_t>()), 0);
                 m_obsSize += 1;
             } 
             else if (obs["index"].is_array()) {
@@ -118,6 +119,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
                 }
 
                 m_obsHistory[obs_index] = std::deque<float>(std::abs(*std::min_element(indices.begin(), indices.end())), 0.0f);
+                m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(std::abs(*std::min_element(indices.begin(), indices.end())), 0);
                 m_obsSize += obs["index"].size();
             }            
             else {
@@ -307,6 +309,10 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
             float rawValue = get_dotted_value(reader, obs["path"]).as<float>();
             m_obsHistory[obs_index].push_front(transform_msg_to_vec(obs["transform"], rawValue));
             m_obsHistory[obs_index].pop_back();
+
+            m_obsHistoryTimestamps[obs_index].push_front(evt.getLogMonoTime());
+            m_obsHistoryTimestamps[obs_index].pop_back();
+
             processed = true;
         }
 
@@ -335,19 +341,32 @@ size_t MsgVec::act_size() const {
     return m_actSize;
 }
 
+uint64_t get_log_mono_time() {
+    struct timespec t;
+    clock_gettime(CLOCK_BOOTTIME, &t);
+    uint64_t current_time = t.tv_sec * 1000000000ULL + t.tv_nsec;
+    return current_time;
+}
+
 bool MsgVec::get_obs_vector(float *obsVector) {
+    bool timestamps_valid = true;
+    const uint64_t cur_time = get_log_mono_time();
     size_t index = 0;
     size_t curpos = 0;
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg") {
             if (obs["index"].is_number()) {
-                obsVector[index] = m_obsHistory[index][std::abs(obs["index"].get<int64_t>()) - 1];
+                auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
+                obsVector[index] = m_obsHistory[index][history_index];
+                timestamps_valid &= cur_time - m_obsHistoryTimestamps[index][history_index] < (history_index + 1) * obs["timeout"].get<float>() * 1e9;
                 curpos++;
             } else if (obs["index"].is_array()) {
                 std::vector<int64_t> indices = obs["index"];
                 for (size_t i = 0; i < indices.size(); i++) {
-                    obsVector[index + i] = m_obsHistory[index][std::abs(indices[i]) - 1];
+                    auto history_index = std::abs(indices[i]) - 1;
+                    obsVector[index + i] = m_obsHistory[index][history_index];
+                    timestamps_valid &= cur_time - m_obsHistoryTimestamps[index][history_index] < (history_index + 1) * obs["timeout"].get<float>() * 1e9;
                 }
                 curpos += indices.size();
             }
@@ -357,7 +376,7 @@ bool MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
-    return true;
+    return timestamps_valid;
 }
 
 bool MsgVec::get_act_vector(float *actVector) {

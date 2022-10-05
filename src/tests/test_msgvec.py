@@ -570,3 +570,27 @@ class TestMsgVec(unittest.TestCase):
                 },
             ]}
             msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+    def test_obs_timeouts(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertFalse(msgvec.get_obs_vector())

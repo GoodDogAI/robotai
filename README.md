@@ -93,3 +93,14 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 - Then, it takes NV12 into YUV420, and then RGB, but it uses color_space=nvc.ColorSpace.BT_601 and color_range=nvc.ColorRange.MPEG
     - TODO: What actual color_space and color_range to use here?
 - Those RGB frames can go directly into ONNX models for vision intermediates, or vision rewards
+
+
+## TODOs
+- [ ] Finish MsgVec
+ - Timing
+ - Rewards
+- [ ] Encode depth frames
+- [ ] Implement odrive and head command messages
+- [ ] Implement bag2log conversion
+- [ ] Implement bluetoothd
+- [ ] Stable baselines trainer
