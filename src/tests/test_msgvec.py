@@ -418,5 +418,32 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].odriveCommand.currentLeft, 3.0)
         self.assertEqual(result[1].odriveCommand.currentRight, 4.0)
 
+    def test_act_transforms(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "headCommand.yawAngle",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-45.0, 45.0],
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        result = msgvec.get_action_command([2.0])
+        self.assertEqual(result[0].headCommand.yawAngle, 45.0)
+
+        result = msgvec.get_action_command([-2.0])
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+
+        result = msgvec.get_action_command([0.0])
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command([0.5])
+        self.assertEqual(result[0].headCommand.yawAngle, 45.0 / 2)
 
     
