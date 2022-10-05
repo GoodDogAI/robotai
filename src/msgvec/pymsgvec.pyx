@@ -37,6 +37,11 @@ cdef class PyMsgVec:
         self.c_msgvec.get_obs_vector(obs_vector.data())
         return list(obs_vector)
 
+    def get_act_vector(self) -> List[float]:
+        cdef vector[float] act_vector = vector[float](self.c_msgvec.act_size())
+        self.c_msgvec.get_act_vector(act_vector.data())
+        return list(act_vector)
+
     def get_action_command(self, act: List[float]):
         assert len(act) == self.c_msgvec.act_size()
         cdef array.array a = array.array('f', act)

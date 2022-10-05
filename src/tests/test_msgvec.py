@@ -446,4 +446,31 @@ class TestMsgVec(unittest.TestCase):
         result = msgvec.get_action_command([0.5])
         self.assertEqual(result[0].headCommand.yawAngle, 45.0 / 2)
 
-    
+    def test_feed_acts(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "headCommand.yawAngle",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-45.0, 45.0],
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        event = log.Event.new_message()
+        event.init("headCommand")
+        event.headCommand.yawAngle = 12.0
+        self.assertTrue(msgvec.input(event.to_bytes()))
+
+        print(msgvec.get_act_vector())
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        self.assertFalse(msgvec.input(event.to_bytes()))

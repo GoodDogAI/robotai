@@ -125,6 +125,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
 
         actPaths.insert(act["path"]);
     }
+
+    m_actVector = std::vector<float>(m_actSize);
 }
 
 capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -268,16 +270,28 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
 
     // Iterate over each possible msg observation
     bool processed = false;
-    size_t index = 0;
+    size_t obs_index = 0;
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
-            m_obsHistory[index].push_front(get_vector_value(reader, obs));
-            m_obsHistory[index].pop_back();
+            float rawValue = get_dotted_value(reader, obs["path"]).as<float>();
+            m_obsHistory[obs_index].push_front(transform_msg_to_vec(obs["transform"], rawValue));
+            m_obsHistory[obs_index].pop_back();
             processed = true;
         }
 
-        index++;
+        obs_index++;
+    }
+    
+    size_t act_index = 0;
+
+    for (auto &act : m_config["act"]) {
+        if (act["type"] == "msg") {
+            float rawValue = get_dotted_value(reader, act["path"]).as<float>();
+            m_actVector[act_index] = transform_vec_to_msg(act["transform"], rawValue);
+            processed = true;
+            act_index++;
+        }
     }
 
     return processed;
@@ -313,6 +327,11 @@ bool MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
+    return true;
+}
+
+bool MsgVec::get_act_vector(float *actVector) {
+    std::copy(m_actVector.begin(), m_actVector.end(), actVector);
     return true;
 }
 

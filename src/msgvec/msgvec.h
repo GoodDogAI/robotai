@@ -26,6 +26,9 @@ class MsgVec {
         // Returns the current observation vector, given the most recent messages
         bool get_obs_vector(float *obsVector);
 
+        // Returns the current action vector, given the most recent messages
+        bool get_act_vector(float *actVector);
+
         // Given an action vector output from the RL model, returns the list of messages to send
         std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);
 
