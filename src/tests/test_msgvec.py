@@ -378,7 +378,9 @@ class TestMsgVec(unittest.TestCase):
                     "path": "headCommand.yawAngle",
                     "timeout": 0.01,
                     "transform": {
-                        "type": "identity",
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
                     },
                 },
 
@@ -412,7 +414,7 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].which(), "odriveCommand")
 
         self.assertEqual(result[0].headCommand.pitchAngle, 1.0)
-        self.assertEqual(result[0].headCommand.yawAngle, 2.0)
+        self.assertEqual(result[0].headCommand.yawAngle, 45.0)
         self.assertEqual(result[1].odriveCommand.currentLeft, 3.0)
         self.assertEqual(result[1].odriveCommand.currentRight, 4.0)
 

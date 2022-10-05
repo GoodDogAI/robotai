@@ -216,21 +216,41 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     return true;
 }
 
+float transform_msg_to_vec(const json &transform, float msgValue) {
+    const std::string &transformType = transform["type"];
+
+    if (transformType == "identity") {
+        return msgValue;
+    } else if (transformType == "rescale") {
+        const std::vector<float> &msgRange = transform["msg_range"];
+        const std::vector<float> &vecRange = transform["vec_range"];
+
+        return std::clamp((msgValue - msgRange[0]) / (msgRange[1] - msgRange[0]) * (vecRange[1] - vecRange[0]) + vecRange[0], vecRange[0], vecRange[1]);
+    } else {
+        throw std::runtime_error("Unknown transform type: " + transformType);
+    }
+}
+
+float transform_vec_to_msg(const json &transform, float vecValue) {
+    const std::string &transformType = transform["type"];
+
+    if (transformType == "identity") {
+        return vecValue;
+    } else if (transformType == "rescale") {
+        const std::vector<float> &msgRange = transform["msg_range"];
+        const std::vector<float> &vecRange = transform["vec_range"];
+
+        return std::clamp((vecValue - vecRange[0]) / (vecRange[1] - vecRange[0]) * (msgRange[1] - msgRange[0]) + msgRange[0], msgRange[0], msgRange[1]);
+    } else {
+        throw std::runtime_error("Unknown transform type: " + transformType);
+    }
+}
+
 float get_vector_value(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     float rawValue = get_dotted_value(msg, obs["path"]).as<float>();
 
     if (obs.contains("transform")) {
-        const std::string &transformType = obs["transform"]["type"];
-        if (transformType == "identity") {
-            return rawValue;
-        } else if (transformType == "rescale") {
-            const std::vector<float> &msgRange = obs["transform"]["msg_range"];
-            const std::vector<float> &vecRange = obs["transform"]["vec_range"];
-
-            return std::clamp((rawValue - msgRange[0]) / (msgRange[1] - msgRange[0]) * (vecRange[1] - vecRange[0]) + vecRange[0], vecRange[0], vecRange[1]);
-        } else {
-            throw std::runtime_error("Unknown transform type: " + transformType);
-        }
+        return transform_msg_to_vec(obs["transform"], rawValue);
     }
 
     return rawValue;
@@ -303,15 +323,19 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
 
     for (auto &act : m_config["act"]) {
         std::string event_type {get_event_type(act["path"])};
+        float actValue = actVector[act_index];
 
         if (msgs.count(event_type) == 0) {
             msgs[event_type].initEvent(true);
         }
 
         capnp::DynamicStruct::Builder dyn = msgs[event_type].getRoot<cereal::Event>();
-        // auto vmsg = dyn.init("voltage").as<capnp::DynamicStruct>();
-        // vmsg.set("volts", actVector[act_index]);
-        set_dotted_value(dyn, act["path"], actVector[act_index]);
+
+        if (act.contains("transform")) {
+            actValue = transform_vec_to_msg(act["transform"], actValue);
+        }
+
+        set_dotted_value(dyn, act["path"], actValue);
 
         act_index++;
     }
