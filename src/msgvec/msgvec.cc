@@ -67,6 +67,32 @@
     ],
 }
 */
+
+void verify_transform(const json& transform) {
+    if (transform["type"] == "identity") {
+        return;
+    } else if (transform["type"] == "rescale") {
+        if (transform["msg_range"].size() != 2) {
+            throw std::runtime_error("msg_range must be a 2-element array");
+        }
+
+        if (transform["vec_range"].size() != 2) {
+            throw std::runtime_error("vec_range must be a 2-element array");
+        }
+
+        if (transform["msg_range"][0] >= transform["msg_range"][1]) {
+            throw std::runtime_error("msg_range must be increasing");
+        }
+
+        if (transform["vec_range"][0] >= transform["vec_range"][1]) {
+            throw std::runtime_error("vec_range must be increasing");
+        }
+    } else {
+        throw std::runtime_error("Unknown transform type");
+    }
+}
+
+
 MsgVec::MsgVec(const std::string &jsonConfig):
  m_config(json::parse(jsonConfig)) {
 
@@ -97,6 +123,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
             else {
                 throw std::runtime_error("msgvec: msg index must be an array or number");
             }
+
+            verify_transform(obs["transform"]);
         }
         else if (obs["type"] == "vision") {
             m_obsSize += obs["size"].get<int64_t>();
@@ -114,6 +142,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
     for (auto &act: m_config["act"]) {
         if (act["type"] == "msg") {
             m_actSize += 1;
+
+            verify_transform(act["transform"]);
         }
         else {
             throw std::runtime_error("Unknown action type");

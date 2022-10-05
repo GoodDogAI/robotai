@@ -509,3 +509,64 @@ class TestMsgVec(unittest.TestCase):
             self.assertTrue(msgvec.input(messages[0].as_builder().to_bytes()))
 
             self.assertAlmostEqual(msgvec.get_act_vector()[0], min(max(f, -1), 1) , places=3)
+
+    def test_transform_ranges_minmax(self):
+        with self.assertRaises(Exception):
+            config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [1, -1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ]}
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        with self.assertRaises(Exception):
+            config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, -1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ]}
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        with self.assertRaises(Exception):
+            config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 10],
+                        "msg_range": [45.0, 40.0],
+                    },
+                },
+            ]}
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        with self.assertRaises(Exception):
+            config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 10, 3],
+                        "msg_range": [32.0, 40.0],
+                    },
+                },
+            ]}
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
