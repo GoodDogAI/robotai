@@ -2,6 +2,7 @@ import unittest
 import json
 import os
 import time
+import random
 from cereal import log
 from src.msgvec.pymsgvec import PyMsgVec
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
@@ -465,15 +466,16 @@ class TestMsgVec(unittest.TestCase):
             (45, 1),
             (-45, -1),
             (46, 1),
-            (-46, -1)]
+            (-46, -1),
+            (0, 0),
+            (45.0 / 2, 0.5)]
+
         for msg, vec in test_params:
             event = log.Event.new_message()
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertTrue(msgvec.input(event.to_bytes()))
             self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
-
-        print(msgvec.get_act_vector())
 
         # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
@@ -482,3 +484,28 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.type = "mainBattery"
 
         self.assertFalse(msgvec.input(event.to_bytes()))
+
+    def test_action_inverse(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "headCommand.yawAngle",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-45.0, 45.0],
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+
+        for i in range(1000):
+            f = random.uniform(-2, 2)
+            messages = msgvec.get_action_command([f])
+
+            self.assertEqual(len(messages), 1)
+            self.assertTrue(msgvec.input(messages[0].as_builder().to_bytes()))
+
+            self.assertAlmostEqual(msgvec.get_act_vector()[0], min(max(f, -1), 1) , places=3)
