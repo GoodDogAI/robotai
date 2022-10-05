@@ -461,13 +461,21 @@ class TestMsgVec(unittest.TestCase):
         ]}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        event = log.Event.new_message()
-        event.init("headCommand")
-        event.headCommand.yawAngle = 12.0
-        self.assertTrue(msgvec.input(event.to_bytes()))
+        test_params = [
+            (45, 1),
+            (-45, -1),
+            (46, 1),
+            (-46, -1)]
+        for msg, vec in test_params:
+            event = log.Event.new_message()
+            event.init("headCommand")
+            event.headCommand.yawAngle = msg
+            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
 
         print(msgvec.get_act_vector())
 
+        # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
         event.init("voltage")
         event.voltage.volts = 13.5

@@ -286,9 +286,9 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
     size_t act_index = 0;
 
     for (auto &act : m_config["act"]) {
-        if (act["type"] == "msg") {
+        if (act["type"] == "msg" && message_matches(reader, act)) {
             float rawValue = get_dotted_value(reader, act["path"]).as<float>();
-            m_actVector[act_index] = transform_vec_to_msg(act["transform"], rawValue);
+            m_actVector[act_index] = transform_msg_to_vec(act["transform"], rawValue);
             processed = true;
             act_index++;
         }
