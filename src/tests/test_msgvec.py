@@ -361,7 +361,60 @@ class TestMsgVec(unittest.TestCase):
     
         with self.assertRaises(Exception):
             msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
-        
+
+    def test_populate_message(self):
+        config = {"obs": [], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentLeft",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentRight",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.act_size(), 4)
+
+        result = msgvec.get_action_command([1.0, 2.0, 3.0, 4.0])
+        print(result)
+
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "headCommand")
+        self.assertEqual(result[1].which(), "odriveCommand")
+
+        self.assertEqual(result[0].headCommand.pitchAngle, 1.0)
+        self.assertEqual(result[0].headCommand.yawAngle, 2.0)
+        self.assertEqual(result[1].odriveCommand.currentLeft, 3.0)
+        self.assertEqual(result[1].odriveCommand.currentRight, 4.0)
 
 
     
