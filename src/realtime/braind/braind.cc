@@ -102,17 +102,21 @@ static void msgvec_reader(MsgVec &msgvec) {
   std::unordered_set<std::unique_ptr<SubSocket>> socks;
 
   for (const auto& it : services) {
-      if (!it.should_log) 
-          continue;
+    if (!it.should_log || strcmp(it.name, "braind") == 0)
+        continue;
 
-      auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
-      assert(sock != NULL);
+    auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
+    assert(sock != NULL);
 
-      poller->registerSocket(sock.get());
-      socks.insert(std::move(sock));
+    fmt::print("brain {} (on port {})\n", it.name, it.port);
+
+    poller->registerSocket(sock.get());
+    socks.insert(std::move(sock));
   }
 
-  for (auto sock : poller->poll(1000)) {
+  while (!do_exit) {
+    for (auto sock : poller->poll(1000)) {
+      fmt::print("Received message on brain\n");
       auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
 
       capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
@@ -120,6 +124,7 @@ static void msgvec_reader(MsgVec &msgvec) {
 
       auto updated = msgvec.input(event);
       fmt::print("Updated: {}\n", updated);
+    }
   }
 }
 
