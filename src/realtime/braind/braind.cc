@@ -9,7 +9,7 @@
 #include <fmt/core.h>
 #include <fmt/chrono.h>
 #include <fmt/ranges.h>
-
+#include <nlohmann/json.hpp>
 #include <npy/npy.h>
 #include <npy/tensor.h>
 
@@ -19,6 +19,8 @@
 
 #include "util.h"
 #include "config.h"
+
+#include "msgvec.h"
 
 #include "cereal/messaging/messaging.h"
 #include "cereal/visionipc/visionbuf.h"
@@ -88,9 +90,13 @@ int main(int argc, char *argv[])
 {
   argparse::ArgumentParser args("braind");
 
+  args.add_argument("--config")
+      .help("path to config json file")
+      .required();
+
   args.add_argument("--vision_model")
       .help("fullname of the vision model to use")
-      .required();
+      .required();  
 
   try
   {
@@ -102,6 +108,8 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  json config { json::parse(jsonConfig) };
+  MsgVec msgvec { json::to_json(config["msgvec"]) };
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   PubMaster pm { {validation_service_name} };
   size_t last_10_sec_msgs { 0 };

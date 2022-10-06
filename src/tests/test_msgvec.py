@@ -665,4 +665,9 @@ class TestMsgVec(unittest.TestCase):
         timeout, vec = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
 
+        time.sleep(0.02)
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
 

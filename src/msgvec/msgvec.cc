@@ -368,7 +368,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
                 for (size_t i = 0; i < indices.size(); i++) {
                     auto history_index = std::abs(indices[i]) - 1;
                     obsVector[index + i] = m_obsHistory[index][history_index];
-            
+              
                     if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
                         if (i == 0) {
                             timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
