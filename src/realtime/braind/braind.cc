@@ -116,14 +116,12 @@ static void msgvec_reader(MsgVec &msgvec) {
 
   while (!do_exit) {
     for (auto sock : poller->poll(1000)) {
-      fmt::print("Received message on brain\n");
       auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
 
       capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
       auto event = cmsg.getRoot<cereal::Event>();
 
-      auto updated = msgvec.input(event);
-      fmt::print("Updated: {}\n", updated);
+      msgvec.input(event);
     }
   }
 }
@@ -159,7 +157,8 @@ int main(int argc, char *argv[])
   size_t last_10_sec_msgs { 0 };
   auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
-  
+  MsgVec::TimeoutResult msgvec_obs_result { MsgVec::TimeoutResult::MESSAGES_NOT_READY };
+
   // Make sure the vision engine inputs and outputs are setup as we expect them
   if (vision_engine->get_tensor_dtype("y") != nvinfer1::DataType::kFLOAT) {
     throw std::runtime_error("Vision model output tensor y is not of type float");
@@ -185,16 +184,23 @@ int main(int argc, char *argv[])
         break;
     }
   }
+  
 
-  // Receive all stale frames from visionipc
-  while (true) {
-     VisionIpcBufExtra extra;
-    
+
+  // Receive all stale frames from visionipc, and wait for the msgvec obs vector to become ready
+  bool vision_ready = false, msgvec_ready = false;
+  while (!vision_ready || !msgvec_ready) {
+    VisionIpcBufExtra extra;
+
     //half a frame timeout, so if there are no pending frames, we can exit
-     VisionBuf* buf = vipc_client.recv(&extra, (1000/CAMERA_FPS) / 2);
-     if (buf == nullptr) {
-          break;
-     }
+    VisionBuf* buf = vipc_client.recv(&extra, (1000/CAMERA_FPS) / 2);
+    if (buf == nullptr) {
+        vision_ready = true;
+    }
+
+    auto timeout_res = msgvec.get_obs_vector(nullptr);
+    msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
+    msgvec_obs_result = timeout_res;
   }
 
 
@@ -226,6 +232,17 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < buf->width * buf->height / 2; i++) {
         host_uv[i] = buf->uv[i];
     }
+
+    std::vector<float> obs(msgvec.obs_size());
+    auto timeout_res = msgvec.get_obs_vector(obs.data());
+
+    if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
+      throw std::runtime_error("msgvec lost ready state");
+    }
+    else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
+      throw std::runtime_error("msgvec partially lost ready state");
+    }
+    msgvec_obs_result = timeout_res;
 
     vision_engine->copy_input_to_device();
     vision_engine->infer();
