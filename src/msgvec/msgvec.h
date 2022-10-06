@@ -12,18 +12,12 @@
 using json = nlohmann::json;
 
 class MsgVec {
-    enum class ActionStatus {
-        WAITING_FOR_ACTIONS,
-        ACTION_VEC_READY,
-    };
-
-    struct InputStatus {
-        bool message_processed = false;
-        ActionStatus act_status = ActionStatus::WAITING_FOR_ACTIONS;
-    };
-
-
     public:
+        enum class TimeoutResult {
+            MESSAGES_TIMED_OUT,
+            MESSAGES_WITHIN_TIMEOUT,
+        };
+
         //, std::function<int(std::vector<float>)> visionIntermediateProvider
         MsgVec(const std::string &jsonConfig);
 
@@ -36,7 +30,7 @@ class MsgVec {
 
         // Writes out the current observation vector, given the most recent messages
         // Returns true if all observations match their timestamps
-        bool get_obs_vector(float *obsVector);
+        TimeoutResult get_obs_vector(float *obsVector);
 
         // Returns the current action vector, given the most recent messages
         bool get_act_vector(float *actVector);

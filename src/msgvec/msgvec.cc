@@ -348,7 +348,7 @@ uint64_t get_log_mono_time() {
     return current_time;
 }
 
-bool MsgVec::get_obs_vector(float *obsVector) {
+MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
     bool timestamps_valid = true;
     const uint64_t cur_time = get_log_mono_time();
     size_t index = 0;
@@ -376,7 +376,7 @@ bool MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
-    return timestamps_valid;
+    return timestamps_valid ? TimeoutResult::MESSAGES_WITHIN_TIMEOUT : TimeoutResult::MESSAGES_TIMED_OUT;
 }
 
 bool MsgVec::get_act_vector(float *actVector) {
