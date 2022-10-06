@@ -14,8 +14,11 @@ set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 # Locate Python
 set(Python_FIND_VIRTUALENV FIRST)
 find_package(Python3 3.8 COMPONENTS Interpreter Development REQUIRED)
+execute_process(COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
+                OUTPUT_VARIABLE Python3_USERSITELIB
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
-
+message("Python sitelib ${Python3_SITELIB} and usersitelib ${Python3_USERSITELIB}")
 
 # Set the default location for the jetson multimedia sdk
 set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
@@ -91,8 +94,8 @@ if(NOT EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
 endif()
 
 
-# Find any dependencies that must be installed on the system
-find_package(CapnProto 0.7.0 REQUIRED)
+# We need at least 0.8.0
+find_package(CapnProto 0.8.0 REQUIRED)
 
 # TODO: This cannot be found, even though modern versions of ZMQ should provide a CMakeLists.txt
 # find_package(ZeroMQ REQUIRED)
@@ -187,7 +190,8 @@ add_custom_command(
   )
 
 Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp)
-target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB})
+target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB} ${Python3_USERSITELIB})
+
 target_link_libraries(pymsgvec PRIVATE msgvec)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
 target_compile_options(pymsgvec PRIVATE -Wno-shadow -Wno-unused)
@@ -231,6 +235,17 @@ target_link_libraries(
         zmq
         CapnProto::capnp
 )
+
+# add_executable(appcontrold src/realtime/appcontrold.cc ${MASTER_CONFIG_H})
+# target_link_libraries(
+#     appcontrold 
+#     PRIVATE
+#         stdc++fs
+#         fmt::fmt
+#         ${CEREAL_LIBRARIES}
+#         zmq
+#         CapnProto::capnp
+# )
 
 # Mike D with the master plan
 if(${ALSA_FOUND})
