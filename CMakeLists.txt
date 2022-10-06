@@ -6,6 +6,8 @@ project(RobotAI LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
+
 # Locate CUDA, and configure the CUDA COMPILER location manually
 # as a prerequisite for building the Nvidia VPF library
 find_package(CUDAToolkit)
@@ -104,6 +106,8 @@ find_package(realsense2 QUIET)
 message("REALSENSE Version: ${realsense2_VERSION}")
 
 find_package(ALSA)
+
+find_package(Bluetooth)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
@@ -236,16 +240,17 @@ target_link_libraries(
         CapnProto::capnp
 )
 
-# add_executable(appcontrold src/realtime/appcontrold.cc ${MASTER_CONFIG_H})
-# target_link_libraries(
-#     appcontrold 
-#     PRIVATE
-#         stdc++fs
-#         fmt::fmt
-#         ${CEREAL_LIBRARIES}
-#         zmq
-#         CapnProto::capnp
-# )
+add_executable(appcontrold src/realtime/appcontrold.cc ${MASTER_CONFIG_H})
+target_link_libraries(
+    appcontrold 
+    PRIVATE
+        Bluetooth::Bluetooth
+        stdc++fs
+        fmt::fmt
+        ${CEREAL_LIBRARIES}
+        zmq
+        CapnProto::capnp
+)
 
 # Mike D with the master plan
 if(${ALSA_FOUND})
