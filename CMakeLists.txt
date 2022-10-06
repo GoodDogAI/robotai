@@ -194,7 +194,7 @@ target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB} ${Python3_USERSIT
 
 target_link_libraries(pymsgvec PRIVATE msgvec)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
-target_compile_options(pymsgvec PRIVATE -Wno-shadow -Wno-unused)
+target_compile_options(pymsgvec PRIVATE -Wno-shadow -Wno-unused -Wno-deprecated)
 set_target_properties(pymsgvec PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/msgvec
 )
