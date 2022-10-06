@@ -273,6 +273,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     target_link_libraries(
         braind 
         PRIVATE
+            msgvec
             serial 
             stdc++fs
             fmt::fmt

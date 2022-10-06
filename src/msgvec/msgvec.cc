@@ -68,7 +68,7 @@
 }
 */
 
-void verify_transform(const json& transform) {
+static void verify_transform(const json& transform) {
     if (transform["type"] == "identity") {
         return;
     } else if (transform["type"] == "rescale") {
@@ -161,7 +161,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
     m_actVector = std::vector<float>(m_actSize);
 }
 
-capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
+static capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
     capnp::DynamicStruct::Reader value = root;
 
     while (true) {
@@ -178,7 +178,7 @@ capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader 
     return value;
 }
 
-void set_dotted_value(capnp::DynamicStruct::Builder &root, std::string dottedPath, const capnp::DynamicValue::Reader &value) {
+static void set_dotted_value(capnp::DynamicStruct::Builder &root, std::string dottedPath, const capnp::DynamicValue::Reader &value) {
     capnp::DynamicStruct::Builder builder = root;
 
     while (true) {
@@ -198,7 +198,7 @@ void set_dotted_value(capnp::DynamicStruct::Builder &root, std::string dottedPat
     }
 }
 
-std::string get_event_type(const std::string &dotted_path) {
+static std::string get_event_type(const std::string &dotted_path) {
     auto dotPos = dotted_path.find('.');
     if (dotPos == std::string::npos) {
         return dotted_path;
@@ -207,7 +207,7 @@ std::string get_event_type(const std::string &dotted_path) {
     return dotted_path.substr(0, dotPos);
 }
 
-bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
+static bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     const std::string &path = obs["path"];
     std::string event_type {get_event_type(path)};
 
@@ -250,7 +250,7 @@ bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
     return true;
 }
 
-float transform_msg_to_vec(const json &transform, float msgValue) {
+static float transform_msg_to_vec(const json &transform, float msgValue) {
     const std::string &transformType = transform["type"];
 
     if (transformType == "identity") {
@@ -265,7 +265,7 @@ float transform_msg_to_vec(const json &transform, float msgValue) {
     }
 }
 
-float transform_vec_to_msg(const json &transform, float vecValue) {
+static float transform_vec_to_msg(const json &transform, float vecValue) {
     const std::string &transformType = transform["type"];
 
     if (transformType == "identity") {
@@ -280,15 +280,6 @@ float transform_vec_to_msg(const json &transform, float vecValue) {
     }
 }
 
-float get_vector_value(const capnp::DynamicStruct::Reader &msg, const json &obs) {
-    float rawValue = get_dotted_value(msg, obs["path"]).as<float>();
-
-    if (obs.contains("transform")) {
-        return transform_msg_to_vec(obs["transform"], rawValue);
-    }
-
-    return rawValue;
-}
 
 bool MsgVec::input(const std::vector<uint8_t> &bytes) {
     capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));

@@ -3,6 +3,8 @@
 #include <memory>
 #include <utility>
 #include <chrono>
+#include <thread>
+#include <unordered_set>
 #include <experimental/filesystem>
 
 #include <argparse/argparse.hpp>
@@ -22,6 +24,7 @@
 
 #include "msgvec.h"
 
+#include "cereal/services.h"
 #include "cereal/messaging/messaging.h"
 #include "cereal/visionipc/visionbuf.h"
 #include "cereal/visionipc/visionipc.h"
@@ -86,6 +89,40 @@ std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
   return engine;
 }
 
+static void close_message(Message *m) {
+    m->close();
+}
+
+static void msgvec_reader(MsgVec &msgvec) {
+  // Connect to all of the message queues to receive data to input into the RL model
+  std::unique_ptr<Context> ctx{ Context::create() };
+  std::unique_ptr<Poller> poller{ Poller::create() };
+
+   // Register all sockets
+  std::unordered_set<std::unique_ptr<SubSocket>> socks;
+
+  for (const auto& it : services) {
+      if (!it.should_log) 
+          continue;
+
+      auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
+      assert(sock != NULL);
+
+      poller->registerSocket(sock.get());
+      socks.insert(std::move(sock));
+  }
+
+  for (auto sock : poller->poll(1000)) {
+      auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
+
+      capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
+      auto event = cmsg.getRoot<cereal::Event>();
+
+      auto updated = msgvec.input(event);
+      fmt::print("Updated: {}\n", updated);
+  }
+}
+
 int main(int argc, char *argv[])
 {
   argparse::ArgumentParser args("braind");
@@ -108,9 +145,11 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
-  json config { json::parse(jsonConfig) };
-  MsgVec msgvec { json::to_json(config["msgvec"]) };
+  std::ifstream config_ifs { args.get<std::string>("config") };
+  json config { json::parse(config_ifs) };
+  MsgVec msgvec { config["msgvec"].dump() };
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
+  std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec) };
   PubMaster pm { {validation_service_name} };
   size_t last_10_sec_msgs { 0 };
   auto last_10_sec_time { std::chrono::steady_clock::now() };
@@ -152,6 +191,7 @@ int main(int argc, char *argv[])
           break;
      }
   }
+
 
   float *host_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
   float *host_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
@@ -232,6 +272,6 @@ int main(int argc, char *argv[])
     last_10_sec_msgs++;
   }
 
-
+  msgvec_thread.join();
   return EXIT_SUCCESS;
 }

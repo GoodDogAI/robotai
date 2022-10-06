@@ -6,6 +6,8 @@ import multiprocessing
 from setproctitle import setproctitle 
 
 from typing import List, Dict
+
+from src.config import DEVICE_CONFIG
 from src.realtime.setup import prepare_brain_models
 
 
@@ -102,7 +104,8 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("micd"),
         NativeProcess("odrived"),
         NativeProcess("simplebgcd"),
-        NativeProcess("braind", ["--vision_model", models["vision_model"]]),
+        NativeProcess("braind", ["--config", os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"),
+                                 "--vision_model", models["vision_model"]]),
     ]
 
 async def main():
