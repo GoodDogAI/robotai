@@ -4,7 +4,7 @@ import os
 import time
 import random
 from cereal import log
-from cereal.messaging import new_message
+from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
 
