@@ -21,5 +21,7 @@ cdef extern from "msgvec.h":
 
 cdef extern from "msgvec.h" namespace "MsgVec":
     cpdef enum TimeoutResult:
-        MESSAGES_TIMED_OUT
-        MESSAGES_WITHIN_TIMEOUT 
+        MESSAGES_NOT_READY
+        MESSAGES_PARTIALLY_READY
+        MESSAGES_ALL_READY
+ 

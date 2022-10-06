@@ -214,17 +214,7 @@ int main(int argc, char *argv[])
         pm.send(validation_service_name, bytes.begin(), bytes.size());
     }
 
-    /* Theories why the validations are not right
-      1. Y slice message is getting modified by the inference engine, so you should send it earlier
-      2. UV data is not interleaved correctly
-      3. Visionipc bufs are getting overwritten while stuff is being processed
-      X 4. The float data for both tensors is not being stored or copied correctly
-      X 5. There was not a call to copy_output_to_host, but then that doesn't explain the y_slices being wrong too.
-            the y slices were wrong because the shape and stride was not done correctly
-      6. TensorRT versions are mismatched, you should at least address those WARNINGS it is printing out.
-      7. The compression ratio needs to be adjusted, or at least verified with lossless compression
-    */
-
+    // Basic status log every 10 seconds
     if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
         fmt::print("braind {:1.1f} frames/sec, inference time {}\n", last_10_sec_msgs / 10.0f, inference_elapsed);
         last_10_sec_msgs = 0;

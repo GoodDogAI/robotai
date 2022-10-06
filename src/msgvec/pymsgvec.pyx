@@ -16,8 +16,9 @@ cdef extern from "<utility>" namespace "std":
     vector[WordArray] move(vector[WordArray]) # Cython has no function templates
 
 class PyTimeoutResult(IntEnum):
-    MESSAGES_TIMED_OUT = 0
-    MESSAGES_WITHIN_TIMEOUT = auto()
+    MESSAGES_NOT_READY = 0
+    MESSAGES_PARTIALLY_READY = auto()
+    MESSAGES_ALL_READY = auto()
 
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec

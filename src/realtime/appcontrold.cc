@@ -117,13 +117,11 @@ int main(int argc, char **argv)
                         int expected_delay = current_bt_timestamp - last_bt_timestamp;
                         auto now = std::chrono::steady_clock::now();
                         int actual_delay = (int)((now - last_bt_msg_recv).count() / 1000L / 1000L);
-                        int total_jitter = 0;
                         for (int i=0; i<15; i++) {
                             bt_jitters[i+1] = bt_jitters[i];
-                            total_jitter += bt_jitters[i];
                         }
                         bt_jitters[0] = (expected_delay - actual_delay);
-                        total_jitter += bt_jitters[0];
+    
                         //ROS_INFO("read [%d,%d,%d,%d, %d,%d, %d,%d], jitter=%d", buf[0], buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], total_jitter);
                         last_bt_timestamp = current_bt_timestamp;
                         last_bt_msg_recv = now;

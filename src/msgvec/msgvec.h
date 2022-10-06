@@ -14,8 +14,15 @@ using json = nlohmann::json;
 class MsgVec {
     public:
         enum class TimeoutResult {
-            MESSAGES_TIMED_OUT,
-            MESSAGES_WITHIN_TIMEOUT,
+            // Vector is not populated at all
+            MESSAGES_NOT_READY,
+
+            // Got at least one message per obs entry, but not yet to fill entire history buffer
+            // It should be good to use this data already, older buffer entries will be zero
+            MESSAGES_PARTIALLY_READY,
+
+            // All buffers full
+            MESSAGES_ALL_READY,
         };
 
         //, std::function<int(std::vector<float>)> visionIntermediateProvider

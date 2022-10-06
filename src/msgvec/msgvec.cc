@@ -349,7 +349,7 @@ uint64_t get_log_mono_time() {
 }
 
 MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
-    bool timestamps_valid = true;
+    TimeoutResult timestamps_valid = TimeoutResult::MESSAGES_ALL_READY;
     const uint64_t cur_time = get_log_mono_time();
     size_t index = 0;
     size_t curpos = 0;
@@ -359,14 +359,23 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
             if (obs["index"].is_number()) {
                 auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
                 obsVector[index] = m_obsHistory[index][history_index];
-                timestamps_valid &= cur_time - m_obsHistoryTimestamps[index][history_index] < (history_index + 1) * obs["timeout"].get<float>() * 1e9;
+                if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
+                    timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
+                }
                 curpos++;
             } else if (obs["index"].is_array()) {
                 std::vector<int64_t> indices = obs["index"];
                 for (size_t i = 0; i < indices.size(); i++) {
                     auto history_index = std::abs(indices[i]) - 1;
                     obsVector[index + i] = m_obsHistory[index][history_index];
-                    timestamps_valid &= cur_time - m_obsHistoryTimestamps[index][history_index] < (history_index + 1) * obs["timeout"].get<float>() * 1e9;
+            
+                    if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
+                        if (i == 0) {
+                            timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
+                        } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
+                            timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
+                        }
+                    }
                 }
                 curpos += indices.size();
             }
@@ -376,7 +385,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
-    return timestamps_valid ? TimeoutResult::MESSAGES_WITHIN_TIMEOUT : TimeoutResult::MESSAGES_TIMED_OUT;
+    return timestamps_valid;
 }
 
 bool MsgVec::get_act_vector(float *actVector) {

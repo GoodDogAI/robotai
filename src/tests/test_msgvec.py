@@ -595,7 +595,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
         timeout, _ = msgvec.get_obs_vector()
-        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_TIMED_OUT)
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
 
         msg = new_message("voltage")
         msg.voltage.volts = 13.5
@@ -603,9 +603,66 @@ class TestMsgVec(unittest.TestCase):
         msgvec.input(msg.to_bytes())
 
         timeout, _ = msgvec.get_obs_vector()
-        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_WITHIN_TIMEOUT)
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
 
         time.sleep(0.02)
 
         timeout, _ = msgvec.get_obs_vector()
-        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_TIMED_OUT)
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+    def test_obs_timeouts_multiindex(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": [-1, -5, -10],
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+        msg = new_message("voltage")
+        msg.voltage.volts = 13.5
+        msg.voltage.type = "mainBattery"
+        msgvec.input(msg.to_bytes())
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_PARTIALLY_READY)
+
+        time.sleep(0.02)
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+        msg = new_message("voltage")
+        msg.voltage.volts = 13.5
+        msg.voltage.type = "mainBattery"
+        msgvec.input(msg.to_bytes())
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_PARTIALLY_READY)
+
+        for i in range(9):
+            msg = new_message("voltage")
+            msg.voltage.volts = 13.5
+            msg.voltage.type = "mainBattery"
+            msgvec.input(msg.to_bytes())
+
+        timeout, vec = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
+
+
