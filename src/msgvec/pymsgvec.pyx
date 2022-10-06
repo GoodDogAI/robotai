@@ -3,8 +3,9 @@
 from libcpp.vector cimport vector
 from cpython cimport array
 
-from pymsgvec cimport MsgVec
-from typing import List
+from pymsgvec cimport MsgVec, TimeoutResult
+from typing import List, Tuple
+from enum import IntEnum, auto
 
 from cereal import log
 from capnp.includes.schema_cpp cimport WordArray, WordArrayPtr
@@ -13,6 +14,10 @@ from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
 
 cdef extern from "<utility>" namespace "std":
     vector[WordArray] move(vector[WordArray]) # Cython has no function templates
+
+class PyTimeoutResult(IntEnum):
+    MESSAGES_TIMED_OUT = 0
+    MESSAGES_WITHIN_TIMEOUT = auto()
 
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
@@ -32,10 +37,15 @@ cdef class PyMsgVec:
     def input(self, obs: bytes) -> bool:
         return self.c_msgvec.input(obs)
 
-    def get_obs_vector(self) -> List[float]:
+    def get_obs_vector(self) -> Tuple[PyTimeoutResult, List[float]]:
         cdef vector[float] obs_vector = vector[float](self.c_msgvec.obs_size())
-        self.c_msgvec.get_obs_vector(obs_vector.data())
-        return list(obs_vector)
+        timeout_res = self.c_msgvec.get_obs_vector(obs_vector.data())
+        return PyTimeoutResult(timeout_res), list(obs_vector)
+
+    # Same as get_obs_vector but doesn't return the timeout info
+    def get_obs_vector_raw(self) -> List[float]:
+        timeout, obs_vector = self.get_obs_vector()
+        return obs_vector
 
     def get_act_vector(self) -> List[float]:
         cdef vector[float] act_vector = vector[float](self.c_msgvec.act_size())
@@ -55,7 +65,6 @@ cdef class PyMsgVec:
             newarray = array.clone(word_array_template, 0, True)
             array.extend_buffer(newarray, <char *>result[i].begin(), result[i].size())
             with log.Event.from_bytes(newarray.tobytes()) as msg:
-                print(msg)
                 pyresult.append(msg)
 
         return pyresult

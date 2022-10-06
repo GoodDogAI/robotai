@@ -4,7 +4,8 @@ import os
 import time
 import random
 from cereal import log
-from src.msgvec.pymsgvec import PyMsgVec
+from cereal.messaging import new_message
+from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
 
 class TestMsgVec(unittest.TestCase):
@@ -165,7 +166,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
         self.assertEqual(msgvec.obs_size(), 1)
-        self.assertEqual(msgvec.get_obs_vector(), [0.0])
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
 
         def _sendAndAssert(voltage, vector):
             event = log.Event.new_message()
@@ -175,7 +176,7 @@ class TestMsgVec(unittest.TestCase):
 
             self.assertTrue(msgvec.input(event.to_bytes()))
 
-            self.assertAlmostEqual(msgvec.get_obs_vector()[0], vector, places=3)
+            self.assertAlmostEqual(msgvec.get_obs_vector_raw()[0], vector, places=3)
 
         _sendAndAssert(0.0, -1.0)
         _sendAndAssert(13.5, 1.0)
@@ -222,7 +223,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
         self.assertEqual(msgvec.obs_size(), 2)
-        self.assertEqual(msgvec.get_obs_vector(), [0.0, 0.0])
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0])
 
         event = log.Event.new_message()
         event.init("voltage")
@@ -230,7 +231,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.type = "mainBattery"
 
         self.assertTrue(msgvec.input(event.to_bytes()))
-        self.assertEqual(msgvec.get_obs_vector(), [1.0, 2.0])
+        self.assertEqual(msgvec.get_obs_vector_raw(), [1.0, 2.0])
 
     def test_single_larger_index(self):
         config = {"obs": [
@@ -255,7 +256,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
         self.assertEqual(msgvec.obs_size(), 1)
-        self.assertEqual(msgvec.get_obs_vector(), [0.0])
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         expected = [[0],
@@ -275,7 +276,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.type = "mainBattery"
 
             self.assertTrue(msgvec.input(event.to_bytes()))
-            self.assertEqual(msgvec.get_obs_vector(), expect)
+            self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_multi_index(self):
         config = {"obs": [
@@ -300,7 +301,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
         self.assertEqual(msgvec.obs_size(), 3)
-        self.assertEqual(msgvec.get_obs_vector(), [0.0, 0.0, 0.0])
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0, 0.0])
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         expected = [[1, 0, 0],
@@ -320,7 +321,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.type = "mainBattery"
 
             self.assertTrue(msgvec.input(event.to_bytes()))
-            self.assertEqual(msgvec.get_obs_vector(), expect)
+            self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_act_basic(self):
         config = {"obs": [], "act": [
@@ -593,4 +594,18 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        self.assertFalse(msgvec.get_obs_vector())
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_TIMED_OUT)
+
+        msg = new_message("voltage")
+        msg.voltage.volts = 13.5
+        msg.voltage.type = "mainBattery"
+        msgvec.input(msg.to_bytes())
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_WITHIN_TIMEOUT)
+
+        time.sleep(0.02)
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_TIMED_OUT)

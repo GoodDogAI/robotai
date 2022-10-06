@@ -15,8 +15,11 @@ cdef extern from "msgvec.h":
         size_t act_size()
 
         bool input(const vector[uchar] &bytes) except +
-        bool get_obs_vector(float *obsVector) except +
+        TimeoutResult get_obs_vector(float *obsVector) except +
         bool get_act_vector(float *actVector) except +
         vector[WordArray] get_action_command(const float *actVector) except +
 
-
+cdef extern from "msgvec.h" namespace "MsgVec":
+    cpdef enum TimeoutResult:
+        MESSAGES_TIMED_OUT
+        MESSAGES_WITHIN_TIMEOUT 
