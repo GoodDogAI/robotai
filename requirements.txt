@@ -23,6 +23,7 @@ python-multipart
 pypng
 
 # For accessing C modules from Python
+# NB: Needs to be at least 0.29.32 to work properly
 Cython
 
 # For keeping process titles neat when running in realtime mode

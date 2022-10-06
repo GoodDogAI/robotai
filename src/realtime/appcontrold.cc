@@ -46,11 +46,11 @@ int main(int argc, char **argv)
     loc_addr.rc_bdaddr = ANY;
     loc_addr.rc_channel = (uint8_t) 1;
     ret_code = bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
-    ROS_INFO("bind: %d", ret_code);
+    fmt::print("bind: {}\n", ret_code);
 
     // put socket into listening mode
     ret_code = listen(s, 1);
-    ROS_INFO("listen: %d", ret_code);
+    fmt::print("listen: {}\n", ret_code);
 
     // Wait for connections.
     std::vector<pollfd> input_fds;
@@ -58,14 +58,21 @@ int main(int argc, char **argv)
 
     // Track time since last connection.
     int missed_intervals = 0;
-    std_msgs::Bool connected_msg;
+    // std_msgs::Bool connected_msg;
     std::chrono::steady_clock::time_point last_connected_msg_sent;
-    connected_msg.data = false;
-    reward_connected.publish(connected_msg);    
+    // connected_msg.data = false;
+    // reward_connected.publish(connected_msg);    
+    // TODO: publish connected_msg
     last_connected_msg_sent = std::chrono::steady_clock::now();
 
     while(true) {
-          int ret = poll(input_fds.data(), input_fds.size(), 500);
+        int input_ret = poll(input_fds.data(), input_fds.size(), 500);
+
+        if (input_ret < -1) {
+            fmt::print(stderr, "poll error\n");
+            return EXIT_FAILURE;
+        }
+
         if (input_fds[0].revents & POLLIN) {
             // accept one connection
             client = accept(s, (struct sockaddr *)&rem_addr, &opt);
@@ -76,32 +83,40 @@ int main(int argc, char **argv)
             std::vector<pollfd> conn_fds;
             conn_fds.push_back({client, POLLIN, 0});
             
-            while (ros::ok()) {
-                if (ros::SteadyTime::now() - last_connected_msg_sent > ros::WallDuration(1.0)) {
-                    reward_connected.publish(connected_msg);
-                    last_connected_msg_sent = ros::SteadyTime::now();
+            while (true) {
+                // if (ros::SteadyTime::now() - last_connected_msg_sent > ros::WallDuration(1.0)) {
+                //     reward_connected.publish(connected_msg);
+                //     last_connected_msg_sent = ros::SteadyTime::now();
+                // }
+                // TODO publish connected_msg
+
+                int con_ret = poll(conn_fds.data(), conn_fds.size(), 500);
+
+                if (con_ret < -1) {
+                    fmt::print(stderr, "poll error\n");
+                    return EXIT_FAILURE;
                 }
 
-                int ret = poll(conn_fds.data(), conn_fds.size(), 500);
                 if (conn_fds[0].revents & POLLIN) {
 
                     memset(buf, 0, sizeof(buf));
                     // read data from the client
                     bytes_read = read(client, buf, sizeof(buf));
                     if( bytes_read > 0 ) {
-                        if (!connected_msg.data) {
-                            fmt::print("Connected\n");
-                            connected_msg.data = true;
-                            reward_connected.publish(connected_msg);
-                            last_connected_msg_sent = ros::SteadyTime::now();
-                        }
-                        data_msg.data = buf[0];
-                        reward_raw_pub.publish(data_msg);
+                        // if (!connected_msg.data) {
+                        //     fmt::print("Connected\n");
+                        //     connected_msg.data = true;
+                        //     reward_connected.publish(connected_msg);
+                        //     last_connected_msg_sent = ros::SteadyTime::now();
+                        // }
+                        // data_msg.data = buf[0];
+                        // reward_raw_pub.publish(data_msg);
+                        // TODO: publish data_msg
 
-                        int current_bt_timestamp = buf[0] << 24 + buf[1] << 16 + buf[2] << 8 + buf[3];
+                        int current_bt_timestamp = (buf[0] << 24) + (buf[1] << 16) + (buf[2] << 8) + buf[3];
                         int expected_delay = current_bt_timestamp - last_bt_timestamp;
-                        ros::SteadyTime now = ros::SteadyTime::now();
-                        int actual_delay = (int)((now - last_bt_msg_recv).toNSec() / 1000L / 1000L);
+                        auto now = std::chrono::steady_clock::now();
+                        int actual_delay = (int)((now - last_bt_msg_recv).count() / 1000L / 1000L);
                         int total_jitter = 0;
                         for (int i=0; i<15; i++) {
                             bt_jitters[i+1] = bt_jitters[i];
@@ -114,20 +129,22 @@ int main(int argc, char **argv)
                         last_bt_msg_recv = now;
 
                         if (buf[BUF_DISCRIMINANT_INDEX] == BUF_MOVE_MESSAGE) {
-                            geometry_msgs::Twist cmd_vel_msg;
-                            cmd_vel_msg.linear.x = ((int8_t)buf[BUF_CMD_VEL_LINEAR_X_INDEX]) / 127.0F * override_linear_speed;
-                            cmd_vel_msg.angular.z = ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * override_angular_speed;
+                            // geometry_msgs::Twist cmd_vel_msg;
+                            // cmd_vel_msg.linear.x = ((int8_t)buf[BUF_CMD_VEL_LINEAR_X_INDEX]) / 127.0F * override_linear_speed;
+                            // cmd_vel_msg.angular.z = ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * override_angular_speed;
                             
-                            reward_cmd_vel_pub.publish(cmd_vel_msg);
-                            override_cmd_vel_msg.data = true;
+                            // reward_cmd_vel_pub.publish(cmd_vel_msg);
+                            // override_cmd_vel_msg.data = true;
                         }
                         else if (buf[BUF_DISCRIMINANT_INDEX] == BUF_SCORE_MESSAGE) {
                             last_score_received = buf[BUF_SCORE_INDEX];
                             fmt::print("Score {} detected from app\n", last_score_received);
-                            last_penalty = ros::SteadyTime::now();
+                            last_penalty = std::chrono::steady_clock::now();
                         }
                         else if (buf[BUF_DISCRIMINANT_INDEX] == BUF_EMPTY_MESSAGE) {
-                            override_cmd_vel_msg.data = false;
+                            //override_cmd_vel_msg.data = false;
+                            // TODO publish override_cmd_vel_msg
+                            fmt::print("Empty message detected from app\n");
                         }
                         else {
                             fmt::print(stderr, "Unknown message recieved {}\n", buf[BUF_DISCRIMINANT_INDEX]);
@@ -146,7 +163,9 @@ int main(int argc, char **argv)
                     }
                 } else {
                     missed_intervals++;
-                    if (missed_intervals >= MAX_MISSED_INTERVALS && connected_msg.data) {
+                    // TODO Check this if statement again
+                    //if (missed_intervals >= MAX_MISSED_INTERVALS && connected_msg.data) {
+                    if (missed_intervals >= MAX_MISSED_INTERVALS) {
                         fmt::print(stderr, "disconnected\n");
                         // connected_msg.data = false;
                         // reward_connected.publish(connected_msg);
