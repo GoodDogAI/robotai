@@ -57,7 +57,7 @@ BRAIN_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "odriveFeedback.leftMotor.vel",
                     "index": -1,
-                    "timeout": 0.20,
+                    "timeout": 0.125,
                     "transform": {
                         "type": "identity",
                     },
@@ -67,7 +67,7 @@ BRAIN_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "voltage.volts",
                     "index": -1,
-                    "timeout": 0.20,
+                    "timeout": 0.125,
                     "filter": {
                         "field": "voltage.type",
                         "op": "eq",
@@ -84,7 +84,7 @@ BRAIN_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "headFeedback.pitchAngle",
                     "index": -1,
-                    "timeout": 0.20,
+                    "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
                         "msg_range": [-45.0, 45.0],
@@ -103,7 +103,7 @@ BRAIN_CONFIGS = dotdict({
                 {
                     "type": "msg",
                     "path": "odriveCommand.leftMotor.vel",
-                    "timeout": 0.20,
+                    "timeout": 0.125,
                     "transform": {
                         "type": "identity",
                     },
@@ -113,7 +113,7 @@ BRAIN_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "headCommand.pitchAngle",
                     "index": -1,
-                    "timeout": 0.20,
+                    "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
                         "vec_range": [-1, 1],
