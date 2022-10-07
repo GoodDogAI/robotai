@@ -670,4 +670,56 @@ class TestMsgVec(unittest.TestCase):
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
 
+    def test_timeouts_multiple_msg_types(self):
+        config = {"obs": [
+            { 
+                "type": "msg",
+                "path": "odriveFeedback.leftMotor.vel",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
 
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+        msg = new_message("voltage")
+        msg.voltage.volts = 13.5
+        msg.voltage.type = "mainBattery"
+        msgvec.input(msg.to_bytes())
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+        msg = new_message("odriveFeedback")
+        msg.odriveFeedback.leftMotor.vel = 1.0
+        msgvec.input(msg.to_bytes())
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
+
+        time.sleep(0.02)
+
+        timeout, _ = msgvec.get_obs_vector()
+        self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
