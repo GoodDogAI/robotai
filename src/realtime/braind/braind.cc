@@ -196,6 +196,8 @@ int main(int argc, char *argv[])
   
   // Receive all stale frames from visionipc, and wait for the msgvec obs vector to become ready
   bool vision_ready = false, msgvec_ready = false;
+  const auto start_sync_time = std::chrono::steady_clock::now();
+
   while (!vision_ready || !msgvec_ready) {
     VisionIpcBufExtra extra;
 
@@ -209,6 +211,11 @@ int main(int argc, char *argv[])
     auto timeout_res = msgvec.get_obs_vector(obs.data());
     msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
     msgvec_obs_result = timeout_res;
+
+    if (std::chrono::steady_clock::now() - start_sync_time > std::chrono::seconds(5)) {
+        fmt::print(stderr, "Failed to sync vision and msgvec, check timeout values in MsgVec configuration\n");
+        return EXIT_FAILURE;
+    }
   }
 
   fmt::print("Vision and msgvec ready, startng inference\n");
