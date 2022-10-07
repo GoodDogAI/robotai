@@ -18,6 +18,7 @@
 #include <NvInfer.h>
 
 #include "braind/trtwrapper.hpp"
+#include "braind/formatters.hpp"
 
 #include "util.h"
 #include "config.h"
@@ -31,6 +32,7 @@
 #include "cereal/visionipc/visionipc_client.h"
 
 namespace fs = std::experimental::filesystem;
+using json = nlohmann::json;
 
 const fs::path model_path{MODEL_STORAGE_PATH};
 const char *validation_service_name = "brainValidation";
@@ -149,8 +151,15 @@ int main(int argc, char *argv[])
   }
 
   std::ifstream config_ifs { args.get<std::string>("config") };
-  json config { json::parse(config_ifs) };
-  MsgVec msgvec { config["msgvec"].dump() };
+  if (!config_ifs.is_open()) {
+    fmt::print(stderr, "Error opening config file {}\n", args.get<std::string>("config"));
+    return EXIT_FAILURE;
+  }
+
+  json root_config { json::parse(config_ifs) };
+  auto config_name = (*root_config.items().begin()).key();
+
+  MsgVec msgvec { root_config[config_name]["msgvec"].dump() };
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec) };
   PubMaster pm { {validation_service_name} };
@@ -185,8 +194,6 @@ int main(int argc, char *argv[])
     }
   }
   
-
-
   // Receive all stale frames from visionipc, and wait for the msgvec obs vector to become ready
   bool vision_ready = false, msgvec_ready = false;
   while (!vision_ready || !msgvec_ready) {
@@ -198,11 +205,13 @@ int main(int argc, char *argv[])
         vision_ready = true;
     }
 
-    auto timeout_res = msgvec.get_obs_vector(nullptr);
+    std::vector<float> obs(msgvec.obs_size());
+    auto timeout_res = msgvec.get_obs_vector(obs.data());
     msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
     msgvec_obs_result = timeout_res;
   }
 
+  fmt::print("Vision and msgvec ready, startng inference\n");
 
   float *host_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
   float *host_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));

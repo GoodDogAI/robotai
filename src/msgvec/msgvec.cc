@@ -96,6 +96,10 @@ static void verify_transform(const json& transform) {
 MsgVec::MsgVec(const std::string &jsonConfig):
  m_config(json::parse(jsonConfig)) {
 
+    if (!m_config.contains("obs") || !m_config.contains("act")) {
+        throw std::runtime_error("Must have obs and act sections");
+    }
+
     // Fill up each deque with zeros to initialize
     size_t obs_index = 0;
     m_obsSize = 0;
@@ -129,6 +133,10 @@ MsgVec::MsgVec(const std::string &jsonConfig):
             verify_transform(obs["transform"]);
         }
         else if (obs["type"] == "vision") {
+            if (!obs.contains("size")) {
+                throw std::runtime_error("msgvec: vision section must have predetermined size");
+            }
+
             m_obsSize += obs["size"].get<int64_t>();
         }
         else {
