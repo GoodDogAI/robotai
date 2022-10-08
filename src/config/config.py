@@ -121,6 +121,17 @@ BRAIN_CONFIGS = dotdict({
                     },
                 },
             ],
+
+            "rew": {
+                "override": {
+                    "path": "appControl.rewardState",
+                    "positive_reward": 1.0,
+                    "positive_reward_timeout": 0.50,
+
+                    "negative_reward": -1.0,
+                    "negative_reward_timeout": 0.50,
+                }
+            }
         }
     }
 })
