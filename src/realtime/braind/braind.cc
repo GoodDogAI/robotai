@@ -128,6 +128,20 @@ static void msgvec_reader(MsgVec &msgvec) {
   }
 }
 
+void send_model_inference_msg(PubMaster &pm, int32_t frame_id) {
+    MessageBuilder msg;
+    auto event = msg.initEvent(true);
+    auto mdat = event.initModelInference();
+
+    //TODO enable it
+    //mdat.setModelFullName(args.get<std::string>("brain_model"));
+    mdat.setFrameId(frame_id);
+
+    auto words = capnp::messageToFlatArray(msg);
+    auto bytes = words.asBytes();
+    pm.send(validation_service_name, bytes.begin(), bytes.size());
+}
+
 int main(int argc, char *argv[])
 {
   argparse::ArgumentParser args("braind");
@@ -253,7 +267,7 @@ int main(int argc, char *argv[])
     auto timeout_res = msgvec.get_obs_vector(obs.data());
 
     if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
-      throw std::runtime_error("msgvec lost ready state");
+      throw std::runtime_error("msgvec completely lost ready state");
     }
     else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
       throw std::runtime_error("msgvec partially lost ready state");
@@ -266,6 +280,9 @@ int main(int argc, char *argv[])
     vision_engine->sync();
 
     const auto inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time);
+
+    // Send a model inference message to indicate that inference was performed and this moment should be included in the training data
+    send_model_inference_msg(pm, extra.frame_id);
 
     // Log every N frames with a model validation message
     if (extra.frame_id % 60 == 0) {

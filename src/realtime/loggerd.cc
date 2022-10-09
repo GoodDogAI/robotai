@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
 {
     bool started_logging { false };
     size_t msgs_in_log { 0 };
+    size_t num_logs { 1 };
     size_t last_10_sec_bytes { 0 };
     size_t last_10_sec_msgs { 0 };
     auto last_10_sec_time { std::chrono::steady_clock::now() };
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
                     fmt::print("Rotating logs to {}\n", log_filename.string());
                     log_start = std::chrono::steady_clock::now();
                     need_to_rotate = false;
+                    num_logs++;
                 }
             }
 
@@ -139,7 +141,8 @@ int main(int argc, char *argv[])
     }
 
     // Once you've exited, close the current log, and rename it properly
-    if (msgs_in_log > 0) {
+    if ((num_logs == 1 && std::chrono::steady_clock::now() - log_start > std::chrono::seconds(LOG_DURATION_SECONDS / 2)) ||
+        (num_logs > 1 && msgs_in_log > 0)) {
         log.close();
         auto log_final_filename { log_filename };
         log_final_filename.replace_extension("");
