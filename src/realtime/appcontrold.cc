@@ -8,6 +8,8 @@
 
 #include <fmt/core.h>
 
+#include "cereal/messaging/messaging.h"
+
 #define MAX_MISSED_INTERVALS 3
 
 #define BUF_DISCRIMINANT_INDEX 4
@@ -37,7 +39,7 @@ int main(int argc, char **argv)
     int ret_code;
 
     // allocate socket
-    s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+    KJ_SYSCALL(s = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM), "Could not open socket");
 
     // bind socket to port 1 of the first available 
     // local bluetooth adapter
@@ -45,12 +47,13 @@ int main(int argc, char **argv)
     loc_addr.rc_family = AF_BLUETOOTH;
     loc_addr.rc_bdaddr = ANY;
     loc_addr.rc_channel = (uint8_t) 1;
-    ret_code = bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr));
-    fmt::print("bind: {}\n", ret_code);
+
+    KJ_SYSCALL(ret_code = bind(s, (struct sockaddr *)&loc_addr, sizeof(loc_addr)), "Could not bind socket");
+    fmt::print("Successfully bound socket\n");
 
     // put socket into listening mode
-    ret_code = listen(s, 1);
-    fmt::print("listen: {}\n", ret_code);
+    KJ_SYSCALL(ret_code = listen(s, 1), "Could not listen on socket");
+    fmt::print("Listening on BT socket\n");
 
     // Wait for connections.
     std::vector<pollfd> input_fds;
@@ -66,16 +69,12 @@ int main(int argc, char **argv)
     last_connected_msg_sent = std::chrono::steady_clock::now();
 
     while(true) {
-        int input_ret = poll(input_fds.data(), input_fds.size(), 500);
-
-        if (input_ret < -1) {
-            fmt::print(stderr, "poll error\n");
-            return EXIT_FAILURE;
-        }
+        int input_ret;
+        KJ_SYSCALL(input_ret = poll(input_fds.data(), input_fds.size(), 500), "input poll failed");
 
         if (input_fds[0].revents & POLLIN) {
             // accept one connection
-            client = accept(s, (struct sockaddr *)&rem_addr, &opt);
+            KJ_SYSCALL(client = accept(s, (struct sockaddr *)&rem_addr, &opt), "Could not accept connection");
 
             ba2str( &rem_addr.rc_bdaddr, buf );
             fmt::print("accepted connection from {} (on fd {})\n", buf, client);
@@ -89,13 +88,8 @@ int main(int argc, char **argv)
                 //     last_connected_msg_sent = ros::SteadyTime::now();
                 // }
                 // TODO publish connected_msg
-
-                int con_ret = poll(conn_fds.data(), conn_fds.size(), 500);
-
-                if (con_ret < -1) {
-                    fmt::print(stderr, "poll error\n");
-                    return EXIT_FAILURE;
-                }
+                int con_ret;
+                KJ_SYSCALL(con_ret = poll(conn_fds.data(), conn_fds.size(), 500), "connection poll failed");
 
                 if (conn_fds[0].revents & POLLIN) {
 

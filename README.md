@@ -96,11 +96,16 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 
 
 ## TODOs
-- [ ] Finish MsgVec
- - Timing
- - Rewards
-- [ ] Encode depth frames
-- [ ] Implement odrive and head command messages
-- [ ] Implement bag2log conversion
-- [ ] Implement bluetoothd
-- [ ] Stable baselines trainer
+
+- Design appcontrold messages
+- Have appcontrold send messages
+- Does the msgvec config have to be refactored, into either a brain or separate config?
+- Add support for reading reward messages in msgvec
+- Add support to generate obs, act, reward, done from msgvec
+- Add obs/act verification messages
+- Encode depth frames
+- Add sentinel data to logs
+- Allow browsing depth vs vision frames
+- Implement brain sending action messages
+ - Implement brain overriding those with appcontrold inputs
+- Bag2log conversion of other message types

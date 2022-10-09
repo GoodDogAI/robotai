@@ -84,7 +84,7 @@ if __name__ == '__main__':
     for x in ds["validation"]:
         print(x)
 
-    train_loader = DataLoader(dataset=ds["train"], batch_size=64, shuffle=True)
-    valid_loader = DataLoader(dataset=ds["validation"], batch_size=64, shuffle=True)
+    train_loader = DataLoader(dataset=ds["train"], batch_size=1024, shuffle=True)
+    valid_loader = DataLoader(dataset=ds["validation"], batch_size=1024, shuffle=False)
 
     trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=valid_loader)
