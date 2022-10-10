@@ -290,6 +290,19 @@ int main(int argc, char *argv[])
     // Send a model inference message to indicate that inference was performed and this moment should be included in the training data
     send_model_inference_msg(pm, extra.frame_id);
 
+    // TODO Run the ML model and get the act tensor
+    {
+      auto msgvec = msgvec_guard.lockExclusive();
+      std::vector<float> act(msgvec->act_size(), 0.0f);
+      auto messages = msgvec->get_action_command(act.data());
+
+      for (auto &msgdata : messages) {
+         auto bytes = msgdata.asBytes();
+         pm.send(validation_service_name, bytes.begin(), bytes.size());
+      }
+    }
+
+
     // Log every N frames with a model validation message
     if (extra.frame_id % 60 == 0) {
         MessageBuilder msg;
