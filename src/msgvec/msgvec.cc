@@ -318,6 +318,7 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
         obs_index++;
     }
     
+    // Do the same for the actions
     size_t act_index = 0;
 
     for (auto &act : m_config["act"]) {
@@ -327,6 +328,11 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
             processed = true;
             act_index++;
         }
+    }
+
+    // Handle the appcontrol messages as a special case, which can override actions
+    if (reader.has("appControl")) {
+        m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
     }
 
     return processed;
@@ -392,10 +398,42 @@ bool MsgVec::get_act_vector(float *actVector) {
     return true;
 }
 
+std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
+    std::vector<kj::Array<capnp::word>> overrides;
+
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    MessageBuilder odriveMsg;
+    auto odriveevt = odriveMsg.initEvent();
+    auto odrive = odriveevt.initOdriveCommand();
+     // -1 to flip direction
+    float cmd_left = -1.0f * (appCtrl.getAppControl().getLinearXOverride() - appCtrl.getAppControl().getAngularZOverride());
+    float cmd_right = (appCtrl.getAppControl().getLinearXOverride() + appCtrl.getAppControl().getAngularZOverride());
+    odrive.setCurrentLeft(cmd_left);
+    odrive.setCurrentRight(cmd_right);
+    overrides.push_back(capnp::messageToFlatArray(odriveMsg));
+
+    MessageBuilder headMsg;
+    auto headevt = headMsg.initEvent();
+    auto head = headevt.initHeadCommand();
+    head.setPitchAngle(0.0);
+    head.setYawAngle(std::clamp(-100.0f * appCtrl.getAppControl().getAngularZOverride(), -30.0f, 30.0f));
+    overrides.push_back(capnp::messageToFlatArray(headMsg));
+    
+    return overrides;
+}
+
 std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
     std::map<std::string, MessageBuilder> msgs;
-
     size_t act_index = 0;
+
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    if (appCtrl.hasAppControl() && m_config.contains("appcontrol") && 
+        get_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
+        && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
+       return _get_appcontrol_overrides();
+    }
 
     for (auto &act : m_config["act"]) {
         std::string event_type {get_event_type(act["path"])};

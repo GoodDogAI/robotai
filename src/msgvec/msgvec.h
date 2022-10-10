@@ -47,6 +47,7 @@ class MsgVec {
         // Given an action vector output from the RL model, returns the list of messages to send
         std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);
 
+        
 
     private:
         json m_config;
@@ -55,4 +56,9 @@ class MsgVec {
 
         std::map<int, std::deque<float>> m_obsHistory;
         std::map<int, std::deque<uint64_t>> m_obsHistoryTimestamps;
+
+        capnp::MallocMessageBuilder m_lastAppControlMsg;
+
+        // Returns action vector output given the last app control message
+        std::vector<kj::Array<capnp::word>> _get_appcontrol_overrides();
 };

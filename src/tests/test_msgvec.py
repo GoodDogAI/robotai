@@ -723,3 +723,32 @@ class TestMsgVec(unittest.TestCase):
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+    def test_appcontrol_basic(self):
+        config = {"obs": [], "act": [],
+            "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },
+         }
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[1].which(), "headCommand")
