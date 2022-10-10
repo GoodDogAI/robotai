@@ -857,6 +857,57 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
         self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
 
+    def test_input_ready_status(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "stopAllOutputs"
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("headFeedback")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": False, "act_ready": False})
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("voltage")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
 
 
 

@@ -338,6 +338,7 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     // Handle the appcontrol messages as a special case, which can override actions
     if (reader.has("appControl")) {
         m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
+        processed = true;
     }
 
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
