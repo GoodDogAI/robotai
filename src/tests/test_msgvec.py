@@ -746,9 +746,43 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
         msgvec.input(msg.to_bytes())
 
         result = msgvec.get_action_command([])
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[1].which(), "headCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -1.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 1.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        msg.appControl.angularZOverride = 1.0
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+   
+        self.assertAlmostEqual(result[0].odriveCommand.currentLeft, 0.0, places=3)
+        self.assertAlmostEqual(result[0].odriveCommand.currentRight, 2.0, places=3)
+
+        time.sleep(0.15)
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msg.appControl.linearXOverride = 1.0
+        msg.appControl.angularZOverride = 1.0
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)

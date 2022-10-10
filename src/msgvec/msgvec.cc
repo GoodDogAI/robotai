@@ -403,12 +403,20 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
     auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
 
+    float linearX = appCtrl.getAppControl().getLinearXOverride();
+    float angularZ = appCtrl.getAppControl().getAngularZOverride();
+
+    if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::STOP_ALL_OUTPUTS) {
+        linearX = 0.0;
+        angularZ = 0.0;
+    }
+
     MessageBuilder odriveMsg;
     auto odriveevt = odriveMsg.initEvent();
     auto odrive = odriveevt.initOdriveCommand();
      // -1 to flip direction
-    float cmd_left = -1.0f * (appCtrl.getAppControl().getLinearXOverride() - appCtrl.getAppControl().getAngularZOverride());
-    float cmd_right = (appCtrl.getAppControl().getLinearXOverride() + appCtrl.getAppControl().getAngularZOverride());
+    float cmd_left = -1.0f * (linearX - angularZ);
+    float cmd_right = (linearX + angularZ);
     odrive.setCurrentLeft(cmd_left);
     odrive.setCurrentRight(cmd_right);
     overrides.push_back(capnp::messageToFlatArray(odriveMsg));
@@ -419,7 +427,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     head.setPitchAngle(0.0);
     head.setYawAngle(std::clamp(-100.0f * appCtrl.getAppControl().getAngularZOverride(), -30.0f, 30.0f));
     overrides.push_back(capnp::messageToFlatArray(headMsg));
-    
+
     return overrides;
 }
 
