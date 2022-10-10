@@ -166,7 +166,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
         actPaths.insert(act["path"]);
     }
 
-    m_actVector = std::vector<float>(m_actSize);
+    m_actVector = std::vector<float>(m_actSize, 0.0f);
+    m_actVectorReady = std::vector<bool>(m_actSize, false);
 }
 
 static capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -289,17 +290,18 @@ static float transform_vec_to_msg(const json &transform, float vecValue) {
 }
 
 
-bool MsgVec::input(const std::vector<uint8_t> &bytes) {
+MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
     capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
     auto event = cmsg.getRoot<cereal::Event>();
     return this->input(event);
 }
 
-bool MsgVec::input(const cereal::Event::Reader &evt) {
+MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     // Cast to a dynamic reader, so we can access the fields by name
     capnp::DynamicStruct::Reader reader = evt;
 
     // Iterate over each possible msg observation
+    bool allActionsInitiallyReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
     bool processed = false;
     size_t obs_index = 0;
 
@@ -318,18 +320,28 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
         obs_index++;
     }
     
+    // Do the same for the actions
     size_t act_index = 0;
 
     for (auto &act : m_config["act"]) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
             float rawValue = get_dotted_value(reader, act["path"]).as<float>();
             m_actVector[act_index] = transform_msg_to_vec(act["transform"], rawValue);
+            m_actVectorReady[act_index] = true;
             processed = true;
             act_index++;
         }
     }
 
-    return processed;
+    bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+
+    // Handle the appcontrol messages as a special case, which can override actions
+    if (reader.has("appControl")) {
+        m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
+        processed = true;
+    }
+
+    return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
 }
 
 size_t MsgVec::obs_size() const {
@@ -384,18 +396,84 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
+    // Reset the action vector ready messages
+    m_actVectorReady = std::vector<bool>(m_actSize, false);
+
     return timestamps_valid;
 }
 
 bool MsgVec::get_act_vector(float *actVector) {
     std::copy(m_actVector.begin(), m_actVector.end(), actVector);
-    return true;
+    return std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+}
+
+bool MsgVec::get_reward(float *reward) {
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    if (!appCtrl.hasAppControl() || appCtrl.getAppControl().getConnectionState() != cereal::AppControl::ConnectionState::CONNECTED || !m_config.contains("rew"))
+    {
+        return false;
+    }
+
+    if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE &&
+        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9) {
+        *reward = m_config["rew"]["override"]["positive_reward"].get<float>();
+        return true;
+    }
+    else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE &&
+        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9) {
+        *reward = m_config["rew"]["override"]["negative_reward"].get<float>();
+        return true;
+    }
+
+    return false;
+}
+
+std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
+    std::vector<kj::Array<capnp::word>> overrides;
+
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    float linearX = appCtrl.getAppControl().getLinearXOverride();
+    float angularZ = appCtrl.getAppControl().getAngularZOverride();
+
+    if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::STOP_ALL_OUTPUTS) {
+        linearX = 0.0;
+        angularZ = 0.0;
+    }
+
+    MessageBuilder odriveMsg;
+    auto odriveevt = odriveMsg.initEvent();
+    auto odrive = odriveevt.initOdriveCommand();
+     // -1 to flip direction
+    float cmd_left = -1.0f * (linearX - angularZ);
+    float cmd_right = (linearX + angularZ);
+    odrive.setCurrentLeft(cmd_left);
+    odrive.setCurrentRight(cmd_right);
+    overrides.push_back(capnp::messageToFlatArray(odriveMsg));
+
+    MessageBuilder headMsg;
+    auto headevt = headMsg.initEvent();
+    auto head = headevt.initHeadCommand();
+    head.setPitchAngle(0.0);
+    head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
+    overrides.push_back(capnp::messageToFlatArray(headMsg));
+
+    return overrides;
 }
 
 std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
     std::map<std::string, MessageBuilder> msgs;
-
     size_t act_index = 0;
+
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    if (appCtrl.hasAppControl() && appCtrl.getAppControl().getConnectionState() == cereal::AppControl::ConnectionState::CONNECTED &&
+        m_config.contains("appcontrol") && 
+        get_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
+        && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
+       return _get_appcontrol_overrides();
+    }
 
     for (auto &act : m_config["act"]) {
         std::string event_type {get_event_type(act["path"])};

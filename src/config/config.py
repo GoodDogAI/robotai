@@ -105,10 +105,23 @@ BRAIN_CONFIGS = dotdict({
             "act": [
                 {
                     "type": "msg",
-                    "path": "odriveCommand.leftMotor.vel",
+                    "path": "odriveCommand.currentLeft",
                     "timeout": 0.125,
                     "transform": {
-                        "type": "identity",
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentRight",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
                     },
                 },
 
@@ -123,17 +136,33 @@ BRAIN_CONFIGS = dotdict({
                         "msg_range": [-45.0, 45.0],
                     },
                 },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
             ],
 
             "rew": {
                 "override": {
-                    "path": "appControl.rewardState",
                     "positive_reward": 1.0,
                     "positive_reward_timeout": 0.50,
 
                     "negative_reward": -1.0,
                     "negative_reward_timeout": 0.50,
                 }
+            },
+
+            "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
             },
 
             "done": {

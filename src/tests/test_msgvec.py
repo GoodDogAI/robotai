@@ -8,7 +8,12 @@ from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
 
+
+
 class TestMsgVec(unittest.TestCase):
+    def assertMsgProcessed(self, input_result):
+        self.assertTrue(input_result["msg_processed"])
+    
     def test_init(self):
         config = {"obs": [], "act": []}
         PyMsgVec(json.dumps(config).encode("utf-8"))
@@ -174,7 +179,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = voltage
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
             self.assertAlmostEqual(msgvec.get_obs_vector_raw()[0], vector, places=3)
 
@@ -275,7 +280,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_multi_index(self):
@@ -320,7 +325,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_act_basic(self):
@@ -475,7 +480,7 @@ class TestMsgVec(unittest.TestCase):
             event = log.Event.new_message()
             event.init("headCommand")
             event.headCommand.yawAngle = msg
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
 
         # Feed in a message that doesn't exist in the config
@@ -484,7 +489,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.volts = 13.5
         event.voltage.type = "mainBattery"
 
-        self.assertFalse(msgvec.input(event.to_bytes()))
+        self.assertFalse(msgvec.input(event.to_bytes())["msg_processed"])
 
     def test_action_inverse(self):
         config = {"obs": [], "act": [
@@ -507,7 +512,7 @@ class TestMsgVec(unittest.TestCase):
             messages = msgvec.get_action_command([f])
 
             self.assertEqual(len(messages), 1)
-            self.assertTrue(msgvec.input(messages[0].as_builder().to_bytes()))
+            self.assertMsgProcessed(msgvec.input(messages[0].as_builder().to_bytes()))
 
             self.assertAlmostEqual(msgvec.get_act_vector()[0], min(max(f, -1), 1) , places=3)
 
@@ -723,3 +728,272 @@ class TestMsgVec(unittest.TestCase):
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
+
+    def test_appcontrol_basic(self):
+        config = {"obs": [], "act": [],
+            "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },
+         }
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -1.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 1.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.yawAngle, 0.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        msg.appControl.angularZOverride = 1.0
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+   
+        self.assertAlmostEqual(result[0].odriveCommand.currentLeft, 0.0, places=3)
+        self.assertAlmostEqual(result[0].odriveCommand.currentRight, 2.0, places=3)
+        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertAlmostEqual(result[1].headCommand.yawAngle, -30.0)
+
+        time.sleep(0.15)
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(result, [])
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msg.appControl.linearXOverride = 1.0
+        msg.appControl.angularZOverride = 1.0
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.yawAngle, 0.0)
+
+    def test_appcontrol_override(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+           "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+
+        # Not connected means no effect on action command
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+
+    def test_override_reward(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+        "appcontrol": {
+            "mode": "steering_override_v1",
+            "timeout": 0.125,
+        },
+        "rew": {
+            "override": {
+                "positive_reward": 3.0,
+                "positive_reward_timeout": 0.50,
+
+                "negative_reward": -12.0,
+                "negative_reward_timeout": 0.50,
+            }
+        },}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        # No override, no reward
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+        # Override, positive reward
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overridePositive"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        self.assertEqual(rew, 3.0)
+
+        # Override, negative reward
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overrideNegative"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        self.assertEqual(rew, -12.0)
+
+        # Override, not connected
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.rewardState = "overrideNegative"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+        
+        # Override, timeout
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overridePositive"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        time.sleep(0.25)    
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        time.sleep(0.35)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+    def test_input_ready_status(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": [
+                {
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "stopAllOutputs"
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("headFeedback")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": False, "act_ready": False})
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("voltage")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+
+
+
