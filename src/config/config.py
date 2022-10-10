@@ -19,6 +19,9 @@ DEVICE_CONFIG = dotdict({
     "ENCODER_DEV": "/dev/nvhost-msenc",
     "ENCODER_COMP_NAME": "NVENC",
 
+    "OVERRIDE_LINEAR_SPEED": 0.50,
+    "OVERRIDE_ANGULAR_SPEED": 0.15,
+
     "AUDIO_DEVICE_NAME": "hw:APE,0",
     "AUDIO_PCM_FORMAT": "S32_LE",
     "AUDIO_SAMPLE_RATE": 48_000,

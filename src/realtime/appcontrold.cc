@@ -6,8 +6,10 @@
 #include <vector>
 #include <chrono>
 
+#include <capnp/pretty-print.h>
 #include <fmt/core.h>
 
+#include "config.h"
 #include "cereal/messaging/messaging.h"
 
 const char *service_name = "appControl";
@@ -24,6 +26,25 @@ const char *service_name = "appControl";
 #define BUF_CMD_VEL_LINEAR_X_INDEX 5
 #define BUF_CMD_VEL_ANGULAR_Z_INDEX 6
 
+void sendMessage(PubMaster &pm, bool connected,
+                 cereal::AppControl::RewardState rewardState = cereal::AppControl::RewardState::NO_OVERRIDE,
+                 cereal::AppControl::MotionState moveState = cereal::AppControl::MotionState::NO_OVERRIDE,
+                 float cmdVelLinearX = 0.0f, float cmdVelAngularZ = 0.0f) {
+    MessageBuilder msg;
+    auto event = msg.initEvent(true);
+    auto adat = event.initAppControl();
+    adat.setConnectionState(connected ? cereal::AppControl::ConnectionState::CONNECTED : cereal::AppControl::ConnectionState::NOT_CONNECTED);
+    adat.setRewardState(rewardState);
+    adat.setMotionState(moveState);
+    adat.setLinearXOverride(cmdVelLinearX);
+    adat.setAngularZOverride(cmdVelAngularZ);
+    
+    auto words = capnp::messageToFlatArray(msg);
+    auto bytes = words.asBytes();
+    pm.send(service_name, bytes.begin(), bytes.size());
+
+    fmt::print("msg: {}\n", capnp::prettyPrint(event).flatten().cStr());
+}
 
 int main(int argc, char **argv)
 {
@@ -33,6 +54,7 @@ int main(int argc, char **argv)
     int8_t last_score_received = 0;
 
     std::chrono::steady_clock::time_point last_bt_msg_recv = std::chrono::steady_clock::now();
+    bool connected { false };
     int last_bt_timestamp = 0;
     int bt_jitters[16] = { 0 };
 
@@ -66,11 +88,8 @@ int main(int argc, char **argv)
 
     // Track time since last connection.
     int missed_intervals = 0;
-    // std_msgs::Bool connected_msg;
     std::chrono::steady_clock::time_point last_connected_msg_sent;
-    // connected_msg.data = false;
-    // reward_connected.publish(connected_msg);    
-    // TODO: publish connected_msg
+    sendMessage(pm, connected);
     last_connected_msg_sent = std::chrono::steady_clock::now();
 
     while(true) {
@@ -88,11 +107,10 @@ int main(int argc, char **argv)
             conn_fds.push_back({client, POLLIN, 0});
             
             while (true) {
-                // if (ros::SteadyTime::now() - last_connected_msg_sent > ros::WallDuration(1.0)) {
-                //     reward_connected.publish(connected_msg);
-                //     last_connected_msg_sent = ros::SteadyTime::now();
-                // }
-                // TODO publish connected_msg
+                if (std::chrono::steady_clock::now() - last_connected_msg_sent > std::chrono::milliseconds(1000)) {
+                    sendMessage(pm, connected);
+                    last_connected_msg_sent = std::chrono::steady_clock::now();
+                }
                 int con_ret;
                 KJ_SYSCALL(con_ret = poll(conn_fds.data(), conn_fds.size(), 500), "connection poll failed");
 
@@ -102,12 +120,12 @@ int main(int argc, char **argv)
                     // read data from the client
                     bytes_read = read(client, buf, sizeof(buf));
                     if( bytes_read > 0 ) {
-                        // if (!connected_msg.data) {
-                        //     fmt::print("Connected\n");
-                        //     connected_msg.data = true;
-                        //     reward_connected.publish(connected_msg);
-                        //     last_connected_msg_sent = ros::SteadyTime::now();
-                        // }
+                        if (!connected) {
+                            fmt::print("Connected\n");
+                            connected = true;
+                            sendMessage(pm, connected);
+                            last_connected_msg_sent = std::chrono::steady_clock::now();
+                        }
                         // data_msg.data = buf[0];
                         // reward_raw_pub.publish(data_msg);
                         // TODO: publish data_msg
@@ -126,46 +144,35 @@ int main(int argc, char **argv)
                         last_bt_msg_recv = now;
 
                         if (buf[BUF_DISCRIMINANT_INDEX] == BUF_MOVE_MESSAGE) {
-                            // geometry_msgs::Twist cmd_vel_msg;
-                            // cmd_vel_msg.linear.x = ((int8_t)buf[BUF_CMD_VEL_LINEAR_X_INDEX]) / 127.0F * override_linear_speed;
-                            // cmd_vel_msg.angular.z = ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * override_angular_speed;
-                            
-                            // reward_cmd_vel_pub.publish(cmd_vel_msg);
-                            // override_cmd_vel_msg.data = true;
+                            sendMessage(pm, connected, cereal::AppControl::RewardState::NO_OVERRIDE,
+                                        cereal::AppControl::MotionState::MANUAL_CONTROL,
+                                        ((int8_t)buf[BUF_CMD_VEL_LINEAR_X_INDEX]) / 127.0F * OVERRIDE_LINEAR_SPEED,
+                                        ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * OVERRIDE_ANGULAR_SPEED);          
                         }
                         else if (buf[BUF_DISCRIMINANT_INDEX] == BUF_SCORE_MESSAGE) {
                             last_score_received = buf[BUF_SCORE_INDEX];
-                            fmt::print("Score {} detected from app\n", last_score_received);
+                            sendMessage(pm, connected, last_score_received < 0 ? cereal::AppControl::RewardState::OVERRIDE_NEGATIVE : cereal::AppControl::RewardState::OVERRIDE_POSITIVE,
+                                        cereal::AppControl::MotionState::NO_OVERRIDE);          
+
                             last_penalty = std::chrono::steady_clock::now();
                         }
                         else if (buf[BUF_DISCRIMINANT_INDEX] == BUF_EMPTY_MESSAGE) {
-                            //override_cmd_vel_msg.data = false;
-                            // TODO publish override_cmd_vel_msg
+                            sendMessage(pm, connected);     
                             fmt::print("Empty message detected from app\n");
                         }
                         else {
                             fmt::print(stderr, "Unknown message recieved {}\n", buf[BUF_DISCRIMINANT_INDEX]);
                         }
 
-
-                        // reward_override_cmd_vel_pub.publish(override_cmd_vel_msg);
-
-
-                        // Publish the latest value of the reward button
-                        // std_msgs::Float32 reward;
-                        // reward.data = (ros::SteadyTime::now() - last_penalty) > penalty_duration ? 0.0 : (float)last_score_received;
-                        // reward_pub.publish(reward);
-
                         missed_intervals = 0;
                     }
                 } else {
                     missed_intervals++;
-                    // TODO Check this if statement again
-                    //if (missed_intervals >= MAX_MISSED_INTERVALS && connected_msg.data) {
+
                     if (missed_intervals >= MAX_MISSED_INTERVALS) {
                         fmt::print(stderr, "disconnected\n");
-                        // connected_msg.data = false;
-                        // reward_connected.publish(connected_msg);
+                        connected = false;
+                        sendMessage(pm, connected);
                         last_connected_msg_sent = std::chrono::steady_clock::now();
                         break;
                     }
