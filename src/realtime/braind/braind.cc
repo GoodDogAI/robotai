@@ -123,8 +123,8 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
       capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
       auto event = cmsg.getRoot<cereal::Event>();
 
-      auto msgvec = msgvec_guard.lock();
-      msgvec.input(event);
+      auto msgvec = msgvec_guard.lockExclusive();
+      msgvec->input(event);
     }
   }
 }
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
   kj::MutexGuarded<MsgVec> msgvec_guard { root_config[config_name]["msgvec"].dump() };
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
-  std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec) };
+  std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec_guard) };
   PubMaster pm { {validation_service_name} };
   size_t last_10_sec_msgs { 0 };
   auto last_10_sec_time { std::chrono::steady_clock::now() };
@@ -223,9 +223,9 @@ int main(int argc, char *argv[])
         vision_ready = true;
     }
 
-    auto msgvec = msgvec_guard.lock();
-    std::vector<float> obs(msgvec.obs_size());
-    auto timeout_res = msgvec.get_obs_vector(obs.data());
+    auto msgvec = msgvec_guard.lockExclusive();
+    std::vector<float> obs(msgvec->obs_size());
+    auto timeout_res = msgvec->get_obs_vector(obs.data());
     msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
     msgvec_obs_result = timeout_res;
 
@@ -267,9 +267,9 @@ int main(int argc, char *argv[])
     }
 
     {
-      auto msgvec = msgvec_guard.lock();
-      std::vector<float> obs(msgvec.obs_size());
-      auto timeout_res = msgvec.get_obs_vector(obs.data());
+      auto msgvec = msgvec_guard.lockExclusive();
+      std::vector<float> obs(msgvec->obs_size());
+      auto timeout_res = msgvec->get_obs_vector(obs.data());
 
       if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
         throw std::runtime_error("msgvec completely lost ready state");
