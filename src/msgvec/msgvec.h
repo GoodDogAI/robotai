@@ -27,12 +27,17 @@ class MsgVec {
             MESSAGES_ALL_READY,
         };
 
+        struct InputResult {
+            bool msg_processed;
+            bool act_ready;
+        };
+
         //, std::function<int(std::vector<float>)> visionIntermediateProvider
         MsgVec(const std::string &jsonConfig);
 
         // Feeds in messages, will update internal state
-        bool input(const std::vector<uint8_t> &bytes);
-        bool input(const cereal::Event::Reader &evt);
+        InputResult input(const std::vector<uint8_t> &bytes);
+        InputResult input(const cereal::Event::Reader &evt);
 
         size_t obs_size() const;
         size_t act_size() const;
@@ -53,6 +58,7 @@ class MsgVec {
         json m_config;
         size_t m_obsSize, m_actSize;
         std::vector<float> m_actVector;
+        std::vector<bool> m_actVectorReady;
 
         std::map<int, std::deque<float>> m_obsHistory;
         std::map<int, std::deque<uint64_t>> m_obsHistoryTimestamps;

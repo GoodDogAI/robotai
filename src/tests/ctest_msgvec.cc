@@ -44,5 +44,5 @@ TEST_CASE( "Process a simple message", "[msgvec]" ) {
     // auto vwords = capnp::messageToFlatArray(vmsg);
     // auto msgr = capnp::readDataStruct<cereal::Event>(vwords);
 
-    REQUIRE(msgvec.input(vevent) == true);
+    REQUIRE(msgvec.input(vevent).msg_processed == true);
 }

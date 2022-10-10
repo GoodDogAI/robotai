@@ -166,7 +166,8 @@ MsgVec::MsgVec(const std::string &jsonConfig):
         actPaths.insert(act["path"]);
     }
 
-    m_actVector = std::vector<float>(m_actSize);
+    m_actVector = std::vector<float>(m_actSize, 0.0f);
+    m_actVectorReady = std::vector<bool>(m_actSize, false);
 }
 
 static capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -289,17 +290,18 @@ static float transform_vec_to_msg(const json &transform, float vecValue) {
 }
 
 
-bool MsgVec::input(const std::vector<uint8_t> &bytes) {
+MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
     capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
     auto event = cmsg.getRoot<cereal::Event>();
     return this->input(event);
 }
 
-bool MsgVec::input(const cereal::Event::Reader &evt) {
+MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     // Cast to a dynamic reader, so we can access the fields by name
     capnp::DynamicStruct::Reader reader = evt;
 
     // Iterate over each possible msg observation
+    bool allActionsInitiallyReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
     bool processed = false;
     size_t obs_index = 0;
 
@@ -325,17 +327,20 @@ bool MsgVec::input(const cereal::Event::Reader &evt) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
             float rawValue = get_dotted_value(reader, act["path"]).as<float>();
             m_actVector[act_index] = transform_msg_to_vec(act["transform"], rawValue);
+            m_actVectorReady[act_index] = true;
             processed = true;
             act_index++;
         }
     }
+
+    bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
 
     // Handle the appcontrol messages as a special case, which can override actions
     if (reader.has("appControl")) {
         m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
     }
 
-    return processed;
+    return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
 }
 
 size_t MsgVec::obs_size() const {
@@ -389,6 +394,9 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
 
         index++;
     }
+
+    // Reset the action vector ready messages
+    m_actVectorReady = std::vector<bool>(m_actSize, false);
 
     return timestamps_valid;
 }

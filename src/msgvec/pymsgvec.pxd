@@ -14,7 +14,7 @@ cdef extern from "msgvec.h":
         size_t obs_size()
         size_t act_size()
 
-        bool input(const vector[uchar] &bytes) except +
+        InputResult input(const vector[uchar] &bytes) except +
         TimeoutResult get_obs_vector(float *obsVector) except +
         bool get_act_vector(float *actVector) except +
         vector[WordArray] get_action_command(const float *actVector) except +
@@ -24,4 +24,9 @@ cdef extern from "msgvec.h" namespace "MsgVec":
         MESSAGES_NOT_READY
         MESSAGES_PARTIALLY_READY
         MESSAGES_ALL_READY
+
+    cdef struct InputResult:
+        bool msg_processed
+        bool act_ready
+
  

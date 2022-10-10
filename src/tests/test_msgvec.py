@@ -8,7 +8,12 @@ from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
 from src.config import BRAIN_CONFIGS, HOST_CONFIG
 
+
+
 class TestMsgVec(unittest.TestCase):
+    def assertMsgProcessed(self, input_result):
+        self.assertTrue(input_result["msg_processed"])
+    
     def test_init(self):
         config = {"obs": [], "act": []}
         PyMsgVec(json.dumps(config).encode("utf-8"))
@@ -174,7 +179,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = voltage
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
             self.assertAlmostEqual(msgvec.get_obs_vector_raw()[0], vector, places=3)
 
@@ -275,7 +280,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_multi_index(self):
@@ -320,7 +325,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
 
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_act_basic(self):
@@ -475,7 +480,7 @@ class TestMsgVec(unittest.TestCase):
             event = log.Event.new_message()
             event.init("headCommand")
             event.headCommand.yawAngle = msg
-            self.assertTrue(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
             self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
 
         # Feed in a message that doesn't exist in the config
@@ -484,7 +489,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.volts = 13.5
         event.voltage.type = "mainBattery"
 
-        self.assertFalse(msgvec.input(event.to_bytes()))
+        self.assertFalse(msgvec.input(event.to_bytes())["msg_processed"])
 
     def test_action_inverse(self):
         config = {"obs": [], "act": [
@@ -507,7 +512,7 @@ class TestMsgVec(unittest.TestCase):
             messages = msgvec.get_action_command([f])
 
             self.assertEqual(len(messages), 1)
-            self.assertTrue(msgvec.input(messages[0].as_builder().to_bytes()))
+            self.assertMsgProcessed(msgvec.input(messages[0].as_builder().to_bytes()))
 
             self.assertAlmostEqual(msgvec.get_act_vector()[0], min(max(f, -1), 1) , places=3)
 
