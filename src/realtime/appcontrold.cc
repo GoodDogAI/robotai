@@ -10,6 +10,8 @@
 
 #include "cereal/messaging/messaging.h"
 
+const char *service_name = "appControl";
+
 #define MAX_MISSED_INTERVALS 3
 
 #define BUF_DISCRIMINANT_INDEX 4
@@ -22,8 +24,11 @@
 #define BUF_CMD_VEL_LINEAR_X_INDEX 5
 #define BUF_CMD_VEL_ANGULAR_Z_INDEX 6
 
+
 int main(int argc, char **argv)
 {
+    PubMaster pm { {service_name} };
+
     std::chrono::steady_clock::time_point last_penalty;
     int8_t last_score_received = 0;
 
