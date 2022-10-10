@@ -95,7 +95,7 @@ static void close_message(Message *m) {
     m->close();
 }
 
-static void msgvec_reader(MsgVec &msgvec) {
+static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
   // Connect to all of the message queues to receive data to input into the RL model
   std::unique_ptr<Context> ctx{ Context::create() };
   std::unique_ptr<Poller> poller{ Poller::create() };
@@ -123,6 +123,7 @@ static void msgvec_reader(MsgVec &msgvec) {
       capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
       auto event = cmsg.getRoot<cereal::Event>();
 
+      auto msgvec = msgvec_guard.lock();
       msgvec.input(event);
     }
   }
@@ -173,7 +174,8 @@ int main(int argc, char *argv[])
   json root_config { json::parse(config_ifs) };
   auto config_name = (*root_config.items().begin()).key();
 
-  MsgVec msgvec { root_config[config_name]["msgvec"].dump() };
+  kj::MutexGuarded<MsgVec> msgvec_guard { root_config[config_name]["msgvec"].dump() };
+
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec) };
   PubMaster pm { {validation_service_name} };
@@ -221,6 +223,7 @@ int main(int argc, char *argv[])
         vision_ready = true;
     }
 
+    auto msgvec = msgvec_guard.lock();
     std::vector<float> obs(msgvec.obs_size());
     auto timeout_res = msgvec.get_obs_vector(obs.data());
     msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
@@ -263,16 +266,19 @@ int main(int argc, char *argv[])
         host_uv[i] = buf->uv[i];
     }
 
-    std::vector<float> obs(msgvec.obs_size());
-    auto timeout_res = msgvec.get_obs_vector(obs.data());
+    {
+      auto msgvec = msgvec_guard.lock();
+      std::vector<float> obs(msgvec.obs_size());
+      auto timeout_res = msgvec.get_obs_vector(obs.data());
 
-    if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
-      throw std::runtime_error("msgvec completely lost ready state");
+      if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
+        throw std::runtime_error("msgvec completely lost ready state");
+      }
+      else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
+        throw std::runtime_error("msgvec partially lost ready state");
+      }
+      msgvec_obs_result = timeout_res;
     }
-    else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
-      throw std::runtime_error("msgvec partially lost ready state");
-    }
-    msgvec_obs_result = timeout_res;
 
     vision_engine->copy_input_to_device();
     vision_engine->infer();

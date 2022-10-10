@@ -134,6 +134,10 @@ BRAIN_CONFIGS = dotdict({
                     "negative_reward": -1.0,
                     "negative_reward_timeout": 0.50,
                 }
+            },
+
+            "done": {
+                "mode": "on_reward_override",
             }
         }
     }
