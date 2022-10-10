@@ -755,6 +755,8 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].which(), "headCommand")
         self.assertEqual(result[0].odriveCommand.currentLeft, -1.0)
         self.assertEqual(result[0].odriveCommand.currentRight, 1.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.yawAngle, 0.0)
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
@@ -767,6 +769,8 @@ class TestMsgVec(unittest.TestCase):
    
         self.assertAlmostEqual(result[0].odriveCommand.currentLeft, 0.0, places=3)
         self.assertAlmostEqual(result[0].odriveCommand.currentRight, 2.0, places=3)
+        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertAlmostEqual(result[1].headCommand.yawAngle, -30.0)
 
         time.sleep(0.15)
 
@@ -786,3 +790,68 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].which(), "headCommand")
         self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
         self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.yawAngle, 0.0)
+
+    def test_appcontrol_override(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+           "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+
+        # Not connected means no effect on action command
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "stopAllOutputs"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+
+
+
+

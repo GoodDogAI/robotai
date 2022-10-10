@@ -425,7 +425,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     auto headevt = headMsg.initEvent();
     auto head = headevt.initHeadCommand();
     head.setPitchAngle(0.0);
-    head.setYawAngle(std::clamp(-100.0f * appCtrl.getAppControl().getAngularZOverride(), -30.0f, 30.0f));
+    head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
     overrides.push_back(capnp::messageToFlatArray(headMsg));
 
     return overrides;
@@ -437,7 +437,8 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
 
     auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
 
-    if (appCtrl.hasAppControl() && m_config.contains("appcontrol") && 
+    if (appCtrl.hasAppControl() && appCtrl.getAppControl().getConnectionState() == cereal::AppControl::ConnectionState::CONNECTED &&
+        m_config.contains("appcontrol") && 
         get_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
         && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
        return _get_appcontrol_overrides();
