@@ -17,6 +17,7 @@ cdef extern from "msgvec.h":
         InputResult input(const vector[uchar] &bytes) except +
         TimeoutResult get_obs_vector(float *obsVector) except +
         bool get_act_vector(float *actVector) except +
+        bool get_reward(float *reward) except +
         vector[WordArray] get_action_command(const float *actVector) except +
 
 cdef extern from "msgvec.h" namespace "MsgVec":

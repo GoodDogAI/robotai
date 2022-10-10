@@ -46,8 +46,13 @@ class MsgVec {
         // Returns true if all observations match their timestamps
         TimeoutResult get_obs_vector(float *obsVector);
 
-        // Returns the current action vector, given the most recent messages
+        // Write out the current action vector, given the most recent messages
+        // Returns true if all actions have been populated since the last call to `get_obs_vector`
         bool get_act_vector(float *actVector);
+
+        // Write out the current reward, if it has been overridden by appcontrol messages
+        // Returns true if this is the case
+        bool get_reward(float *reward);
 
         // Given an action vector output from the RL model, returns the list of messages to send
         std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);

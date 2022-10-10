@@ -53,6 +53,11 @@ cdef class PyMsgVec:
         self.c_msgvec.get_act_vector(act_vector.data())
         return list(act_vector)
 
+    def get_reward(self) -> Tuple["bool", float]:
+        cdef float reward
+        cdef bool valid = self.c_msgvec.get_reward(&reward)
+        return valid, reward
+
     def get_action_command(self, act: List[float]):
         assert len(act) == self.c_msgvec.act_size()
         cdef array.array a = array.array('f', act)

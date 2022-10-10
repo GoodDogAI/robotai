@@ -404,7 +404,29 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
 
 bool MsgVec::get_act_vector(float *actVector) {
     std::copy(m_actVector.begin(), m_actVector.end(), actVector);
-    return true;
+    return std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+}
+
+bool MsgVec::get_reward(float *reward) {
+    auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+    if (!appCtrl.hasAppControl() || appCtrl.getAppControl().getConnectionState() != cereal::AppControl::ConnectionState::CONNECTED || !m_config.contains("rew"))
+    {
+        return false;
+    }
+
+    if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE &&
+        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9) {
+        *reward = m_config["rew"]["override"]["positive_reward"].get<float>();
+        return true;
+    }
+    else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE &&
+        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9) {
+        *reward = m_config["rew"]["override"]["negative_reward"].get<float>();
+        return true;
+    }
+
+    return false;
 }
 
 std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
