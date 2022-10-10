@@ -43,7 +43,7 @@ void sendMessage(PubMaster &pm, bool connected,
     auto bytes = words.asBytes();
     pm.send(service_name, bytes.begin(), bytes.size());
 
-    fmt::print("msg: {}\n", capnp::prettyPrint(event).flatten().cStr());
+    //fmt::print("msg: {}\n", capnp::prettyPrint(event).flatten().cStr());
 }
 
 int main(int argc, char **argv)
