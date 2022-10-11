@@ -1,7 +1,7 @@
 import os
 import torch
 import pyarrow
-import hashlib
+import json
 import pandas as pd
 import numpy as np
 
@@ -16,7 +16,9 @@ from config import HOST_CONFIG, DEVICE_CONFIG
 from src.video import V4L2_BUF_FLAG_KEYFRAME
 from src.logutil import LogHashes, LogSummary
 from src.train.videoloader import surface_to_y_uv
-from src.train.modelloader import get_config_from_fullname, load_vision_model
+from src.train.modelloader import get_config_from_fullname, load_vision_model, brain_fullname
+from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
+
 
 # This class takes in a directory, and runs models on all of the video frames, saving
 # the results to an arrow cache file. The keys are the videofilename-frameindex.
@@ -87,10 +89,14 @@ class ArrowModelCache():
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
                             
 
-    def build_cache(self):
+    def build_cache(self, force_rebuild=False):
         with load_vision_model(self.model_fullname) as engine:
             for group in self.lh.group_logs():
                 cache_path = self.get_cache_path(group[0])
+
+                if os.path.exists(cache_path) and not force_rebuild:
+                    continue
+
                 print(f"Building cache {cache_path}")
 
                 raw_data = []
@@ -114,3 +120,26 @@ class ArrowModelCache():
                     with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
                         writer.write_table(table)
                             
+
+# This class is similar to ArrowModelCache, but it will read in log entries and actually create
+# the obs, act, reward, done tuples that will be used for RL training.
+# It relies on the ArrowModelCache for filling in vision intermediates and rewards
+class ArrowRLCache():
+    def __init__(self, dir: str, brain_config) -> None:
+        self.lh = LogHashes(dir)
+        self.brain_config = brain_config
+        self.brain_fullname = brain_fullname(brain_config)
+        Path(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname).mkdir(parents=True, exist_ok=True)
+
+    def get_cache_path(self, log: LogSummary):
+        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname, log.get_runname() + ".arrow")
+
+
+    def build_cache(self, force_rebuild=False):
+         for group in self.lh.group_logs():
+            cache_path = self.get_cache_path(group[0])
+
+            if os.path.exists(cache_path) and not force_rebuild:
+                continue
+
+            msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"))
