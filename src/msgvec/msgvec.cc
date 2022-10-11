@@ -411,6 +411,8 @@ bool MsgVec::get_act_vector(float *actVector) {
 bool MsgVec::get_reward(float *reward) {
     auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
 
+    *reward = kj::nan();
+
     if (!appCtrl.hasAppControl() || appCtrl.getAppControl().getConnectionState() != cereal::AppControl::ConnectionState::CONNECTED || !m_config.contains("rew"))
     {
         return false;

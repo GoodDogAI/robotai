@@ -1,6 +1,7 @@
 import unittest
 import json
 import os
+import math
 import time
 import random
 from cereal import log
@@ -1194,23 +1195,36 @@ class TestMsgVec(unittest.TestCase):
         }
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
+        messages_since_last_inference = []
+        seen_act_ready = False
+
         with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2fd2bf40-2022-10-10-23_14.log"), "rb") as f:
             events = log.Event.read_multiple(f)
             for evt in events:
                 result = msgvec.input(evt.as_builder().to_bytes())
+                messages_since_last_inference.append(evt.which())
+               
                 print(f"Result: {result} - {evt.which()}")
 
                 if evt.which() == "modelInference":
-                    print("Got inference")
+                    messages_since_last_inference = []
+                    seen_act_ready = False
                     timeout, obs = msgvec.get_obs_vector()
-                    print(f"Obs: {obs[:3]} - {timeout}")
 
-                
-                # if result["act_ready"]:
-                #     obs = msgvec.get_obs_vector_raw()
-                #     act = msgvec.get_act_vector_raw()
-                #     rew = msgvec.get_reward()
+                if "headCommand" in messages_since_last_inference and "odriveCommand" in messages_since_last_inference and not seen_act_ready:
+                    self.assertTrue(result["act_ready"])
+                    seen_act_ready = True
 
-                # print(result)
+                if evt.which() == "appControl":
+                    self.assertEqual(result["msg_processed"], True)
+                    self.assertEqual(evt.appControl.rewardState, "noOverride")
+
+                if result["act_ready"]:
+                    act = msgvec.get_act_vector()
+                    rew_valid, rew_value = msgvec.get_reward()
+                    self.assertEqual(act, [0.0, 0.0, 0.0, 0.0])
+                    self.assertFalse(rew_valid)
+                    self.assertTrue(math.isnan(rew_value))
+          
 
 
