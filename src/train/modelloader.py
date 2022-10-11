@@ -38,6 +38,15 @@ def update_model_config_caches():
             with open(config_cache_path, "w") as f:
                 json.dump(model_config, f, indent=4)
 
+def get_config_from_fullname(full_name: str) -> Dict[str, Any]:
+    config_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}_config.json")
+
+    if not os.path.exists(config_path):
+        raise ValueError(f"Unable to find config for {full_name}")
+
+    with open(config_path, "r") as f:
+        return json.load(f)
+
 
 def onnx_to_numpy_dtype(onnx_type: str) -> np.dtype:
     if onnx_type == "tensor(float)":

@@ -16,7 +16,7 @@ from config import HOST_CONFIG, DEVICE_CONFIG
 from src.video import V4L2_BUF_FLAG_KEYFRAME
 from src.logutil import LogHashes, LogSummary
 from src.train.videoloader import surface_to_y_uv
-from src.train.modelloader import model_fullname, load_vision_model
+from src.train.modelloader import get_config_from_fullname, load_vision_model
 
 # This class takes in a directory, and runs models on all of the video frames, saving
 # the results to an arrow cache file. The keys are the videofilename-frameindex.
@@ -24,6 +24,7 @@ class ArrowModelCache():
     def __init__(self, dir: str, model_fullname: str):
         self.lh = LogHashes(dir)
         self.model_fullname = model_fullname
+        self.model_config = get_config_from_fullname(model_fullname)
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
 
     def get_cache_path(self, log: LogSummary):
@@ -36,8 +37,12 @@ class ArrowModelCache():
         result = engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
                                "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
 
-        return 0.0
-        #return {"intermediate": intermediate, "reward": reward}    
+        if self.model_config["type"] == "vision":
+            return result["intermediate"]
+        elif self.model_config["type"] == "reward":
+            return result["reward"]
+        else:
+            raise NotImplementedError()
 
     def _build_for_filegroup(self, group, engine):
         nv_dec = nvc.PyNvDecoder(
@@ -91,5 +96,17 @@ class ArrowModelCache():
                 raw_data = []
 
                 for key, vision_value in self._build_for_filegroup(group, engine):
-                    raw_data.append((key, vision_value))
-                
+                    raw_data.append({"key": key, "shape": vision_value.shape, "value": vision_value.flatten()})
+
+                # Save those into a Dataframe
+                df = pd.DataFrame.from_records(raw_data,
+                                               columns=["key", "shape", "value"], index="key")
+
+                # Convert from pandas to Arrow
+                table = pyarrow.Table.from_pandas(df)
+
+                # Write out to file
+                with pyarrow.OSFile(cache_path, 'wb') as sink:
+                    with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
+                        writer.write_table(table)
+                            
