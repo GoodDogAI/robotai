@@ -30,7 +30,7 @@ class ArrowModelCache():
     def get_cache_path(self, log: LogSummary):
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, log.get_runname() + ".arrow")
 
-    def process_frame(self, engine, y, uv):
+    def _process_frame(self, engine, y, uv):
         y = torch.unsqueeze(y, 0)
         uv = torch.unsqueeze(uv, 0)
 
@@ -75,7 +75,7 @@ class ArrowModelCache():
 
                         if not surface.Empty():
                             y, uv = surface_to_y_uv(surface)
-                            yield key_queue.pop(0), self.process_frame(engine, y, uv)
+                            yield key_queue.pop(0), self._process_frame(engine, y, uv)
 
                 while True:
                     surface = nv_dec.FlushSingleSurface()
@@ -84,7 +84,7 @@ class ArrowModelCache():
                         break
                     else:
                         y, uv = surface_to_y_uv(surface)
-                        yield key_queue.pop(0), self.process_frame(engine, y, uv)
+                        yield key_queue.pop(0), self._process_frame(engine, y, uv)
                             
 
     def build_cache(self):
@@ -94,13 +94,17 @@ class ArrowModelCache():
                 print(f"Building cache {cache_path}")
 
                 raw_data = []
+                all_keys = set()
 
                 for key, vision_value in self._build_for_filegroup(group, engine):
                     raw_data.append({"key": key, "shape": vision_value.shape, "value": vision_value.flatten()})
 
+                    assert key not in all_keys
+                    all_keys.add(key)
+
                 # Save those into a Dataframe
                 df = pd.DataFrame.from_records(raw_data,
-                                               columns=["key", "shape", "value"], index="key")
+                                               columns=["key", "shape", "value"], index="key")                                      
 
                 # Convert from pandas to Arrow
                 table = pyarrow.Table.from_pandas(df)
