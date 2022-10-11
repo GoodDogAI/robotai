@@ -44,6 +44,13 @@ def sync(lh: LogHashes) -> bool:
     
     return False
        
+
+def sync_once():
+    lh = LogHashes(DEVICE_CONFIG.LOG_PATH)
+    sync(lh)
+    logger.warning("Log uploader done")
+
+
 def main():
     lh = LogHashes(DEVICE_CONFIG.LOG_PATH)
 
@@ -71,6 +78,5 @@ def main():
 if __name__ == "__main__":
     logging.basicConfig()
     logger.warning("Syncing remaining logs manually")
-    lh = LogHashes(DEVICE_CONFIG.LOG_PATH)
-    sync(lh)
+    sync_once()
     logger.warning("Done with single sync")

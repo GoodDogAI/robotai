@@ -2,6 +2,7 @@ import os
 import asyncio
 import importlib
 import logging
+import signal
 import multiprocessing
 from setproctitle import setproctitle 
 
@@ -93,7 +94,7 @@ class NativeProcess(ManagerProcess):
         self.running = False
 
     def kill(self):
-        self.p.kill()
+        self.p.terminate()
         self.running = False
 
 def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
@@ -102,6 +103,7 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("encoderd"),
         NativeProcess("loggerd"),
         NativeProcess("micd"),
+    
         NativeProcess("odrived"),
         NativeProcess("simplebgcd"),
         NativeProcess("appcontrold"),
@@ -109,27 +111,39 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
                                  "--vision_model", models["vision_model"]]),
     ]
 
-async def main():
+
+async def cancel_me():
+    print('cancel_me(): before sleep')
+
+    try:
+        # Wait for 1 hour
+        await asyncio.sleep(3600)
+    except asyncio.CancelledError:
+        print('cancel_me(): cancel sleep')
+        raise
+    finally:
+        print('cancel_me(): after sleep')
+
+
+async def brain_main():
     logger.warning("Setting up brain and models...")
 
     models = prepare_brain_models()
     procs = get_procs(models)
 
-    # Log uploader runs seperately, until it finishes, also keep it lower priority
-    log_uploader_proc = PythonProcess("loguploader", "src.realtime.loguploader", nice=15)
-
     logger.warning("Starting manager...")
+
+    cancelation_task = asyncio.create_task(cancel_me())
+    asyncio.get_running_loop().add_signal_handler(signal.SIGINT, cancelation_task.cancel)
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, cancelation_task.cancel)
 
     for proc in procs:
         logger.warning(f"Starting {proc.name}...")
         await proc.start()
 
-    logger.warning("Starting log uploader...")
-    await log_uploader_proc.start()
+    done, pending = await asyncio.wait([cancelation_task] + [proc.join() for proc in procs], return_when=asyncio.FIRST_COMPLETED)
 
-    done, pending = await asyncio.wait([proc.join() for proc in procs], return_when=asyncio.FIRST_COMPLETED)
-
-    logger.warning(f"First task finished: {done}")
+    print("Task finished", done)
 
     for proc in procs:
         try:
@@ -140,15 +154,34 @@ async def main():
         except Exception as e:
             logger.exception(f"Could not kill {proc.name}")
 
-    # Run the log uploader until it is 
-    log_uploader_proc.kill()
+    print("Waiting for rest of tasks to finish")
+    done, pending = await asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED)
+
+    for proc in procs:
+        print('{0: <16} ret {1}'.format(proc.name, proc.p.returncode))
+
+
+async def uploader_main():
+    # Log uploader runs seperately, until it finishes, also keep it lower priority
+    log_uploader_proc = PythonProcess("loguploader", "src.realtime.loguploader", func="sync_once")
+
+    # Run the log uploader until it is done, but not during realtime stuff
+    logger.warning("Starting log uploader...")
+    await log_uploader_proc.start()
     logger.warning("Waiting for log uploader to finish...")
     await log_uploader_proc.join()
 
-    logger.info("Manager finished")
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    loop = asyncio.get_event_loop()   
+
+    loop.run_until_complete(brain_main())
+
+    try:
+        loop.run_until_complete(uploader_main())
+    except KeyboardInterrupt:
+        logger.warning("Got CTRL+C on Uploader")
+
     loop.close()
+
 

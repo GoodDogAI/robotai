@@ -140,6 +140,8 @@ int main(int argc, char *argv[])
         }
     }
 
+    fmt::print("loggerd got exit signal\n");
+
     // Once you've exited, close the current log, and rename it properly
     if ((num_logs == 1 && std::chrono::steady_clock::now() - log_start > std::chrono::seconds(LOG_DURATION_SECONDS / 2)) ||
         (num_logs > 1 && msgs_in_log > 0)) {
