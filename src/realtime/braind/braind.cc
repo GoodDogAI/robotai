@@ -235,7 +235,8 @@ int main(int argc, char *argv[])
     }
   }
 
-  fmt::print("Vision and msgvec ready, startng inference\n");
+  fmt::print("Vision and msgvec ready, starting inference\n");
+  fmt::print("-------------------------------------------\n");
 
   float *host_y = static_cast<float*>(vision_engine->get_host_buffer("y"));
   float *host_uv = static_cast<float*>(vision_engine->get_host_buffer("uv"));
