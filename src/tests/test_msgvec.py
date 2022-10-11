@@ -995,5 +995,222 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("headCommand")
         self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
 
+    def test_input_ready_status_multimsg(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": [
+                    {
+                    "type": "msg",
+                    "path": "odriveCommand.currentLeft",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentRight",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "stopAllOutputs"
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("headFeedback")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": False, "act_ready": False})
+
+        msg = new_message("headCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+
+        msg = new_message("odriveCommand")
+        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+    
+
+    def test_real_data_to_vector(self):
+        config = {"obs": [
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.vel",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "filter": {
+                        "field": "voltage.type",
+                        "op": "eq",
+                        "value": "mainBattery",
+                    },
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 13.5],
+                        "vec_range": [-1, 1],
+                    }
+                },
+                
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "vision",
+                    "size": 17003,
+                    "index": -1,
+                }
+            ],
+
+            "act": [
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentLeft",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.currentRight",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ],
+
+            "rew": {
+                "override": {
+                    "positive_reward": 1.0,
+                    "positive_reward_timeout": 0.50,
+
+                    "negative_reward": -1.0,
+                    "negative_reward_timeout": 0.50,
+                }
+            },
+
+            "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },
+
+            "done": {
+                "mode": "on_reward_override",
+            }
+        }
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2fd2bf40-2022-10-10-23_14.log"), "rb") as f:
+            events = log.Event.read_multiple(f)
+            for evt in events:
+                result = msgvec.input(evt.as_builder().to_bytes())
+                print(f"Result: {result} - {evt.which()}")
+
+                if evt.which() == "modelInference":
+                    print("Got inference")
+                    timeout, obs = msgvec.get_obs_vector()
+                    print(f"Obs: {obs[:3]} - {timeout}")
+
+                
+                # if result["act_ready"]:
+                #     obs = msgvec.get_obs_vector_raw()
+                #     act = msgvec.get_act_vector_raw()
+                #     rew = msgvec.get_reward()
+
+                # print(result)
 
 

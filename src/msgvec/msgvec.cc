@@ -329,8 +329,9 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
             m_actVector[act_index] = transform_msg_to_vec(act["transform"], rawValue);
             m_actVectorReady[act_index] = true;
             processed = true;
-            act_index++;
         }
+
+        act_index++;
     }
 
     bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
