@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 
 from pathlib import Path
+from typing import Dict
 from cereal import log
 import src.PyNvCodec as nvc
 import src.PytorchNvCodec as pnvc
@@ -16,17 +17,17 @@ from config import HOST_CONFIG, DEVICE_CONFIG
 from src.video import V4L2_BUF_FLAG_KEYFRAME
 from src.logutil import LogHashes, LogSummary
 from src.train.videoloader import surface_to_y_uv
-from src.train.modelloader import get_config_from_fullname, load_vision_model, brain_fullname
+from src.train.modelloader import load_vision_model, model_fullname
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
 
 
 # This class takes in a directory, and runs models on all of the video frames, saving
 # the results to an arrow cache file. The keys are the videofilename-frameindex.
 class ArrowModelCache():
-    def __init__(self, dir: str, model_fullname: str):
+    def __init__(self, dir: str, model_config: Dict):
         self.lh = LogHashes(dir)
-        self.model_fullname = model_fullname
-        self.model_config = get_config_from_fullname(model_fullname)
+        self.model_fullname = model_fullname(model_config)
+        self.model_config = model_config
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
 
     def get_cache_path(self, log: LogSummary):
@@ -125,10 +126,10 @@ class ArrowModelCache():
 # the obs, act, reward, done tuples that will be used for RL training.
 # It relies on the ArrowModelCache for filling in vision intermediates and rewards
 class ArrowRLCache():
-    def __init__(self, dir: str, brain_config) -> None:
+    def __init__(self, dir: str, brain_model_config: Dict) -> None:
         self.lh = LogHashes(dir)
-        self.brain_config = brain_config
-        self.brain_fullname = brain_fullname(brain_config)
+        self.brain_config = brain_model_config
+        self.brain_fullname = model_fullname(brain_model_config)
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname).mkdir(parents=True, exist_ok=True)
 
     def get_cache_path(self, log: LogSummary):

@@ -7,7 +7,7 @@ import random
 from cereal import log
 from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
-from src.config import BRAIN_CONFIGS, HOST_CONFIG
+from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 
 
@@ -25,7 +25,7 @@ class TestMsgVec(unittest.TestCase):
 
     def test_feed_real_data(self):
         log_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
-        default_cfg = BRAIN_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]
+        default_cfg = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]
         msgvec = PyMsgVec(json.dumps(default_cfg["msgvec"]).encode("utf-8"))
 
         start = time.perf_counter()
