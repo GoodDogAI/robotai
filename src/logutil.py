@@ -1,9 +1,10 @@
 import os
+import re
 import hashlib
 import json
 import logging
 
-from typing import List, Dict, BinaryIO
+from typing import List, Dict, BinaryIO, Tuple
 from functools import total_ordering
 from capnp.lib import capnp
 from fastapi.encoders import jsonable_encoder
@@ -14,6 +15,8 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 DATA_FILE = "_hashes.json"
+
+LOGNAME_RE = re.compile(r"(?P<logname>[a-z]+)-(?P<runname>[a-f0-9]+)-(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})-(?P<hour>\d{1,2})_(?P<minute>\d{1,2}).log")
 
 
 def sha256(filename: str) -> str:
@@ -35,6 +38,7 @@ def quick_validate_log(f: BinaryIO) -> bool:
         return True
     except capnp.KjException:
         return False
+
 
 @total_ordering
 class LogSummary(BaseModel):
@@ -110,3 +114,37 @@ class LogHashes:
 
     def __str__(self):
         return str(self.files)
+
+    def _sort_by_time(self, log: LogSummary) -> Tuple:
+        m = LOGNAME_RE.match(log.filename)
+
+        if m:
+            return (int(m["year"]), int(m["month"]), int(m["day"]), int(m["hour"]), int(m["minute"]))
+        else:
+            return (0, 0, 0, 0, 0)    
+
+    def group_logs(self) -> List[List[LogSummary]]:
+        groups = []
+        cur_group = []
+        
+        last_d = None
+
+        for log in sorted(self.values(), key=self._sort_by_time):
+            m = LOGNAME_RE.match(log.filename)
+            
+            if m:
+                d = m["runname"]
+            else:
+                d = None
+        
+            if (last_d is None or d != last_d) and cur_group != []:
+                groups.append(cur_group)
+                cur_group = []
+
+            cur_group.append(log)
+            last_d = d
+
+        if cur_group != []:
+            groups.append(cur_group)
+
+        return sorted(groups, key=lambda x: "".join(x[0].filename.split("-")[2:]))

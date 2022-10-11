@@ -42,31 +42,7 @@ async def asha256(fp: UploadFile) -> str:
 
 @router.get("/")
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSummary]]:
-    groups = []
-    cur_group = []
-    logname_re = re.compile(r"([a-z]+)-([a-f0-9]+)-(\d{4})-(\d{1,2})-(\d{1,2})-(\d{1,2})_(\d{1,2}).log")
-    last_d = None
-
-    for log in sorted(lh.values()):
-        m = logname_re.match(log.filename)
-        
-        if m:
-            d = m[2]
-        else:
-            d = None
-    
-        if (last_d is None or d != last_d) and cur_group != []:
-            groups.append(cur_group)
-            cur_group = []
-
-        cur_group.append(log)
-        last_d = d
-
-    if cur_group != []:
-        groups.append(cur_group)
-
-    return sorted(groups, key=lambda x: "".join(x[0].filename.split("-")[2:]))
-
+    return lh.group_logs()
 
 @router.get("/exists/{sha256}")
 async def log_exists(sha256: str, lh: LogHashes = Depends(get_loghashes)):

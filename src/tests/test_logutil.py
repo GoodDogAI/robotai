@@ -58,5 +58,17 @@ class LogHashesTest(unittest.TestCase):
         with artificial_logfile() as f:
             self.assertTrue(quick_validate_log(f))
 
+    def test_logs_sorted_correctly(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "alphalog-6d7f2832-2022-10-11-18_10.log"), "wb") as f:
+                f.write(b"HelloWorld")
+
+            with open(os.path.join(td, "alphalog-6d7f2832-2022-10-11-18_9.log"), "wb") as f:
+                f.write(b"HelloWorld")
+
+            lh = LogHashes(td)
+            self.assertEqual(lh.group_logs()[0][0].filename, "alphalog-6d7f2832-2022-10-11-18_9.log")
+            self.assertEqual(lh.group_logs()[0][1].filename, "alphalog-6d7f2832-2022-10-11-18_10.log")
+
 if __name__ == '__main__':
     unittest.main()
