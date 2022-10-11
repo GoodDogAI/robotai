@@ -53,6 +53,13 @@ class LogSummary(BaseModel):
     def __le__(self, other):
         return self.filename < other.filename
 
+    def get_runname(self):
+        m = LOGNAME_RE.match(self.filename)
+        if m:
+            return m.group("logname") + "-" + m.group("runname")
+        else:
+            return self.filename
+
 
 # Allows for quick and cached access to the SHA256 hash of a bunch of log files
 class LogHashes:
