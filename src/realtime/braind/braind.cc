@@ -171,10 +171,11 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
-  json root_config { json::parse(config_ifs) };
-  auto config_name = (*root_config.items().begin()).key();
+  json brain_config { json::parse(config_ifs) };
+  KJ_ASSERT(brain_config.is_object());
+  KJ_ASSERT(brain_config["type"] == "brain");
 
-  kj::MutexGuarded<MsgVec> msgvec_guard { root_config[config_name]["msgvec"].dump() };
+  kj::MutexGuarded<MsgVec> msgvec_guard { brain_config["msgvec"].dump() };
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec_guard) };

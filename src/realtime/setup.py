@@ -102,7 +102,7 @@ def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
                 with open(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"), "wb") as f:
                     f.write(resp.content)
 
-                brain_name = list(resp.json())[0]
+                brain_name = resp.json()["_fullname"]
                 logger.warning(f"Downloaded {brain_name} from server")
             else:
                 logger.warning("Could not reach server to get brain config, using cached one")
@@ -113,16 +113,19 @@ def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
         brain_config = json.load(f)
 
     if brain_name is None:
-        brain_name = list(brain_config)[0]
+        brain_name = brain_config["_fullname"]
 
-    if brain_name != list(brain_config)[0]:
-        raise RuntimeError(f"Brain name {brain_name} does not match the one in the config {list(brain_config)[0]}")
+    if brain_name != brain_config["_fullname"]:
+        raise RuntimeError(f"Brain name {brain_name} does not match the one in the config {brain_config['_fullname']}")
 
-    brain_config = brain_config[brain_name]
 
     result = {}
 
     for model_name in brain_config["models"]:
+        if model_name == "reward_model":
+            logger.warning(f"Skipping {model_name} as it is a reward model")
+            continue
+
         prepare_device_model(brain_config["models"][model_name]["basename"],
                              brain_config["models"][model_name]["_fullname"])
         result[model_name] = brain_config["models"][model_name]["_fullname"]                             

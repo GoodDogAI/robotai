@@ -13,6 +13,13 @@
             "justMyCode": true
         },
         {
+            "name": "Python: Run realtime",
+            "type": "python",
+            "request": "launch",
+            "module": "src.realtime.manager",
+            "justMyCode": true
+        },
+        {
             "name": "Python: Convert Old Bags",
             "type": "python",
             "request": "launch",
