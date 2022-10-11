@@ -928,6 +928,7 @@ class TestMsgVec(unittest.TestCase):
 
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
+        self.assertTrue(math.isnan(rew))
         
         # Override, timeout
         msg = new_message("appControl")
@@ -1077,6 +1078,29 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("odriveCommand")
         self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
     
+    def test_act_values_bounded(self):
+        config = {"obs":  [], "act": [
+                    {
+                    "type": "msg",
+                    "path": "odriveCommand.currentLeft",
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },  
+            ]}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        with self.assertRaises(RuntimeError):
+            msgvec.get_action_command([math.inf])
+
+        with self.assertRaises(RuntimeError):
+            msgvec.get_action_command([-math.inf])
+
+        with self.assertRaises(RuntimeError):
+            msgvec.get_action_command([math.nan])
 
     def test_real_data_to_vector(self):
         config = {"obs": [
@@ -1214,6 +1238,8 @@ class TestMsgVec(unittest.TestCase):
                 if "headCommand" in messages_since_last_inference and "odriveCommand" in messages_since_last_inference and not seen_act_ready:
                     self.assertTrue(result["act_ready"])
                     seen_act_ready = True
+                else:
+                    self.assertFalse(result["act_ready"])
 
                 if evt.which() == "appControl":
                     self.assertEqual(result["msg_processed"], True)

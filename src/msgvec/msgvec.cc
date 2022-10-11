@@ -482,6 +482,9 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
         std::string event_type {get_event_type(act["path"])};
         float actValue = actVector[act_index];
 
+        KJ_ASSERT(kj::isNaN(actValue) == false, "NaN in actVector");
+        KJ_ASSERT(actValue < kj::inf() && actValue > -kj::inf(), "Inf in actVector");
+
         if (msgs.count(event_type) == 0) {
             msgs[event_type].initEvent(true);
         }
