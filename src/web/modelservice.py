@@ -9,9 +9,9 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, FileResponse, Response
 
-from src.train.modelloader import create_and_validate_onnx, onnx_to_numpy_dtype, model_fullname, brain_fullname
+from src.train.modelloader import create_and_validate_onnx, onnx_to_numpy_dtype, model_fullname
 
-from src.config import HOST_CONFIG, MODEL_CONFIGS, BRAIN_CONFIGS
+from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 
 router = APIRouter(prefix="/models",
@@ -41,13 +41,13 @@ async def get_all_models() -> JSONResponse:
 async def get_default_brain_model() -> str:
     brain = HOST_CONFIG.DEFAULT_BRAIN_CONFIG
     
-    config = copy.deepcopy(BRAIN_CONFIGS[brain])
-    config["_fullname"] = brain_fullname(brain)
+    config = copy.deepcopy(MODEL_CONFIGS[brain])
+    config["_fullname"] = model_fullname(config)
     
     for type, model in config["models"].items():
         config["models"][type] = {"basename": model, "_fullname": model_fullname(MODEL_CONFIGS[model])}
 
-    return { brain: config }
+    return config
 
 @router.get("/{model_name}/config")
 async def get_model_config(model_name: str) -> JSONResponse:

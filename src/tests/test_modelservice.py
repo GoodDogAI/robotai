@@ -27,12 +27,11 @@ class ModelServiceTest(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
 
         j = resp.json()
-        main_key = list(j)[0]
 
         resp = self.client.get(f"/models/INVALID/onnx/")
         self.assertEqual(resp.status_code, 404)
 
-        vision_model = j[main_key]["models"]["vision_model"]["basename"]
+        vision_model = j["models"]["vision_model"]["basename"]
 
         resp = self.client.get(f"/models/{vision_model}/onnx/")
         self.assertEqual(resp.status_code, 200)
@@ -41,8 +40,7 @@ class ModelServiceTest(unittest.TestCase):
         resp = self.client.get("/models/brain/default/")
 
         j = resp.json()
-        main_key = list(j)[0]
-        vision_model = j[main_key]["models"]["vision_model"]["basename"]
+        vision_model = j["models"]["vision_model"]["basename"]
 
         resp = self.client.get(f"/models/{vision_model}/onnx/")
         self.assertEqual(resp.status_code, 200)

@@ -23,7 +23,6 @@ from cereal import log
 from src.train.onnx_yuv import NV12MToRGB, CenterCrop, ConvertCropVision, int8_from_uint8
 from src.train.reward import ConvertCropVisionReward, ThresholdNMS, SumCenteredObjectsPresentReward
 from src.config import DEVICE_CONFIG, HOST_CONFIG, MODEL_CONFIGS
-from src.config.config import BRAIN_CONFIGS
 
 
 
@@ -106,17 +105,6 @@ def model_fullname(config: Dict[str, Any]) -> str:
 
     model_fullname = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
     return model_fullname
-
-def brain_fullname(brain_name: str) -> str:
-    brain = BRAIN_CONFIGS[brain_name]
-    assert brain is not None, "Unable to find brain config"
-
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(repr(brain).encode("utf-8"))
-    config_sha = sha256_hash.hexdigest()[:16]
-
-    brain_fullname = brain_name + "-" + config_sha
-    return brain_fullname
 
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str, model_type:Literal["vision"]) -> bool:

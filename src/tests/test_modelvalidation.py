@@ -8,7 +8,7 @@ import tempfile
 from cereal import log
 
 from src.train.onnx_yuv import png_to_nv12m
-from src.config import HOST_CONFIG, BRAIN_CONFIGS
+from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.train.modelloader import load_vision_model
 from src.train.log_validation import full_validate_log, cosine_similarity
 
