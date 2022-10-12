@@ -36,6 +36,11 @@ make -j4
 sudo make install
 ```
 
+Also, be sure to setup the udev rules
+```
+scripts/setup_udev_rules.sh 
+```
+
 ## X86/64 PC Setup
 
 ### TensorRT
@@ -97,7 +102,6 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 
 ## TODOs
 - Add msgvec support to request vision intermediates
- - implement inputVision function
  - send out encode index messages, without the full encode data, so they arrive at a good time
  - on replay, it will feed in inputVision records from the caches and thus be able to get the proper obs vector
 
