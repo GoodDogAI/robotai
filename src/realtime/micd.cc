@@ -8,10 +8,12 @@
 #include <fmt/ranges.h>
 
 #include "cereal/messaging/messaging.h"
+
+#include "util.h"
 #include "config.h"
 
 const char *service_name = "micData";
-
+ExitHandler do_exit;
 
 int main(int argc, char *argv[])
 {
@@ -111,7 +113,7 @@ int main(int argc, char *argv[])
 
     std::fill(ch0.begin(), ch0.end(), 0.0f);
 
-    for (;;) {
+    while (!do_exit) {
         pcmreturn = snd_pcm_readi(pcm_handle, buf.begin(), frames);
         if (pcmreturn == -EPIPE) {
             fmt::print(stderr, "overrun occurred\n");

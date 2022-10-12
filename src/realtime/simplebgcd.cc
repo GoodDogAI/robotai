@@ -7,12 +7,14 @@
 #include <fmt/core.h>
 #include <fmt/chrono.h>
 
+#include "util.h"
 #include "config.h"
 #include "serial.h"
 #include "simplebgc.h"
 #include "cereal/messaging/messaging.h"
 
 const char *service_name = "simpleBGC";
+ExitHandler do_exit;
 const auto loop_time = std::chrono::milliseconds(100);
 
 enum class YawGyroState {
@@ -285,7 +287,7 @@ int main(int argc, char **argv)
   gyro_center_start_time = std::chrono::steady_clock::now();
   bgc_last_received = std::chrono::steady_clock::now();
 
-  for (;;)
+  while (!do_exit)
   {
     auto start_loop { std::chrono::steady_clock::now() };
 

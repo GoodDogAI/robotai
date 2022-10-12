@@ -9,10 +9,9 @@
 #include <capnp/pretty-print.h>
 #include <fmt/core.h>
 
+#include "util.h"
 #include "config.h"
 #include "cereal/messaging/messaging.h"
-
-const char *service_name = "appControl";
 
 #define MAX_MISSED_INTERVALS 3
 
@@ -25,6 +24,9 @@ const char *service_name = "appControl";
 #define BUF_SCORE_INDEX 5
 #define BUF_CMD_VEL_LINEAR_X_INDEX 5
 #define BUF_CMD_VEL_ANGULAR_Z_INDEX 6
+
+const char *service_name = "appControl";
+ExitHandler do_exit;
 
 void sendMessage(PubMaster &pm, bool connected,
                  cereal::AppControl::RewardState rewardState = cereal::AppControl::RewardState::NO_OVERRIDE,
@@ -92,7 +94,7 @@ int main(int argc, char **argv)
     sendMessage(pm, connected);
     last_msg_sent = std::chrono::steady_clock::now();
 
-    while(true) {
+    while(!do_exit) {
         int input_ret;
         KJ_SYSCALL(input_ret = poll(input_fds.data(), input_fds.size(), 500), "input poll failed");
         
@@ -111,7 +113,7 @@ int main(int argc, char **argv)
             std::vector<pollfd> conn_fds;
             conn_fds.push_back({client, POLLIN, 0});
             
-            while (true) {
+            while (!do_exit) {
                 if (std::chrono::steady_clock::now() - last_msg_sent > std::chrono::milliseconds(1000)) {
                     sendMessage(pm, connected);
                     last_msg_sent = std::chrono::steady_clock::now();
