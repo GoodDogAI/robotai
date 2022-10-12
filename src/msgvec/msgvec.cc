@@ -92,6 +92,33 @@ static void verify_transform(const json& transform) {
     }
 }
 
+static std::pair<uint32_t, uint32_t> get_queue_obs_len(const json &obs) {
+    uint32_t queue_size, obs_size;
+
+    if (obs["index"].is_number()) {
+        if (obs["index"].get<int64_t>() <= 0) {
+            throw std::runtime_error("msgvec: msg indexes must be negative");
+        }
+
+        queue_size = std::abs(obs["index"].get<int64_t>());
+        obs_size = 1;
+    }
+    else if (obs["index"].is_array()) {
+        std::vector<int64_t> indices = obs["index"];
+
+        if (std::any_of(indices.begin(), indices.end(), [](int64_t i) { return i >= 0; })) {
+            throw std::runtime_error("msgvec: msg indexes must be negative");
+        }
+
+        queue_size = std::abs(*std::min_element(indices.begin(), indices.end()));
+        obs_size = std::size(indices);
+    }
+    else {
+        throw std::runtime_error("msgvec: msg index must be an array or number");
+    }
+
+    return std::pair(queue_size, obs_size);
+}
 
 MsgVec::MsgVec(const std::string &jsonConfig):
  m_config(json::parse(jsonConfig)) {
@@ -106,38 +133,25 @@ MsgVec::MsgVec(const std::string &jsonConfig):
 
     for (auto &obs: m_config["obs"]) {
         if (obs["type"] == "msg") {
-            if (obs["index"].is_number()) {
-                if (obs["index"] >= 0) {
-                    throw std::runtime_error("msgvec: msg index must be negative");
-                }
+            const auto [queue_size, obs_size] = get_queue_obs_len(obs);
 
-                m_obsHistory[obs_index] = std::deque<float>(std::abs(obs["index"].get<int64_t>()), 0.0f);
-                m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(std::abs(obs["index"].get<int64_t>()), 0);
-                m_obsSize += 1;
-            } 
-            else if (obs["index"].is_array()) {
-                std::vector<int64_t> indices = obs["index"];
-
-                if (std::any_of(indices.begin(), indices.end(), [](int64_t i) { return i >= 0; })) {
-                    throw std::runtime_error("msgvec: msg indexes must be negative");
-                }
-
-                m_obsHistory[obs_index] = std::deque<float>(std::abs(*std::min_element(indices.begin(), indices.end())), 0.0f);
-                m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(std::abs(*std::min_element(indices.begin(), indices.end())), 0);
-                m_obsSize += obs["index"].size();
-            }            
-            else {
-                throw std::runtime_error("msgvec: msg index must be an array or number");
-            }
-
+            m_obsHistory[obs_index] = std::deque<float>(queue_size, 0.0f);
+            m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(queue_size, 0);
+            m_obsSize += obs_size;
+          
             verify_transform(obs["transform"]);
         }
         else if (obs["type"] == "vision") {
             if (!obs.contains("size")) {
                 throw std::runtime_error("msgvec: vision section must have predetermined size");
             }
+            m_visionSize = obs["size"].get<int64_t>();
+            const auto [queue_size, obs_size] = get_queue_obs_len(obs);
 
-            m_obsSize += obs["size"].get<int64_t>();
+            m_visionHistory = std::deque<std::vector<float>>(queue_size, std::vector<float>(m_visionSize, 0.0f));
+            m_visionHistoryIds = std::deque<uint32_t>(queue_size, 0);
+
+            m_obsSize += m_visionSize * obs_size;
         }
         else {
             throw std::runtime_error("Unknown observation type");
@@ -343,6 +357,14 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     }
 
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
+}
+
+void MsgVec::inputVision(const float *visionIntermediate, uint32_t frameId) {
+    m_visionHistory.push_front(std::vector<float>(visionIntermediate, visionIntermediate + m_visionSize));
+    m_visionHistory.pop_back();
+
+    m_visionHistoryIds.push_front(frameId);
+    m_visionHistoryIds.pop_back();
 }
 
 size_t MsgVec::obs_size() const {
