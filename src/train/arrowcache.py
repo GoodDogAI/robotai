@@ -135,7 +135,6 @@ class ArrowRLCache():
     def get_cache_path(self, log: LogSummary):
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname, log.get_runname() + ".arrow")
 
-
     def build_cache(self, force_rebuild=False):
          for group in self.lh.group_logs():
             cache_path = self.get_cache_path(group[0])

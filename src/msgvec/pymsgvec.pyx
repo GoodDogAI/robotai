@@ -39,6 +39,7 @@ cdef class PyMsgVec:
         return self.c_msgvec.input(obs)
 
     def input_vision(self, vision_vector: List[float], frame_id: int):
+        assert len(vision_vector) == self.c_msgvec.vision_size()
         cdef array.array a = array.array('f', vision_vector)
         self.c_msgvec.input_vision(a.data.as_floats, frame_id)
 

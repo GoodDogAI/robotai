@@ -14,7 +14,8 @@ cdef extern from "msgvec.h":
         MsgVec(const string &jsonConfig) except +
         size_t obs_size()
         size_t act_size()
-
+        size_t vision_size()
+        
         InputResult input(const vector[uchar] &bytes) except +
         void input_vision(const float *visionIntermediate, uint32_t frameId) except +
         TimeoutResult get_obs_vector(float *obsVector) except +

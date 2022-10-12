@@ -380,6 +380,10 @@ size_t MsgVec::act_size() const {
     return m_actSize;
 }
 
+size_t MsgVec::vision_size() const {
+    return m_visionSize;
+}
+
 uint64_t get_log_mono_time() {
     struct timespec t;
     clock_gettime(CLOCK_BOOTTIME, &t);
