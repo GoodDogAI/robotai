@@ -205,12 +205,6 @@ int main(int argc, char *argv[])
     // Find a matching color profile
     auto color_profiles{ color_sens.get_stream_profiles() };
 
-    // std::cout << "Camera Color profiles:" << std::endl;
-    // for (const auto &profile : color_profiles)
-    // {
-    //     std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << std::endl;
-    // }
-
     auto color_stream_profile = *std::find_if(color_profiles.begin(), color_profiles.end(), [](rs2::stream_profile &profile)
                                         {
         rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
@@ -258,13 +252,14 @@ int main(int argc, char *argv[])
     motion_sens.open({ gyro_stream_profile, accel_stream_profile });
 
     // Find and setup the depth stream
-    // auto depth_profiles{ depth_sens.get_stream_profiles() };
+    auto depth_profiles{ depth_sens.get_stream_profiles() };
 
-    // std::cout << "Camera Depth profiles:" << std::endl;
-    // for (const auto &profile : depth_profiles)
-    // {
-    //     std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << std::endl;
-    // }
+    std::cout << "Camera Depth profiles:" << std::endl;
+    for (const auto &profile : depth_profiles)
+    {
+        auto sp = profile.as<rs2::video_stream_profile>();
+        std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << " " << sp.width() << " " << sp.height() << std::endl;
+    }
 
     // Start all the stream threads
     std::thread color_thread{ color_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(color_sens) };
