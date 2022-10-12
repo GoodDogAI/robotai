@@ -303,30 +303,47 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
 
+            {
+                "type": "msg",
+                "path": "headFeedback.pitchAngle",
+                "index": [-1, -2, -5],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 1000],
+                }
+            },
+
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        self.assertEqual(msgvec.obs_size(), 3)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0, 0.0])
+        self.assertEqual(msgvec.obs_size(), 6)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        expected = [[1, 0, 0],
-                    [2, 1, 0],
-                    [3, 2, 0],
-                    [4, 3, 0],
-                    [5, 4, 1],
-                    [6, 5, 2],
-                    [7, 6, 3],
-                    [8, 7, 4],
-                    [9, 8, 5]]
+        expected = [[1, 0, 0, 10, 0, 0],
+                    [2, 1, 0, 20, 10, 0],
+                    [3, 2, 0, 30, 20, 0],
+                    [4, 3, 0, 40, 30, 0],
+                    [5, 4, 1, 50, 40, 10],
+                    [6, 5, 2, 60, 50, 20],
+                    [7, 6, 3, 70, 60, 30],
+                    [8, 7, 4, 80, 70, 40],
+                    [9, 8, 5, 90, 80, 50]]
 
         for feed, expect in zip(feeds, expected):
             event = log.Event.new_message()
             event.init("voltage")
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
-
             self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+
+            event = log.Event.new_message()
+            event.init("headFeedback")
+            event.headFeedback.pitchAngle = feed
+            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
 
     def test_act_basic(self):

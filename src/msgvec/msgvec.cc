@@ -370,7 +370,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         if (obs["type"] == "msg") {
             if (obs["index"].is_number()) {
                 auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
-                obsVector[index] = m_obsHistory[index][history_index];
+                obsVector[curpos] = m_obsHistory[index][history_index];
                 if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
                     timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
                 }
@@ -379,7 +379,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
                 std::vector<int64_t> indices = obs["index"];
                 for (size_t i = 0; i < indices.size(); i++) {
                     auto history_index = std::abs(indices[i]) - 1;
-                    obsVector[index + i] = m_obsHistory[index][history_index];
+                    obsVector[curpos + i] = m_obsHistory[index][history_index];
               
                     if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
                         if (i == 0) {
