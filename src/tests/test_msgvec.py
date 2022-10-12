@@ -403,8 +403,15 @@ class TestMsgVec(unittest.TestCase):
 
         msgvec.input_vision(list(range(40, 50)), 1)
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0, 0.0, 40.0, 41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0, 49.0])
-   
-   
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 15
+        event.voltage.type = "mainBattery"
+        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0, 40.0, 41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0, 49.0])
+
 
     def test_act_basic(self):
         config = {"obs": [], "act": [

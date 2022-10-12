@@ -146,6 +146,11 @@ MsgVec::MsgVec(const std::string &jsonConfig):
                 throw std::runtime_error("msgvec: vision section must have predetermined size");
             }
             m_visionSize = obs["size"].get<int64_t>();
+
+            if (m_visionSize < 1) {
+                throw std::runtime_error("msgvec: vision size must be > 1");
+            }
+
             const auto [queue_size, obs_size] = get_queue_obs_len(obs);
 
             m_visionHistory = std::deque<std::vector<float>>(queue_size, std::vector<float>(m_visionSize, 0.0f));
