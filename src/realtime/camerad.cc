@@ -1,12 +1,13 @@
 // camerad talks to the Intel RealSense camera and runs a visionipc server to send the frames to other services
-
 #include <chrono>
 #include <iostream>
 #include <algorithm>
+#include <thread>
 #include <cassert>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
+#include <fmt/ranges.h>
 
 #include <librealsense2/rs.hpp>
 
@@ -15,52 +16,15 @@
 #include "cereal/visionipc/visionipc.h"
 #include "cereal/visionipc/visionipc_server.h"
 
+#include "util.h"
 #include "config.h"
 
 #define CAMERA_BUFFER_COUNT 30
+#define SENSOR_TYPE_REALSENSE_D455 0x01
 
-const char *service_name = "headCameraState";
+ExitHandler do_exit;
 
-int main(int argc, char *argv[])
-{
-    PubMaster pm{ {service_name} };
-    VisionIpcServer vipc_server{ "camerad" };
-    vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
-    vipc_server.start_listener();
-
-    rs2::context ctx;
-    rs2::device_list devices_list{ ctx.query_devices() };
-    size_t device_count{ devices_list.size() };
-    if (!device_count)
-    {
-        fmt::print(stderr, "No device detected. Is it plugged in?\n");
-        return EXIT_FAILURE;
-    }
-
-    fmt::print("Found {} devices\n", device_count);
-
-    rs2::device device = devices_list.front();
-
-    fmt::print("Device Name: {}\n", device.get_info(RS2_CAMERA_INFO_NAME) );
-
-    auto depth_sens{ device.first<rs2::depth_sensor>() };
-    auto color_sens{ device.first<rs2::color_sensor>() };
-
-    // Find a matching profile
-    auto profiles{ color_sens.get_stream_profiles() };
-    auto stream_profile = *std::find_if(profiles.begin(), profiles.end(), [](rs2::stream_profile &profile)
-                                        {
-        rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
-            return sp.width() == CAMERA_WIDTH && sp.height() == CAMERA_HEIGHT && sp.format() == RS2_FORMAT_YUYV && sp.fps() == CAMERA_FPS; });
-
-    if (!stream_profile)
-    {
-        fmt::print(stderr, "No matching camera configuration found\n");
-        return EXIT_FAILURE;
-    }
-
-    color_sens.open(stream_profile);
-
+void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens) {
     rs2::frame_queue queue{ 1 };
     color_sens.start(queue);
 
@@ -69,8 +33,7 @@ int main(int argc, char *argv[])
     rs2_metadata_type last_start_of_frame {};
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
-
-    while (true)
+    while (!do_exit)
     {
         rs2::video_frame color_frame = queue.wait_for_frame();
 
@@ -91,9 +54,9 @@ int main(int argc, char *argv[])
         // For now, it will be best to just go with UVC, and maybe by the time I finish coding, they will have
         // discontinued realsense anyways...
         rs2_metadata_type start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
-        //std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
+        // std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
 
-        //std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
+        // std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
         
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
         if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
@@ -155,7 +118,7 @@ int main(int argc, char *argv[])
 
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();
-        pm.send(service_name, bytes.begin(), bytes.size());
+        pm.send("headCameraState", bytes.begin(), bytes.size());
    
         if (frame_id % 100 == 0)
         {
@@ -167,6 +130,127 @@ int main(int argc, char *argv[])
 
         last_start_of_frame = start_of_frame;
     }
+}
+
+void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
+    rs2::frame_queue queue{ 4 }; // Allow a small queue unlike video frames
+    motion_sensor.start(queue);
+
+    while (!do_exit)
+    {
+        rs2::motion_frame motion_frame = queue.wait_for_frame();
+        auto vec = motion_frame.get_motion_data();
+
+        MessageBuilder msg;
+        auto event = msg.initEvent(true);
+
+        if (motion_frame.get_profile().stream_type() == RS2_STREAM_GYRO) {
+            auto gyro = event.initGyroscope();
+            gyro.setVersion(1);
+            gyro.setTimestamp(motion_frame.get_timestamp());
+            gyro.setSensor(SENSOR_REALSENSE_D455);
+            gyro.setType(SENSOR_TYPE_GYRO);
+
+            auto gyrodata = gyro.initGyro();
+            gyrodata.setV({vec.x, vec.y, vec.z});
+            gyrodata.setStatus(true);
+
+            auto words = capnp::messageToFlatArray(msg);
+            auto bytes = words.asBytes();
+            pm.send("gyroscope", bytes.begin(), bytes.size());
+        } else if (motion_frame.get_profile().stream_type() == RS2_STREAM_ACCEL) {
+            auto accel = event.initAccelerometer();
+            accel.setVersion(1);
+            accel.setTimestamp(motion_frame.get_timestamp());
+            accel.setSensor(SENSOR_REALSENSE_D455);
+            accel.setType(SENSOR_TYPE_ACCELEROMETER);
+
+            auto acceldata = accel.initAcceleration();
+            acceldata.setV({vec.x, vec.y, vec.z});
+            acceldata.setStatus(true);
+
+            auto words = capnp::messageToFlatArray(msg);
+            auto bytes = words.asBytes();
+            pm.send("accelerometer", bytes.begin(), bytes.size());
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    PubMaster pm{ {"headCameraState", "gyroscope", "accelerometer"} };
+    VisionIpcServer vipc_server{ "camerad" };
+    vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
+    vipc_server.start_listener();
+
+    rs2::context ctx;
+    rs2::device_list devices_list{ ctx.query_devices() };
+    size_t device_count{ devices_list.size() };
+    if (!device_count)
+    {
+        fmt::print(stderr, "No device detected. Is it plugged in?\n");
+        return EXIT_FAILURE;
+    }
+
+    fmt::print("Found {} devices\n", device_count);
+
+    rs2::device device = devices_list.front();
+
+    fmt::print("Device Name: {}\n", device.get_info(RS2_CAMERA_INFO_NAME) );
+
+    auto depth_sens{ device.first<rs2::depth_sensor>() };
+    auto color_sens{ device.first<rs2::color_sensor>() };
+    auto motion_sens{ device.first<rs2::motion_sensor>() };
+
+    // Find a matching color profile
+    auto color_profiles{ color_sens.get_stream_profiles() };
+    auto color_stream_profile = *std::find_if(color_profiles.begin(), color_profiles.end(), [](rs2::stream_profile &profile)
+                                        {
+        rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
+            return sp.width() == CAMERA_WIDTH && sp.height() == CAMERA_HEIGHT && sp.format() == RS2_FORMAT_YUYV && sp.fps() == CAMERA_FPS; });
+
+    if (!color_stream_profile)
+    {
+        fmt::print(stderr, "No matching camera configuration found\n");
+        return EXIT_FAILURE;
+    }
+
+    color_sens.open(color_stream_profile);
+
+    // Find and setup the gyro and accelerometer streams
+    auto motion_profiles{ motion_sens.get_stream_profiles() };
+
+    auto gyro_stream_profile = *std::find_if(motion_profiles.begin(), motion_profiles.end(), [](rs2::stream_profile &profile)
+                                        {
+        rs2::motion_stream_profile sp = profile.as<rs2::motion_stream_profile>();
+            return sp.stream_type() == RS2_STREAM_GYRO && sp.format() == RS2_FORMAT_MOTION_XYZ32F && sp.fps() == CAMERA_GYRO_FPS; });
+
+    if (!gyro_stream_profile)
+    {
+        fmt::print(stderr, "No matching gyro configuration found\n");
+        return EXIT_FAILURE;
+    }
+
+    auto accel_stream_profile = *std::find_if(motion_profiles.begin(), motion_profiles.end(), [](rs2::stream_profile &profile)
+                                        {
+        rs2::motion_stream_profile sp = profile.as<rs2::motion_stream_profile>();
+            return sp.stream_type() == RS2_STREAM_ACCEL && sp.format() == RS2_FORMAT_MOTION_XYZ32F && sp.fps() == CAMERA_ACCEL_FPS; });
+
+    if (!accel_stream_profile)
+    {
+        fmt::print(stderr, "No matching accel configuration found\n");
+        return EXIT_FAILURE;
+    }
+
+    motion_sens.open({ gyro_stream_profile, accel_stream_profile });
+
+
+    // Start all the stream threads
+    std::thread color_thread{ color_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(color_sens) };
+    std::thread motion_thread{ motion_sensor_thread, std::ref(pm), std::ref(motion_sens) };
+
+    color_thread.join();
+    motion_thread.join();
 
     return EXIT_SUCCESS;
 }

@@ -6,6 +6,9 @@ DEVICE_CONFIG = dotdict({
     "CAMERA_HEIGHT": 720,
     "CAMERA_FPS": 15,
 
+    "CAMERA_GYRO_FPS": 200,
+    "CAMERA_ACCEL_FPS": 200,
+
     "LOG_DURATION_SECONDS": 60,
     "LOG_PATH": "/media/card",
     "LOG_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
@@ -33,6 +36,12 @@ DEVICE_CONFIG = dotdict({
  
     "SIMPLEBGC_SERIAL_PORT": "/dev/ttyTHS0",
     "SIMPLEBGC_BAUD_RATE": 115_200,
+
+    "SENSOR_REALSENSE_D455": 1,
+    "SENSOR_REALSENSE_D435I": 2,
+
+    "SENSOR_TYPE_ACCELEROMETER": 1,
+    "SENSOR_TYPE_GYRO": 2,
 })
 
 

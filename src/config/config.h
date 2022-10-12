@@ -5,6 +5,8 @@
 #define CAMERA_WIDTH 1280
 #define CAMERA_HEIGHT 720
 #define CAMERA_FPS 15
+#define CAMERA_GYRO_FPS 200
+#define CAMERA_ACCEL_FPS 200
 #define LOG_DURATION_SECONDS 60
 #define LOG_PATH "/media/card"
 #define LOG_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
@@ -24,3 +26,7 @@
 #define ODRIVE_MAX_SPEED 2.000000000000f
 #define SIMPLEBGC_SERIAL_PORT "/dev/ttyTHS0"
 #define SIMPLEBGC_BAUD_RATE 115200
+#define SENSOR_REALSENSE_D455 1
+#define SENSOR_REALSENSE_D435I 2
+#define SENSOR_TYPE_ACCELEROMETER 1
+#define SENSOR_TYPE_GYRO 2
