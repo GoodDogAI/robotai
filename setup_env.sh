@@ -3,6 +3,7 @@ sudo apt-get install -y --no-install-recommends \
     capnproto \
     libcapnp-dev \
     libzmq3-dev \
+    libudev-dev \ 
     cython3 \
     python3-dev \
     python3-numpy \
