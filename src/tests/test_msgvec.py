@@ -412,6 +412,74 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0, 40.0, 41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0, 49.0])
 
+    def test_vision_vectors1(self):
+        config = {"obs": [
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.vel",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "filter": {
+                        "field": "voltage.type",
+                        "op": "eq",
+                        "value": "mainBattery",
+                    },
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 13.5],
+                        "vec_range": [-1, 1],
+                    }
+                },
+                
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "vision",
+                    "size": 10,
+                    "index": -3,
+                }
+            ], "act": []}
+
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+
+        msgvec.input_vision(list(range(10, 20)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+
+        msgvec.input_vision(list(range(40, 50)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 15
+        event.voltage.type = "mainBattery"
+        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + [0.0] * 10)
+
+        msgvec.input_vision(list(range(60, 70)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(10, 20)))
 
     def test_act_basic(self):
         config = {"obs": [], "act": [
