@@ -113,16 +113,13 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
 
 
 async def cancel_me():
-    print('cancel_me(): before sleep')
-
     try:
-        # Wait for 1 hour
-        await asyncio.sleep(3600)
+        while True:
+            await asyncio.sleep(3600)
     except asyncio.CancelledError:
-        print('cancel_me(): cancel sleep')
         raise
     finally:
-        print('cancel_me(): after sleep')
+        print("Cancellation complete")
 
 
 async def brain_main():
