@@ -122,7 +122,7 @@ def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
     result = {}
 
     for model_name in brain_config["models"]:
-        if model_name == "reward_model":
+        if model_name == "reward":
             logger.warning(f"Skipping {model_name} as it is a reward model")
             continue
 

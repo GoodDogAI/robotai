@@ -129,8 +129,8 @@ MODEL_CONFIGS = dotdict({
         "checkpoint": "/home/jake/robotai/_checkpoints/empty-brain.pt",
 
         "models": {
-            "vision_model": "yolov7-tiny-s53",
-            "reward_model": "yolov7-tiny-prioritize_centered_nms",
+            "vision": "yolov7-tiny-s53",
+            "reward": "yolov7-tiny-prioritize_centered_nms",
         },
 
         "msgvec": {

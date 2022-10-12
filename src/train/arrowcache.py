@@ -144,3 +144,27 @@ class ArrowRLCache():
                 continue
 
             msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"))
+            raw_data = []
+
+            cur_inference = None
+            cur_packet = {}
+
+            for logfile in group:
+                with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
+                    print("Processing", logfile.filename)
+                    events = log.Event.read_multiple(f)
+
+                    # Get the actual events, starting with a keyframe, which we will need
+                    for evt in events:
+                        status = msgvec.input(evt.as_builder().to_bytes())
+
+                        if status["act_ready"]:
+                            cur_packet["act"] = msgvec.get_act_vector()
+                            raw_data.append(cur_packet)
+                            cur_packet = {}
+
+                        if evt.which() == "modelInference":
+                            cur_inference = evt
+                            timeout, cur_packet["obs"] = msgvec.get_obs_vector()
+
+                        
