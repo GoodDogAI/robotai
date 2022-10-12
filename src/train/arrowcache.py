@@ -166,5 +166,6 @@ class ArrowRLCache():
                         if evt.which() == "modelInference":
                             cur_inference = evt
                             timeout, cur_packet["obs"] = msgvec.get_obs_vector()
+                            cur_packet["key"] = f"{logfile.get_runname()}-{cur_inference.modelInference.frameId}"
 
                         

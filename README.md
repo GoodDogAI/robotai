@@ -96,16 +96,16 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 
 
 ## TODOs
+- Add msgvec support to request vision intermediates
+ - implement inputVision function
+ - send out encode index messages, without the full encode data, so they arrive at a good time
+ - on replay, it will feed in inputVision records from the caches and thus be able to get the proper obs vector
 
-- Design appcontrold messages
-- Have appcontrold send messages
-- Does the msgvec config have to be refactored, into either a brain or separate config?
-- Add support for reading reward messages in msgvec
 - Add support to generate obs, act, reward, done from msgvec
 - Add obs/act verification messages
+- Add camera accelerometer / gyro values
+- Add simplebgc accel/gyro
 - Encode depth frames
 - Add sentinel data to logs
 - Allow browsing depth vs vision frames
-- Implement brain sending action messages
- - Implement brain overriding those with appcontrold inputs
 - Bag2log conversion of other message types
