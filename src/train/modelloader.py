@@ -101,10 +101,15 @@ def model_fullname(config: Dict[str, Any]) -> str:
 
     # Also include the hash of the config itself
     sha256_hash.update(repr(config).encode("utf-8"))
-    model_sha = sha256_hash.hexdigest()[:16]
 
-    model_fullname = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
-    return model_fullname
+    # Include the full names of any referenced models
+    if "models" in config:
+        for modeltype, modelname in config["models"].items():
+            sha256_hash.update(model_fullname(MODEL_CONFIGS[modelname]).encode("utf-8"))
+            
+    model_sha = sha256_hash.hexdigest()[:16]
+    fullname = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
+    return fullname
 
 
 def validate_pt_onnx(pt_model: torch.nn.Module, onnx_path: str, model_type:Literal["vision"]) -> bool:
