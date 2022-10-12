@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <thread>
 #include <cassert>
+#include <mutex>
+#include <condition_variable>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
@@ -24,6 +26,7 @@
 
 ExitHandler do_exit;
 
+
 void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens) {
     rs2::frame_queue queue{ 1 };
     color_sens.start(queue);
@@ -41,6 +44,7 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
         {
             fmt::print(stderr, "Frame number mismatch\n");
             fmt::print(stderr, "Got {} expected {}\n", color_frame.get_frame_number(), frame_id + 1);
+            do_exit = true;
             break;
         }
         else
@@ -130,6 +134,9 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
 
         last_start_of_frame = start_of_frame;
     }
+
+    color_sens.stop();
+    color_sens.close();
 }
 
 void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
@@ -174,6 +181,53 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
             pm.send("accelerometer", bytes.begin(), bytes.size());
         }
     }
+
+    motion_sensor.stop();
+    motion_sensor.close();
+}
+
+void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth_sensor &depth_sens) {
+    rs2::frame_queue queue{ 1 };
+    depth_sens.start(queue);
+
+    uint32_t frame_id{ 0 };
+    rs2_metadata_type last_start_of_frame {};
+    constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
+
+    while (!do_exit)
+    {
+        rs2::depth_frame depth_frame = queue.wait_for_frame();
+
+        
+        if (depth_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
+        {
+            fmt::print(stderr, "Depth Frame number mismatch\n");
+            fmt::print(stderr, "Got {} expected {}\n", depth_frame.get_frame_number(), frame_id + 1);
+            do_exit = true;
+            break;
+        }
+        else
+        {
+            frame_id = depth_frame.get_frame_number();
+        }
+
+        std::cout << "Depth frame id " << frame_id << std::endl;
+     
+        //auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_DEPTH);
+
+        rs2_metadata_type start_of_frame = depth_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
+       
+        // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
+        if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
+            fmt::print(stderr, "Got unexpected frame jitter of {} vs expected {} usec\n", start_of_frame - last_start_of_frame, expected_frame_time);
+            throw std::runtime_error("Unexpectedly high jitter");
+        }
+
+        last_start_of_frame = start_of_frame;
+    }
+
+    depth_sens.stop();
+    depth_sens.close();
 }
 
 int main(int argc, char *argv[])
@@ -181,6 +235,7 @@ int main(int argc, char *argv[])
     PubMaster pm{ {"headCameraState", "gyroscope", "accelerometer"} };
     VisionIpcServer vipc_server{ "camerad" };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
+    vipc_server.create_buffers(VISION_STREAM_HEAD_DEPTH, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.start_listener();
 
     rs2::context ctx;
@@ -261,12 +316,28 @@ int main(int argc, char *argv[])
         std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << " " << sp.width() << " " << sp.height() << std::endl;
     }
 
+    auto depth_stream_profile = *std::find_if(depth_profiles.begin(), depth_profiles.end(), [](rs2::stream_profile &profile)
+                                        {
+        rs2::video_stream_profile sp = profile.as<rs2::video_stream_profile>();
+            return sp.width() == CAMERA_WIDTH && sp.height() == CAMERA_HEIGHT && sp.format() == RS2_FORMAT_Z16 && sp.fps() == CAMERA_FPS; });
+
+    if (!depth_stream_profile)
+    {
+        fmt::print(stderr, "No matching depth configuration found\n");
+        return EXIT_FAILURE;
+    }
+
+    depth_sens.open(depth_stream_profile);
+
     // Start all the stream threads
     std::thread color_thread{ color_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(color_sens) };
     std::thread motion_thread{ motion_sensor_thread, std::ref(pm), std::ref(motion_sens) };
+    std::thread depth_thread{ depth_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(depth_sens) };
 
+    // Wait for any of the threads to finish
     color_thread.join();
     motion_thread.join();
+    depth_thread.join();
 
     return EXIT_SUCCESS;
 }
