@@ -19,8 +19,11 @@
 
 #define CAMERA_BUFFER_COUNT 30
 
+const char *service_name = "headCameraState";
+
 int main(int argc, char *argv[])
 {
+    PubMaster pm{ {service_name} };
     VisionIpcServer vipc_server{ "camerad" };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.start_listener();
@@ -31,7 +34,7 @@ int main(int argc, char *argv[])
     if (!device_count)
     {
         fmt::print(stderr, "No device detected. Is it plugged in?\n");
-        return EXIT_SUCCESS;
+        return EXIT_FAILURE;
     }
 
     fmt::print("Found {} devices\n", device_count);
@@ -142,6 +145,17 @@ int main(int argc, char *argv[])
         // fmt::print("Y min {} max {} UV min {} max {}\n", minmax_global_y.first, minmax_global_y.second, minmax_global_uv.first, minmax_global_uv.second);
 
         vipc_server.send(cur_yuv_buf, &extra);
+
+        MessageBuilder msg;
+        auto event = msg.initEvent(true);
+        auto cdat = event.initHeadCameraState();
+    
+        cdat.setFrameId(frame_id);
+        cdat.setTimestampSof(start_of_frame);
+
+        auto words = capnp::messageToFlatArray(msg);
+        auto bytes = words.asBytes();
+        pm.send(service_name, bytes.begin(), bytes.size());
    
         if (frame_id % 100 == 0)
         {
