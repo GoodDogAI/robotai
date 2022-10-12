@@ -96,7 +96,7 @@ static std::pair<uint32_t, uint32_t> get_queue_obs_len(const json &obs) {
     uint32_t queue_size, obs_size;
 
     if (obs["index"].is_number()) {
-        if (obs["index"].get<int64_t>() <= 0) {
+        if (obs["index"].get<int64_t>() >= 0) {
             throw std::runtime_error("msgvec: msg indexes must be negative");
         }
 
@@ -359,7 +359,7 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
 }
 
-void MsgVec::inputVision(const float *visionIntermediate, uint32_t frameId) {
+void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
     m_visionHistory.push_front(std::vector<float>(visionIntermediate, visionIntermediate + m_visionSize));
     m_visionHistory.pop_back();
 
@@ -414,6 +414,14 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
                 curpos += indices.size();
             }
         } else if (obs["type"] == "vision") {
+            if (obs["index"].is_number()) {
+                auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
+                std::copy(m_visionHistory[history_index].begin(), m_visionHistory[history_index].end(), &obsVector[curpos]);
+                curpos += m_visionSize;
+            }
+            else {
+                throw std::runtime_error("Not implemented yet");
+            }
         }
 
         index++;

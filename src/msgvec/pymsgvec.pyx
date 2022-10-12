@@ -38,6 +38,10 @@ cdef class PyMsgVec:
     def input(self, obs: bytes) -> bool:
         return self.c_msgvec.input(obs)
 
+    def input_vision(self, vision_vector: List[float], frame_id: int):
+        cdef array.array a = array.array('f', vision_vector)
+        self.c_msgvec.input_vision(a.data.as_floats, frame_id)
+
     def get_obs_vector(self) -> Tuple[PyTimeoutResult, List[float]]:
         cdef vector[float] obs_vector = vector[float](self.c_msgvec.obs_size())
         timeout_res = self.c_msgvec.get_obs_vector(obs_vector.data())

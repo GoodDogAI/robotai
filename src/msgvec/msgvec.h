@@ -40,7 +40,7 @@ class MsgVec {
         InputResult input(const cereal::Event::Reader &evt);
 
         // Feeds in current vision frame, for tracking intermediate states
-        void inputVision(const float *visionIntermediate, uint32_t frameId);
+        void input_vision(const float *visionIntermediate, uint32_t frameId);
 
         size_t obs_size() const;
         size_t act_size() const;
