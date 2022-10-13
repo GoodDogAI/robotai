@@ -68,13 +68,13 @@ def get_image_packets(logpath: str, frameId: int) -> List[bytes]:
 
         # Get the actual events, starting with a keyframe, which we will need
         for i, evt in enumerate(events):
-            if evt.which() == "headEncodeData":
-                if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
+            if evt.which() == "depthEncodeData":
+                if evt.depthEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
                     video_packets.clear()
 
-                video_packets.append(evt.headEncodeData.data)
+                video_packets.append(evt.depthEncodeData.data)
 
-                if evt.headEncodeData.idx.frameId == frameId:
+                if evt.depthEncodeData.idx.frameId == frameId:
                     found = True
                     break
             
