@@ -4,8 +4,7 @@
 #include <algorithm>
 #include <thread>
 #include <cassert>
-#include <mutex>
-#include <condition_variable>
+#include <atomic>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
@@ -25,7 +24,6 @@
 #define SENSOR_TYPE_REALSENSE_D455 0x01
 
 ExitHandler do_exit;
-
 
 void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens) {
     rs2::frame_queue queue{ 1 };
@@ -189,8 +187,8 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
     uint32_t frame_id{ 0 };
     rs2_metadata_type last_start_of_frame {};
-    constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
-
+    auto last_frame_mismatch { std::chrono::steady_clock::now() };
+ 
     // For some reason, the frame id's on the depth sensor always restart a short time after starting the queue
     // So, this workaround drains those frames off before starting to read the real frame id's
     while (!do_exit) {
@@ -218,8 +216,16 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         {
             fmt::print(stderr, "Depth Frame number mismatch\n");
             fmt::print(stderr, "Got {} expected {}\n", depth_frame.get_frame_number(), frame_id + 1);
-            do_exit = true;
-            break;
+            
+            if (std::chrono::steady_clock::now() - last_frame_mismatch < std::chrono::seconds(1))
+            {
+                fmt::print(stderr, "Too many depth frame mismatches\n");
+                do_exit = true;
+                break;
+            }
+
+            frame_id = depth_frame.get_frame_number();
+            last_frame_mismatch = std::chrono::steady_clock::now();
         }
         else
         {
@@ -272,12 +278,6 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();
         pm.send("depthCameraState", bytes.begin(), bytes.size());
-       
-        // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
-        if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
-            fmt::print(stderr, "Got unexpected frame jitter of {} vs expected {} usec\n", start_of_frame - last_start_of_frame, expected_frame_time);
-            throw std::runtime_error("Unexpectedly high jitter");
-        }
 
         last_start_of_frame = start_of_frame;
     }
