@@ -116,7 +116,7 @@ class ArrowModelCache():
                                                columns=["key", "shape", "value"], index="key")                                      
 
                 # Convert from pandas to Arrow
-                table = pyarrow.Table.from_pandas(df)
+                table = pyarrow.Table.from_pandas(df, preserve_index=True)
 
                 # Write out to file
                 with pyarrow.OSFile(cache_path, 'wb') as sink:
