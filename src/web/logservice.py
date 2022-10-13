@@ -140,6 +140,26 @@ def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghas
 
     return response
 
+
+@router.get("/{logfile}/depth/{frameid}")
+def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    try:
+        packets = get_image_packets(os.path.join(lh.dir, logfile), frameid, type="depthEncodeData")
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Frame not found")
+        
+    rgb = decode_last_frame(packets, pixel_format=nvc.PixelFormat.RGB)
+    img = Image.fromarray(rgb)
+    img_data = io.BytesIO()
+    img.save(img_data, format="JPEG")
+    response = Response(content=img_data.getvalue(), media_type="image/jpeg")
+
+    return response
+
+
 @router.get("/{logfile}/frame_reward/{frameid}")
 def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
