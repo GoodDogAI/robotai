@@ -260,9 +260,18 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
             }
         }
 
-        // TODO Send camera state, but needs to include which camera it is
-
         vipc_server.send(cur_yuv_buf, &extra);
+
+        MessageBuilder msg;
+        auto event = msg.initEvent(true);
+        auto cdat = event.initDepthCameraState();
+    
+        cdat.setFrameId(frame_id);
+        cdat.setTimestampSof(start_of_frame);
+
+        auto words = capnp::messageToFlatArray(msg);
+        auto bytes = words.asBytes();
+        pm.send("depthCameraState", bytes.begin(), bytes.size());
        
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
         if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
@@ -279,7 +288,7 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
 int main(int argc, char *argv[])
 {
-    PubMaster pm{ {"headCameraState", "gyroscope", "accelerometer"} };
+    PubMaster pm{ {"headCameraState", "depthCameraState", "gyroscope", "accelerometer"} };
     VisionIpcServer vipc_server{ "camerad" };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.create_buffers(VISION_STREAM_HEAD_DEPTH, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
@@ -356,12 +365,12 @@ int main(int argc, char *argv[])
     // Find and setup the depth stream
     auto depth_profiles{ depth_sens.get_stream_profiles() };
 
-    std::cout << "Camera Depth profiles:" << std::endl;
-    for (const auto &profile : depth_profiles)
-    {
-        auto sp = profile.as<rs2::video_stream_profile>();
-        std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << " " << sp.width() << " " << sp.height() << std::endl;
-    }
+    // std::cout << "Camera Depth profiles:" << std::endl;
+    // for (const auto &profile : depth_profiles)
+    // {
+    //     auto sp = profile.as<rs2::video_stream_profile>();
+    //     std::cout << profile.stream_name() << " " << profile.stream_type() << " " << profile.fps() << " " << profile.format() << " " << sp.width() << " " << sp.height() << std::endl;
+    // }
 
     auto depth_stream_profile = *std::find_if(depth_profiles.begin(), depth_profiles.end(), [](rs2::stream_profile &profile)
                                         {

@@ -30,7 +30,6 @@ using namespace std::chrono_literals;
 
 ExitHandler do_exit;
 
-const char *service_name = "headEncodeData";
 
 int main(int argc, char *argv[])
 {
@@ -71,10 +70,12 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    const std::string service_name = args.get<VisionStreamType>("camera_stream") == VISION_STREAM_HEAD_COLOR ? "headEncodeData" : "depthEncodeData";
+
     VisionIpcClient vipc_client { "camerad", args.get<VisionStreamType>("camera_stream"), false };
     NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, args.get<int32_t>("maxqp"), args.get<int32_t>("maxbitrate"), CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
-    PubMaster pm{ {service_name} };
+    PubMaster pm{ {service_name.c_str()} };
     int32_t num_frames{ 0 };
 
     // Connect to the visionipc server
@@ -117,7 +118,9 @@ int main(int argc, char *argv[])
 
             MessageBuilder msg;
             auto event = msg.initEvent(true);
-            auto edat = event.initHeadEncodeData();
+
+            cereal::EncodeData::Builder edat = args.get<VisionStreamType>("camera_stream") == VISION_STREAM_HEAD_COLOR ? event.initHeadEncodeData() : event.initDepthEncodeData();
+            
             auto edata = edat.initIdx(); 
             edata.setFrameId(result->extra.frame_id);
             edata.setTimestampSof(result->extra.timestamp_sof);
@@ -129,7 +132,7 @@ int main(int argc, char *argv[])
 
             auto words = capnp::messageToFlatArray(msg);
             auto bytes = words.asBytes();
-            pm.send(service_name, bytes.begin(), bytes.size());
+            pm.send(service_name.c_str(), bytes.begin(), bytes.size());
           
             encoder_futures.pop_front();
         }
