@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <thread>
 #include <cassert>
-#include <atomic>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
