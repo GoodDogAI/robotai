@@ -60,8 +60,14 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
         rs2_metadata_type start_of_frame = color_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
         // std::cout << "Frame " << frame_id << " at " << color_frame.get_frame_timestamp_domain() << " " << start_of_frame << std::endl;
 
-        // std::cout << "Exposure " << color_frame.supports_frame_metadata(RS2_FRAME_METADATA_ACTUAL_EXPOSURE) << std::endl;
-        
+        // for (int i = RS2_FRAME_METADATA_FRAME_COUNTER; i < RS2_FRAME_METADATA_COUNT; i++)
+        // {
+        //     if (color_frame.supports_frame_metadata((rs2_frame_metadata_value)i))
+        //     {
+        //         std::cout << "Metadata " << i << " " << color_frame.get_frame_metadata((rs2_frame_metadata_value)i) << std::endl;
+        //     }
+        // }
+
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
         if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
             fmt::print(stderr, "Got unexpected frame jitter of {} vs expected {} usec\n", start_of_frame - last_start_of_frame, expected_frame_time);
@@ -194,10 +200,28 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
     rs2_metadata_type last_start_of_frame {};
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
+    // For some reason, the frame id's on the depth sensor always restart a short time after starting the queue
+    // So, this workaround drains those frames off before starting to read the real frame id's
+    while (!do_exit) {
+        rs2::depth_frame depth_frame = queue.wait_for_frame();
+
+        std::cout << "Draining Depth frame id " << frame_id << std::endl;
+     
+        if (depth_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
+        {
+            frame_id = 0;
+            break;
+        }
+        else
+        {
+            frame_id = depth_frame.get_frame_number();
+        }
+    }
+
+    // Now start the real loop
     while (!do_exit)
     {
         rs2::depth_frame depth_frame = queue.wait_for_frame();
-
         
         if (depth_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
         {
@@ -211,11 +235,37 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
             frame_id = depth_frame.get_frame_number();
         }
 
-        std::cout << "Depth frame id " << frame_id << std::endl;
-     
-        //auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_DEPTH);
-
+        auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_DEPTH);
         rs2_metadata_type start_of_frame = depth_frame.get_frame_metadata(RS2_FRAME_METADATA_FRAME_TIMESTAMP);
+
+        VisionIpcBufExtra extra {
+                        frame_id,
+                        static_cast<uint64_t>(start_of_frame),
+                        0,
+        };
+        cur_yuv_buf->set_frame_id(frame_id);
+
+        uint16_t *z16_data = (uint16_t *)depth_frame.get_data();
+
+        // This squishes the z16 depth data down into the YUV buffer.
+        // The MSB gets put into the Y, since that has the most resolution during video compression
+        // The LSB we want to figure out how to stuff that into the UV if we can later.
+        for(uint32_t row = 0; row < depth_frame / 2; row++) {
+            for (uint32_t col = 0; col < depth_frame / 2; col++) {
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
+
+                // TODO, can fill this in somehow, you have a few extra bytes
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = 0;
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = 0;
+            }
+        }
+
+        // TODO Send camera state, but needs to include which camera it is
+        
+        vipc_server.send(cur_yuv_buf, &extra);
        
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
         if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
