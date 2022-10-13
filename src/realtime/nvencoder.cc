@@ -141,8 +141,8 @@ static void query_and_map_buffers(int fd, v4l2_buf_type buf_type, std::vector<NV
     }
 }
 
-NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int qp, int fps):
-   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), qp(qp), fps(fps),
+NVEncoder::NVEncoder(std::string encoderdev, int32_t in_width, int32_t in_height, int32_t out_width, int32_t out_height, int32_t maxqp, int32_t maxbitrate, int32_t fps):
+   in_width(in_width), in_height(in_height), out_width(out_width), out_height(out_height), maxqp(maxqp), maxbitrate(maxbitrate), fps(fps),
    frame_read_index(0), frame_write_index(0)
 {
     fd = v4l2_open(encoderdev.c_str(), O_RDWR);
@@ -221,9 +221,9 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
 
     v4l2_ctrl_video_qp_range qps;
     qps.MinQpI = QP_RETAIN_VAL;
-    qps.MaxQpI = qp;
+    qps.MaxQpI = maxqp;
     qps.MinQpP = QP_RETAIN_VAL;
-    qps.MaxQpP = qp;
+    qps.MaxQpP = maxqp;
     qps.MinQpB = QP_RETAIN_VAL;
     qps.MaxQpB = QP_RETAIN_VAL;
 
@@ -242,6 +242,22 @@ NVEncoder::NVEncoder(std::string encoderdev, int in_width, int in_height, int ou
             { .id = V4L2_CID_MPEG_VIDEOENC_INSERT_SPS_PPS_AT_IDR, .value = true },
 
             { .id = V4L2_CID_MPEG_VIDEOENC_QP_RANGE, .ptr = &qps },
+        };
+
+        v4l2_ext_controls ctrl_data {};
+        ctrl_data.ctrl_class = V4L2_CTRL_CLASS_MPEG;
+        ctrl_data.count = std::size(ctrls);
+        ctrl_data.controls = ctrls;
+
+        checked_v4l2_ioctl(fd, VIDIOC_S_EXT_CTRLS, &ctrl_data);
+    }
+
+    if (maxbitrate != -1) {
+        struct v4l2_ext_control ctrls[] = {
+            // Generic controls
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = maxbitrate },
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, .value = maxbitrate * 2},
+            { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
         };
 
         v4l2_ext_controls ctrl_data {};

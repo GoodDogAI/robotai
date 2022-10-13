@@ -16,7 +16,7 @@
 
 class NVEncoder{
     public:
-        NVEncoder(std::string encoderdev, int in_width, int in_height, int out_width, int out_height, int qp, int fps);
+        NVEncoder(std::string encoderdev, int32_t in_width, int32_t in_height, int32_t out_width, int32_t out_height, int32_t maxqp, int32_t maxbitrate, int32_t fps);
         ~NVEncoder();
 
         NVEncoder(const NVEncoder&) = delete;
@@ -39,7 +39,7 @@ class NVEncoder{
 
         std::future<std::unique_ptr<NVResult>> encode_frame(VisionBuf* buf, const VisionIpcBufExtra &extra);
 
-        const int in_width, in_height, out_width, out_height, qp, fps;
+        const int32_t in_width, in_height, out_width, out_height, maxqp, maxbitrate, fps;
 
     private: 
         void do_dequeue_capture();

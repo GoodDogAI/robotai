@@ -39,7 +39,7 @@ static fs::path get_log_filename(const std::string &identifier) {
     const auto log_start = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     const std::tm tm{*std::gmtime(&log_start)};
 
-    return log_path/fmt::format("{}-{}-{}-{}-{}-{}_{}.log", log_name, identifier, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
+    return log_path/fmt::format("{}-{}-{:04}-{:02}-{:02}-{:02}_{:02}.log", log_name, identifier, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 }
 
 static void close_message(Message *m) {

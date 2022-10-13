@@ -251,7 +251,6 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
 
-                // TODO, can fill this in somehow, you have a few extra bytes
                 // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = std::min({z16_data[(row * 2) * cur_yuv_buf->stride + col * 2],
                 //                                                                 z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],
                 //                                                                 z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2],

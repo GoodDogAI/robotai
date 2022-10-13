@@ -126,7 +126,13 @@ int main(int argc, char *argv[])
         else if (pcmreturn != frames) {
             // For now, we only support dealing with full buffers
             fmt::print(stderr, "read incomplete buffer: size {} / {}\n", pcmreturn, frames);    
-            return EXIT_FAILURE; 
+
+            if (do_exit){
+                break;
+            }
+            else {
+                return EXIT_FAILURE;
+            }
         }
 
         // Convert only channel 0 to float

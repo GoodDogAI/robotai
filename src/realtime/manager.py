@@ -107,7 +107,7 @@ class NativeProcess(ManagerProcess):
 
 def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
     return [
-        NativeProcess("camerad", nice=-1), 
+        NativeProcess("camerad", nice=-2), 
         NativeProcess("encoderd", ["head_depth"]),
         NativeProcess("loggerd"),
         NativeProcess("micd"),

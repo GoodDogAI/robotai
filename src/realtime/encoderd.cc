@@ -51,6 +51,14 @@ int main(int argc, char *argv[])
             return it->second;
         });
 
+    args.add_argument("--maxqp")
+        .default_value(-1)
+        .help("Set encoder to enforce Maximum QP value (meaning a minimum quality factor) for each frame.");
+
+    args.add_argument("--maxbitrate")
+        .default_value(-1)
+        .help("Set encoder to enforce Maximum Bitrate value (in bits per second) for each frame.");
+
     try
     {
         args.parse_args(argc, argv);
@@ -62,7 +70,7 @@ int main(int argc, char *argv[])
     }
 
     VisionIpcClient vipc_client { "camerad", args.get<VisionStreamType>("camera_stream"), false };
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_QP, CAMERA_FPS };
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, args.get<int32_t>("maxqp"), args.get<int32_t>("maxbitrate"), CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
     PubMaster pm{ {service_name} };
     int32_t num_frames{ 0 };
