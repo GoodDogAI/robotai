@@ -305,6 +305,18 @@ class TestMsgVec(unittest.TestCase):
 
             {
                 "type": "msg",
+                "path": "headFeedback.yawAngle",
+                "index": -5,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 1000],
+                }
+            },
+
+            {
+                "type": "msg",
                 "path": "headFeedback.pitchAngle",
                 "index": [-1, -2, -5],
                 "timeout": 0.01,
@@ -318,19 +330,19 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        self.assertEqual(msgvec.obs_size(), 6)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.assertEqual(msgvec.obs_size(), 11)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 11)
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        expected = [[1, 0, 0, 10, 0, 0],
-                    [2, 1, 0, 20, 10, 0],
-                    [3, 2, 0, 30, 20, 0],
-                    [4, 3, 0, 40, 30, 0],
-                    [5, 4, 1, 50, 40, 10],
-                    [6, 5, 2, 60, 50, 20],
-                    [7, 6, 3, 70, 60, 30],
-                    [8, 7, 4, 80, 70, 40],
-                    [9, 8, 5, 90, 80, 50]]
+        expected = [[1, 0, 0, 10, 00, 00, 00, 00, 10, 0, 0],
+                    [2, 1, 0, 20, 10, 00, 00, 00, 20, 10, 0],
+                    [3, 2, 0, 30, 20, 10, 00, 00, 30, 20, 0],
+                    [4, 3, 0, 40, 30, 20, 10, 00, 40, 30, 0],
+                    [5, 4, 1, 50, 40, 30, 20, 10, 50, 40, 10],
+                    [6, 5, 2, 60, 50, 40, 30, 20, 60, 50, 20],
+                    [7, 6, 3, 70, 60, 50, 40, 30, 70, 60, 30],
+                    [8, 7, 4, 80, 70, 60, 50, 40, 80, 70, 40],
+                    [9, 8, 5, 90, 80, 70, 60, 50, 90, 80, 50]]
 
         for feed, expect in zip(feeds, expected):
             event = log.Event.new_message()
@@ -342,6 +354,7 @@ class TestMsgVec(unittest.TestCase):
             event = log.Event.new_message()
             event.init("headFeedback")
             event.headFeedback.pitchAngle = feed
+            event.headFeedback.yawAngle = feed 
             self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
             self.assertEqual(msgvec.get_obs_vector_raw(), expect)
@@ -413,6 +426,75 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0, 40.0, 41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0, 49.0])
 
     def test_vision_vectors1(self):
+        config = {"obs": [
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.vel",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "filter": {
+                        "field": "voltage.type",
+                        "op": "eq",
+                        "value": "mainBattery",
+                    },
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 13.5],
+                        "vec_range": [-1, 1],
+                    }
+                },
+                
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchAngle",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "vision",
+                    "size": 10,
+                    "index": -3, # Takes the vision vector from 3 steps ago
+                }
+            ], "act": []}
+
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + [0.0] * 10 * 3)
+
+        msgvec.input_vision(list(range(10, 20)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + list(range(10, 20)) + [0.0] * 10 * 2)
+
+        msgvec.input_vision(list(range(40, 50)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 15
+        event.voltage.type = "mainBattery"
+        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
+
+        msgvec.input_vision(list(range(60, 70)), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(60, 70)) + list(range(40,50)) + list(range(10, 20)))
+
+    def test_vision_vectors2(self):
         config = {"obs": [
                 { 
                     "type": "msg",
