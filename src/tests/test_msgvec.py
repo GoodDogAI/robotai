@@ -126,7 +126,7 @@ class TestMsgVec(unittest.TestCase):
             },
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
-        self.assertEqual(msgvec.obs_size(), 1)
+        self.assertEqual(msgvec.obs_size(), 4)
 
 
         config = {"obs": [
@@ -261,19 +261,19 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
 
-        self.assertEqual(msgvec.obs_size(), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
+        self.assertEqual(msgvec.obs_size(), 5)
+        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 5)
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        expected = [[0],
-                    [0],
-                    [0],
-                    [0],
-                    [1],
-                    [2],
-                    [3],
-                    [4],
-                    [5]]
+        expected = [[1, 0, 0, 0, 0],
+                    [2, 1, 0, 0, 0],
+                    [3, 2, 1, 0, 0],
+                    [4, 3, 2, 1, 0],
+                    [5, 4, 3, 2, 1],
+                    [6, 5, 4, 3, 2],
+                    [7, 6, 5, 4, 3],
+                    [8, 7, 6, 5, 4],
+                    [9, 8, 7, 6, 5]]
 
         for feed, expect in zip(feeds, expected):
             event = log.Event.new_message()
@@ -456,7 +456,7 @@ class TestMsgVec(unittest.TestCase):
                 {
                     "type": "vision",
                     "size": 10,
-                    "index": -3,
+                    "index": [-3], # Takes the vision vector from 3 steps ago
                 }
             ], "act": []}
 

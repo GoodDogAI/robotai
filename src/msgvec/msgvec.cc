@@ -22,7 +22,7 @@
         {
             "type": "msg",
             "path": "voltage.volts",
-            "index": -1,
+            "index": -1,  # -1 means last frame, -4 means last 4 frames, or specify [-1, -5, -20] for example
             "timeout": 0.01,
             "filter": {
                 "field": "type",
@@ -92,8 +92,9 @@ static void verify_transform(const json& transform) {
     }
 }
 
-static std::pair<uint32_t, uint32_t> get_queue_obs_len(const json &obs) {
-    uint32_t queue_size, obs_size;
+static std::pair<uint32_t, std::vector<int64_t>> get_queue_obs_len(const json &obs) {
+    uint32_t queue_size;
+    std::vector<int64_t> indices;
 
     if (obs["index"].is_number()) {
         if (obs["index"].get<int64_t>() >= 0) {
@@ -101,23 +102,23 @@ static std::pair<uint32_t, uint32_t> get_queue_obs_len(const json &obs) {
         }
 
         queue_size = std::abs(obs["index"].get<int64_t>());
-        obs_size = 1;
+        indices = std::vector<int64_t>(queue_size);
+        std::generate(indices.begin(), indices.end(), [n = -1]() mutable { return n--; });
     }
     else if (obs["index"].is_array()) {
-        std::vector<int64_t> indices = obs["index"];
+        indices = obs["index"].get<std::vector<int64_t>>();
 
         if (std::any_of(indices.begin(), indices.end(), [](int64_t i) { return i >= 0; })) {
             throw std::runtime_error("msgvec: msg indexes must be negative");
         }
 
         queue_size = std::abs(*std::min_element(indices.begin(), indices.end()));
-        obs_size = std::size(indices);
     }
     else {
         throw std::runtime_error("msgvec: msg index must be an array or number");
     }
 
-    return std::pair(queue_size, obs_size);
+    return std::pair(queue_size, std::move(indices));
 }
 
 MsgVec::MsgVec(const std::string &jsonConfig):
@@ -133,11 +134,11 @@ MsgVec::MsgVec(const std::string &jsonConfig):
 
     for (auto &obs: m_config["obs"]) {
         if (obs["type"] == "msg") {
-            const auto [queue_size, obs_size] = get_queue_obs_len(obs);
+            const auto [queue_size, indices] = get_queue_obs_len(obs);
 
             m_obsHistory[obs_index] = std::deque<float>(queue_size, 0.0f);
             m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(queue_size, 0);
-            m_obsSize += obs_size;
+            m_obsSize += indices.size();
           
             verify_transform(obs["transform"]);
         }
@@ -156,7 +157,7 @@ MsgVec::MsgVec(const std::string &jsonConfig):
             m_visionHistory = std::deque<std::vector<float>>(queue_size, std::vector<float>(m_visionSize, 0.0f));
             m_visionHistoryIds = std::deque<uint32_t>(queue_size, 0);
 
-            m_obsSize += m_visionSize * obs_size;
+            m_obsSize += m_visionSize * obs_size.size();
         }
         else {
             throw std::runtime_error("Unknown observation type");
@@ -399,37 +400,29 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg") {
-            if (obs["index"].is_number()) {
-                auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
-                obsVector[curpos] = m_obsHistory[index][history_index];
+            const auto [queue_size, indices] = get_queue_obs_len(obs);
+
+            for (size_t i = 0; i < indices.size(); i++) {
+                auto history_index = std::abs(indices[i]) - 1;
+                obsVector[curpos + i] = m_obsHistory[index][history_index];
+            
                 if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
-                    timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
-                }
-                curpos++;
-            } else if (obs["index"].is_array()) {
-                std::vector<int64_t> indices = obs["index"];
-                for (size_t i = 0; i < indices.size(); i++) {
-                    auto history_index = std::abs(indices[i]) - 1;
-                    obsVector[curpos + i] = m_obsHistory[index][history_index];
-              
-                    if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
-                        if (i == 0) {
-                            timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
-                        } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
-                            timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
-                        }
+                    if (i == 0) {
+                        timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
+                    } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
+                        timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
                     }
                 }
-                curpos += indices.size();
             }
+
+            curpos += indices.size();
         } else if (obs["type"] == "vision") {
-            if (obs["index"].is_number()) {
-                auto history_index = std::abs(obs["index"].get<int64_t>()) - 1;
+            const auto [queue_size, indices] = get_queue_obs_len(obs);
+
+            for (size_t i = 0; i < indices.size(); i++) {
+                auto history_index = std::abs(indices[i]) - 1;
                 std::copy(m_visionHistory[history_index].begin(), m_visionHistory[history_index].end(), &obsVector[curpos]);
                 curpos += m_visionSize;
-            }
-            else {
-                throw std::runtime_error("Not implemented yet");
             }
         }
 
