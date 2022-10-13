@@ -9,6 +9,9 @@
 #include <libv4l2.h>
 #include <fcntl.h>
 
+#include <argparse/argparse.hpp>
+#include <fmt/core.h>
+
 #include "v4l2_nv_extensions.h"
 #include "util.h"
 
@@ -31,7 +34,34 @@ const char *service_name = "headEncodeData";
 
 int main(int argc, char *argv[])
 {
-    VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
+    argparse::ArgumentParser args("braind");
+
+    args.add_argument("camera_stream")
+        .default_value(VISION_STREAM_HEAD_COLOR)
+        .help("Which camera stream to encode")
+        .action([](const std::string& value) {
+            static const std::map<std::string, VisionStreamType> choices = { {"head_color", VISION_STREAM_HEAD_COLOR},
+                                                                             {"head_depth", VISION_STREAM_HEAD_DEPTH} };
+
+            auto it = choices.find(value);                                                                             
+            if (it == choices.end()) {                                                                                 
+              throw std::runtime_error("Invalid camera stream");                                                       
+            }
+      
+            return it->second;
+        });
+
+    try
+    {
+        args.parse_args(argc, argv);
+    }
+    catch (const std::runtime_error &err)
+    {
+        fmt::print(stderr, "Error parsing arguments {}\n", err.what());
+        return EXIT_FAILURE;
+    }
+
+    VisionIpcClient vipc_client { "camerad", args.get<VisionStreamType>("camera_stream"), false };
     NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_QP, CAMERA_FPS };
     std::deque<std::future<std::unique_ptr<NVEncoder::NVResult>>> encoder_futures {};
     PubMaster pm{ {service_name} };

@@ -32,7 +32,6 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
     color_sens.start(queue);
 
     uint32_t frame_id{ 0 };
-    auto start {std::chrono::steady_clock::now()};
     rs2_metadata_type last_start_of_frame {};
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
@@ -129,14 +128,6 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();
         pm.send("headCameraState", bytes.begin(), bytes.size());
-   
-        if (frame_id % 100 == 0)
-        {
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) / 100;
-            fmt::print("100 frames took {}\n", duration);
-
-            start = std::chrono::steady_clock::now();
-        }
 
         last_start_of_frame = start_of_frame;
     }
@@ -247,24 +238,31 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
         uint16_t *z16_data = (uint16_t *)depth_frame.get_data();
 
+        int32_t depth_frame_width = depth_frame.get_width();
+        int32_t depth_frame_height = depth_frame.get_height();
+
         // This squishes the z16 depth data down into the YUV buffer.
         // The MSB gets put into the Y, since that has the most resolution during video compression
         // The LSB we want to figure out how to stuff that into the UV if we can later.
-        for(uint32_t row = 0; row < depth_frame / 2; row++) {
-            for (uint32_t col = 0; col < depth_frame / 2; col++) {
+        for(uint32_t row = 0; row < depth_frame_height / 2; row++) {
+            for (uint32_t col = 0; col < depth_frame_width / 2; col++) {
                 cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
                 cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
                 cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
 
                 // TODO, can fill this in somehow, you have a few extra bytes
-                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = 0;
-                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = 0;
+                // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = std::min({z16_data[(row * 2) * cur_yuv_buf->stride + col * 2],
+                //                                                                 z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],
+                //                                                                 z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2],
+                //                                                                 z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1]}) & 0x00FF;
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = 127;
+                cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = 127;
             }
         }
 
         // TODO Send camera state, but needs to include which camera it is
-        
+
         vipc_server.send(cur_yuv_buf, &extra);
        
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period

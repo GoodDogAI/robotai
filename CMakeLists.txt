@@ -299,6 +299,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
         encoderd 
         PRIVATE 
             fmt::fmt
+            argparse::argparse
             ${CEREAL_LIBRARIES}
             zmq
             v4l2

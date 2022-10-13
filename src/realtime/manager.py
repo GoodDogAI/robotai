@@ -1,4 +1,5 @@
 import os
+import psutil
 import asyncio
 import importlib
 import logging
@@ -81,11 +82,18 @@ class PythonProcess(ManagerProcess):
         self.running = False
 
 class NativeProcess(ManagerProcess):
-    def __init__(self, name: str,  args: List[str] = []):
+    nice: int = 0
+
+    def __init__(self, name: str,  args: List[str] = [], nice: int=0):
         super().__init__(name, args)
+        self.nice = nice
 
     async def start(self):
         self.p = await asyncio.create_subprocess_exec(os.path.abspath(f"build/{self.name}"), *self.args)
+
+        setnice = psutil.Process(self.p.pid)
+        setnice.nice(self.nice)
+
         self.running = True
 
     async def join(self):
@@ -99,11 +107,10 @@ class NativeProcess(ManagerProcess):
 
 def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
     return [
-        NativeProcess("camerad"), 
-        NativeProcess("encoderd"),
+        NativeProcess("camerad", nice=-1), 
+        NativeProcess("encoderd", ["head_depth"]),
         NativeProcess("loggerd"),
         NativeProcess("micd"),
-    
         NativeProcess("odrived"),
         NativeProcess("simplebgcd"),
         NativeProcess("appcontrold"),
@@ -152,6 +159,7 @@ async def brain_main():
             logger.exception(f"Could not kill {proc.name}")
 
     print("Waiting for rest of tasks to finish")
+    cancelation_task.cancel()
     done, pending = await asyncio.wait(pending, return_when=asyncio.ALL_COMPLETED)
 
     for proc in procs:

@@ -29,6 +29,9 @@ Cython
 # For keeping process titles neat when running in realtime mode
 setproctitle
 
+# For adjusting process priorities from the realtime manager
+psutil
+
 # For watching logs being written live
 inotify_simple
 
@@ -53,3 +56,5 @@ onnxruntime
 
 # HuggingFace datasets, which has great support for caching to local arrow files
 datasets
+
+

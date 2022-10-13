@@ -21,6 +21,15 @@ This command will also install the python environment dependencies via a require
 ### Provision all the peripherals
 https://www.gooddog.ai/bumble/xavier-provisioning
 
+You may want to allow the default user `robot` to set processes to higher/realtime priority by adding the following 
+to  `/etc/security/limits.conf`
+
+```
+# Allow robot to set realtime priority
+robot   hard    nice    -15
+robot   soft    nice    -10
+```
+
 ### Compiling librealsense
 
 You'll need to make sure to get the latest librealsense. I build from sources,
