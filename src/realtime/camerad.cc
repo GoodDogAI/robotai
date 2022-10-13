@@ -184,7 +184,7 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
 }
 
 void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth_sensor &depth_sens) {
-    rs2::frame_queue queue{ 1 };
+    rs2::frame_queue queue{ 2 }; // Depth latency is less important, so allow some buffer
     depth_sens.start(queue);
 
     uint32_t frame_id{ 0 };

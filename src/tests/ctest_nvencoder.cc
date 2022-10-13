@@ -27,7 +27,7 @@ enum AVPixelFormat get_hw_format(AVCodecContext *ctx, const enum AVPixelFormat *
 TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
     int test_fps = 5;
 
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_QP, -1, test_fps };
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_HEAD_COLOR_QP, -1, test_fps };
     VisionBuf buf;
 
     auto size = CAMERA_WIDTH * CAMERA_HEIGHT * 3 / 2;
@@ -55,7 +55,7 @@ TEST_CASE( "Encoder sends keyframes once per second at least", "[encoder]" ) {
 }
 
 TEST_CASE( "FFMPEG Decode of nvencoder frame", "[encoder]") {
-    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_QP, -1, CAMERA_FPS };
+    NVEncoder encoder { ENCODER_DEV, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT, ENCODER_HEAD_COLOR_QP, -1, CAMERA_FPS };
     VisionBuf buf;
     int ret;
 

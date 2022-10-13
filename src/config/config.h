@@ -12,7 +12,8 @@
 #define LOG_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
 #define MODEL_STORAGE_PATH "/home/robot/models"
 #define MODEL_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
-#define ENCODER_QP 10
+#define ENCODER_HEAD_COLOR_QP 10
+#define ENCODER_HEAD_DEPTH_MAXBITRATE 1000000
 #define ENCODER_DEV "/dev/nvhost-msenc"
 #define ENCODER_COMP_NAME "NVENC"
 #define OVERRIDE_LINEAR_SPEED 0.500000000000f

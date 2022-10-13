@@ -53,10 +53,12 @@ int main(int argc, char *argv[])
 
     args.add_argument("--maxqp")
         .default_value(-1)
+        .scan<'d', int32_t>()
         .help("Set encoder to enforce Maximum QP value (meaning a minimum quality factor) for each frame.");
 
     args.add_argument("--maxbitrate")
         .default_value(-1)
+        .scan<'d', int32_t>()
         .help("Set encoder to enforce Maximum Bitrate value (in bits per second) for each frame.");
 
     try
