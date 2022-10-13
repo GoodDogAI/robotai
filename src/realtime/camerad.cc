@@ -251,10 +251,10 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         // The LSB we want to figure out how to stuff that into the UV if we can later.
         for(uint32_t row = 0; row < depth_frame_height / 2; row++) {
             for (uint32_t col = 0; col < depth_frame_width / 2; col++) {
-                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = 255 - (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = 255 - (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = 255 - (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = 255 - (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
 
                 // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = std::min({z16_data[(row * 2) * cur_yuv_buf->stride + col * 2],
                 //                                                                 z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],
