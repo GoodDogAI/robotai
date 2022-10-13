@@ -469,7 +469,7 @@ class TestMsgVec(unittest.TestCase):
                 {
                     "type": "vision",
                     "size": 10,
-                    "index": -3, # Takes the vision vector from 3 steps ago
+                    "index": -3, # Takes the last 3 vision vectors
                 }
             ], "act": []}
 

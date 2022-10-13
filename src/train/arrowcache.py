@@ -1,6 +1,7 @@
 import os
 import torch
 import pyarrow
+import time
 import json
 import pandas as pd
 import numpy as np
@@ -13,9 +14,10 @@ import src.PytorchNvCodec as pnvc
 from polygraphy.cuda import DeviceView
 
 from config import HOST_CONFIG, DEVICE_CONFIG
+from src.config.config import MODEL_CONFIGS
 
 from src.video import V4L2_BUF_FLAG_KEYFRAME
-from src.logutil import LogHashes, LogSummary
+from src.logutil import LogHashes, LogSummary, get_runname
 from src.train.videoloader import surface_to_y_uv
 from src.train.modelloader import load_vision_model, model_fullname
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
@@ -30,8 +32,8 @@ class ArrowModelCache():
         self.model_config = model_config
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
 
-    def get_cache_path(self, log: LogSummary):
-        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, log.get_runname() + ".arrow")
+    def get_cache_path(self, run_name: str):
+        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, run_name + ".arrow")
 
     def _process_frame(self, engine, y, uv):
         y = torch.unsqueeze(y, 0)
@@ -93,7 +95,7 @@ class ArrowModelCache():
     def build_cache(self, force_rebuild=False):
         with load_vision_model(self.model_fullname) as engine:
             for group in self.lh.group_logs():
-                cache_path = self.get_cache_path(group[0])
+                cache_path = self.get_cache_path(group[0].get_runname())
 
                 if os.path.exists(cache_path) and not force_rebuild:
                     continue
@@ -120,6 +122,22 @@ class ArrowModelCache():
                 with pyarrow.OSFile(cache_path, 'wb') as sink:
                     with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
                         writer.write_table(table)
+
+    def __getitem__(self, key):
+        start = time.perf_counter()
+
+        run_name = "-".join(key.split("-")[0:-1])
+        bag_cache_name = self.get_cache_path(run_name)
+        source = pyarrow.memory_map(bag_cache_name, "r")
+        table = pyarrow.ipc.RecordBatchFileReader(source).read_all()
+        search = pyarrow.compute.field("key") == key
+        
+        data = table.filter(search).to_pydict()
+        
+        result = np.array(data["value"][0]).reshape(data["shape"][0])
+        print(f"Took {time.perf_counter() - start} to load {bag_cache_name}")
+
+        return data["value"][0]
                             
 
 # This class is similar to ArrowModelCache, but it will read in log entries and actually create
@@ -132,12 +150,18 @@ class ArrowRLCache():
         self.brain_fullname = model_fullname(brain_model_config)
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname).mkdir(parents=True, exist_ok=True)
 
-    def get_cache_path(self, log: LogSummary):
-        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname, log.get_runname() + ".arrow")
+        self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
+        self.vision_cache.build_cache()
+
+        self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
+        self.reward_cache.build_cache()
+
+    def get_cache_path(self, run_name: str):
+        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname, run_name + ".arrow")
 
     def build_cache(self, force_rebuild=False):
-         for group in self.lh.group_logs():
-            cache_path = self.get_cache_path(group[0])
+        for group in self.lh.group_logs():
+            cache_path = self.get_cache_path(group[0].get_runname())
 
             if os.path.exists(cache_path) and not force_rebuild:
                 continue
@@ -145,7 +169,7 @@ class ArrowRLCache():
             msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"))
             raw_data = []
 
-            cur_inference = None
+            got_inference = False
             cur_packet = {}
 
             for logfile in group:
@@ -159,12 +183,24 @@ class ArrowRLCache():
 
                         if status["act_ready"]:
                             cur_packet["act"] = msgvec.get_act_vector()
-                            raw_data.append(cur_packet)
-                            cur_packet = {}
 
-                        if evt.which() == "modelInference":
+                            if got_inference and "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
+                                raw_data.append(cur_packet)
+                                cur_packet = {}
+
+                        if evt.which() == "headCameraState":
                             cur_inference = evt
+                            msgvec.input_vision(self.vision_cache[f"{logfile.get_runname()}-{evt.headCameraState.frameId}"], evt.headCameraState.frameId)
                             timeout, cur_packet["obs"] = msgvec.get_obs_vector()
-                            cur_packet["key"] = f"{logfile.get_runname()}-{cur_inference.modelInference.frameId}"
+                            reward_valid, reward_value = msgvec.get_reward()
 
+                            if reward_valid:
+                                cur_packet["reward"] = reward_value
+                            else:
+                                cur_packet["reward"] = self.reward_cache[f"{logfile.get_runname()}-{evt.headCameraState.frameId}"]
+
+                            cur_packet["key"] = f"{logfile.get_runname()}-{cur_inference.headCameraState.frameId}"
+                            cur_packet["done"] = False
+                        elif evt.which() == "modelInference":
+                            got_inference = True
                         

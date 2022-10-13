@@ -167,7 +167,7 @@ MODEL_CONFIGS = dotdict({
                     },
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [0, 13.5],
+                        "msg_range": [0, 15],
                         "vec_range": [-1, 1],
                     }
                 },

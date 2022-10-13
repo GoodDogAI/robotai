@@ -39,6 +39,13 @@ def quick_validate_log(f: BinaryIO) -> bool:
     except capnp.KjException:
         return False
 
+def get_runname(filename: str) -> str:
+    match = LOGNAME_RE.match(filename)
+    if match:
+        return match.group("logname") + "-" + match.group("runname")
+    else:
+        return ""
+
 
 @total_ordering
 class LogSummary(BaseModel):
@@ -54,11 +61,7 @@ class LogSummary(BaseModel):
         return self.filename < other.filename
 
     def get_runname(self):
-        m = LOGNAME_RE.match(self.filename)
-        if m:
-            return m.group("logname") + "-" + m.group("runname")
-        else:
-            return self.filename
+        return get_runname(self.filename)
 
 
 # Allows for quick and cached access to the SHA256 hash of a bunch of log files
