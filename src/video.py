@@ -1,7 +1,7 @@
 from ast import Bytes
 import numpy as np
 
-from typing import List
+from typing import List, Literal
 import src.PyNvCodec as nvc
 from src.config import DEVICE_CONFIG, HOST_CONFIG
 
@@ -59,7 +59,7 @@ def _nv12_from_surface(surface: "nvc.PySurface") -> np.ndarray:
     return y, uv
 
 
-def get_image_packets(logpath: str, frameId: int) -> List[bytes]:
+def get_image_packets(logpath: str, frameId: int, type: Literal["headEncodeData", "depthEncodeData"]="headEncodeData") -> List[bytes]:
     video_packets = []
     found = False
 
@@ -68,13 +68,14 @@ def get_image_packets(logpath: str, frameId: int) -> List[bytes]:
 
         # Get the actual events, starting with a keyframe, which we will need
         for i, evt in enumerate(events):
-            if evt.which() == "headEncodeData":
-                if evt.headEncodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
+            if evt.which() == type:
+                encodeData = getattr(evt, type)
+                if encodeData.idx.flags & V4L2_BUF_FLAG_KEYFRAME:
                     video_packets.clear()
 
-                video_packets.append(evt.headEncodeData.data)
+                video_packets.append(encodeData.data)
 
-                if evt.headEncodeData.idx.frameId == frameId:
+                if encodeData.idx.frameId == frameId:
                     found = True
                     break
             
