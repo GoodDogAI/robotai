@@ -9,6 +9,7 @@
 class Serial {
     public:
         Serial(std::string device, int baudrate = B115200);
+        Serial(const Serial&) = delete;
         ~Serial();
 
         uint8_t read_byte();

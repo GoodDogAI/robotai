@@ -3,6 +3,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <deque>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
@@ -84,7 +85,12 @@ class SimpleBGC {
     }
 
     std::unique_ptr<bgc_msg> read_msg(std::chrono::milliseconds timeout) {
-      std::unique_ptr<bgc_msg> result = nullptr;
+      if (msg_queue.size() > 0) {
+        auto msg = std::move(msg_queue.front());
+        msg_queue.pop_front();
+        return msg;
+      }
+
       auto read = port.read_bytes(timeout);
 
       if (!read) {
@@ -149,18 +155,21 @@ class SimpleBGC {
           }
           else
           {
-            if (result != nullptr) {
-              fmt::print(stderr, "Message of type {} dropped\n", result->command_id);
-            }
-
-            result = std::make_unique<bgc_msg>(cur_msg);
+            msg_queue.push_back(std::make_unique<bgc_msg>(cur_msg));
           }
 
           bgc_state = ReadState::WAITING_FOR_START_BYTE;  
         }
       }
 
-      return std::move(result);
+      if (msg_queue.size() > 0) {
+        auto msg = std::move(msg_queue.front());
+        msg_queue.pop_front();
+        return msg;
+      }
+      else {
+        return nullptr;
+      }
     }
 
   static void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
@@ -201,6 +210,7 @@ class SimpleBGC {
     crc16_calculate(BGC_HEADER_SIZE + payload_size, reinterpret_cast<uint8_t*>(&cmd_msg), crc);
 
     std::lock_guard<std::mutex> guard {send_msg_mutex};
+
     port.write_byte(BGC_V2_START_BYTE);
     port.write_bytes(&cmd_msg, BGC_HEADER_SIZE + payload_size);
     port.write_bytes(crc, 2);
@@ -213,6 +223,7 @@ class SimpleBGC {
     uint8_t bgc_payload_counter;
     uint8_t bgc_payload_crc[2];
     bgc_msg cur_msg;
+    std::deque<std::unique_ptr<bgc_msg>> msg_queue;
 
     std::mutex send_msg_mutex;
 };
@@ -228,33 +239,33 @@ static void bgc_command_processor(SimpleBGC &bgc) {
   while(!do_exit) {
     auto msg = std::unique_ptr<Message> {sock->receive(true)};
     auto now = std::chrono::steady_clock::now();
-    if (!msg) {
-      continue;
-    }
 
-    capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
-    auto event = cmsg.getRoot<cereal::Event>();
+    if (msg) {
+      capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+      auto event = cmsg.getRoot<cereal::Event>();
 
-    if (event.which() == cereal::Event::HEAD_COMMAND) {
+      if (event.which() != cereal::Event::HEAD_COMMAND) 
+        continue;
+        
       auto headcmd = event.getHeadCommand();
       fmt::print("Got BGC Command {} {}\n", headcmd.getPitchAngle(), headcmd.getYawAngle());
 
       bgc_control_data control_data;
       build_control_msg(headcmd.getPitchAngle(), headcmd.getYawAngle(), &control_data);
-      //bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
+      bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
 
       control_last_sent = now;
     }
 
-    // if (now - control_last_sent > std::chrono::milliseconds(100)) {
-    //     fmt::print("Sending timeout BGC command\n");
-    //     bgc_control_data control_data;
-    //     build_control_msg(0.0f, 0.0f, &control_data);
+    if (now - control_last_sent > std::chrono::milliseconds(100)) {
+        fmt::print("Sending timeout BGC command\n");
+        bgc_control_data control_data;
+        build_control_msg(30.0f, -10.0f, &control_data);
 
-    //     bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
+        bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
 
-    //     control_last_sent = now;
-    // }
+        control_last_sent = now;
+    }
   }
 }
 

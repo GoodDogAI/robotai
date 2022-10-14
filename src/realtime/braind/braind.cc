@@ -300,7 +300,6 @@ int main(int argc, char *argv[])
       std::vector<float> act(msgvec->act_size(), 0.0f);
       auto messages = msgvec->get_action_command(act.data());
 
-      fmt::print("Sending {} brain messages\n", messages.size());
       for (auto &msgdata : messages) {
          auto bytes = msgdata.asBytes();
          pm.send("brainCommands", bytes.begin(), bytes.size());
