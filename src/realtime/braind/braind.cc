@@ -100,7 +100,7 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
   std::unordered_map<std::unique_ptr<SubSocket>, std::string> socks;
 
   for (const auto& it : services) {
-    if (!it.should_log || strcmp(it.name, "braind") == 0)
+    if (!it.should_log || strcmp(it.name, "brainCommands") == 0 || strcmp(it.name, "brainValidation") == 0)
         continue;
 
     fmt::print("braind {} (on port {})\n", it.name, it.port);
@@ -300,6 +300,7 @@ int main(int argc, char *argv[])
       std::vector<float> act(msgvec->act_size(), 0.0f);
       auto messages = msgvec->get_action_command(act.data());
 
+      fmt::print("Sending {} brain messages\n", messages.size());
       for (auto &msgdata : messages) {
          auto bytes = msgdata.asBytes();
          pm.send("brainCommands", bytes.begin(), bytes.size());

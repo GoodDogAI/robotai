@@ -200,6 +200,7 @@ class SimpleBGC {
     uint8_t crc[2];
     crc16_calculate(BGC_HEADER_SIZE + payload_size, reinterpret_cast<uint8_t*>(&cmd_msg), crc);
 
+    std::lock_guard<std::mutex> guard {send_msg_mutex};
     port.write_byte(BGC_V2_START_BYTE);
     port.write_bytes(&cmd_msg, BGC_HEADER_SIZE + payload_size);
     port.write_bytes(crc, 2);
@@ -212,31 +213,61 @@ class SimpleBGC {
     uint8_t bgc_payload_counter;
     uint8_t bgc_payload_crc[2];
     bgc_msg cur_msg;
+
+    std::mutex send_msg_mutex;
 };
 
-static void bgc_command_processor(SubMaster &sm, SimpleBGC &bgc) {
+static void bgc_command_processor(SimpleBGC &bgc) {
+  // Note, we use a SubSocket, not a SubMaster, because the brain channel can have multiple messages queued up at once
+  // and a SubMaster only keeps one message buffered at a time
+  std::unique_ptr<Context> ctx{ Context::create() };
+  std::unique_ptr<SubSocket> sock{SubSocket::create(ctx.get(), "brainCommands")};
+
+  std::chrono::steady_clock::time_point control_last_sent {};
+
   while(!do_exit) {
-    sm.update(50);
-
-    if (sm.updated("brainCommands") && sm["brainCommands"].which() == cereal::Event::HEAD_COMMAND) {
-      auto msg = sm["brainCommands"].getHeadCommand();
-
-      fmt::print("Got BGC Command {} {}\n", msg.getPitchAngle(), msg.getYawAngle());
+    auto msg = std::unique_ptr<Message> {sock->receive(true)};
+    auto now = std::chrono::steady_clock::now();
+    if (!msg) {
+      continue;
     }
+
+    capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+    auto event = cmsg.getRoot<cereal::Event>();
+
+    if (event.which() == cereal::Event::HEAD_COMMAND) {
+      auto headcmd = event.getHeadCommand();
+      fmt::print("Got BGC Command {} {}\n", headcmd.getPitchAngle(), headcmd.getYawAngle());
+
+      bgc_control_data control_data;
+      build_control_msg(headcmd.getPitchAngle(), headcmd.getYawAngle(), &control_data);
+      //bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
+
+      control_last_sent = now;
+    }
+
+    // if (now - control_last_sent > std::chrono::milliseconds(100)) {
+    //     fmt::print("Sending timeout BGC command\n");
+    //     bgc_control_data control_data;
+    //     build_control_msg(0.0f, 0.0f, &control_data);
+
+    //     bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
+
+    //     control_last_sent = now;
+    // }
   }
 }
 
 int main(int argc, char **argv)
 {
   PubMaster pm{{"simpleBGCFeedback"}};
-  SubMaster sm{{"brainCommands"}};
-  
   Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
   SimpleBGC bgc{port};
+
   YawGyroState yaw_gyro_state;
   auto gyro_center_start_time {std::chrono::steady_clock::now()};
 
-  std::chrono::steady_clock::time_point control_last_sent {};
+ 
   std::chrono::steady_clock::time_point bgc_last_received {};
 
   // Reset the module, so you have a clean connection to it each time
@@ -269,22 +300,11 @@ int main(int argc, char **argv)
   bgc_last_received = std::chrono::steady_clock::now();
 
   // Start the command processor thread
-  std::thread command_thread {bgc_command_processor, std::ref(sm), std::ref(bgc)};
+  std::thread command_thread {bgc_command_processor, std::ref(bgc)};
 
   while (!do_exit)
   {
     auto start_loop { std::chrono::steady_clock::now() };
-
-    // Make sure that if the GYRO is operating, that we are sending a control command at a minimum frequency
-    if (yaw_gyro_state == YawGyroState::OPERATING || yaw_gyro_state == YawGyroState::WAIT_FOR_CENTER) {
-      if (start_loop - control_last_sent > std::chrono::milliseconds(50)) {
-        bgc_control_data control_data;
-        build_control_msg(0.0f, 0.0f, &control_data);
-
-        bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
-        control_last_sent = start_loop;
-      }
-    }
 
     if (start_loop - bgc_last_received > std::chrono::seconds(1)) {
         fmt::print("No messages received in past 1 second, shutting down BGC subsystem");
