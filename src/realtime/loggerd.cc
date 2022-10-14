@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
         for (auto sock : poller->poll(1000)) {
             auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
 
-            capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize()));
+            capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
             auto event = cmsg.getRoot<cereal::Event>();
 
             // Log rotation is going to happen only on head encoder events
@@ -120,7 +120,6 @@ int main(int argc, char *argv[])
 
             if (started_logging) {
                 log.write(msg->getData(), msg->getSize());
-                log.flush();
                 msgs_in_log++;
             }
 
