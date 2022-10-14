@@ -13,7 +13,6 @@
 #include "simplebgc.h"
 #include "cereal/messaging/messaging.h"
 
-const char *service_name = "simpleBGC";
 ExitHandler do_exit;
 const auto loop_time = std::chrono::milliseconds(100);
 
@@ -249,7 +248,9 @@ class SimpleBGC {
 
 int main(int argc, char **argv)
 {
-  PubMaster pm{{service_name}};
+  PubMaster pm{{"simpleBGCFeedback"}};
+  SubMaster sm{{"simpleBGCCommand"}};
+  
   Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
   SimpleBGC bgc{port};
   YawGyroState yaw_gyro_state;
