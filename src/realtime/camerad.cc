@@ -24,10 +24,7 @@
 
 ExitHandler do_exit;
 
-void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens) {
-    rs2::frame_queue queue{ 1 };
-    color_sens.start(queue);
-
+void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens, rs2::frame_queue &queue) {
     uint32_t frame_id{ 0 };
     rs2_metadata_type last_start_of_frame {};
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
@@ -133,10 +130,7 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
     color_sens.close();
 }
 
-void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
-    rs2::frame_queue queue{ 4 }; // Allow a small queue unlike video frames
-    motion_sensor.start(queue);
-
+void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2::frame_queue &queue) {
     while (!do_exit)
     {
         rs2::motion_frame motion_frame = queue.wait_for_frame();
@@ -180,10 +174,7 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor) {
     motion_sensor.close();
 }
 
-void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth_sensor &depth_sens) {
-    rs2::frame_queue queue{ 2 }; // Depth latency is less important, so allow some buffer
-    depth_sens.start(queue);
-
+void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth_sensor &depth_sens, rs2::frame_queue &queue) {
     uint32_t frame_id{ 0 };
     rs2_metadata_type last_start_of_frame {};
 
@@ -193,8 +184,6 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         uint16_t min = 200, max = 60000;
         float val = ((float)i - min) / (max - min);
         val = std::clamp(val, 0.0f, 1.0f);
-
-
 
         i++;
         return val * 255;
@@ -328,9 +317,13 @@ int main(int argc, char *argv[])
 
     fmt::print("Device Name: {}\n", device.get_info(RS2_CAMERA_INFO_NAME) );
 
-    auto depth_sens{ device.first<rs2::depth_sensor>() };
     auto color_sens{ device.first<rs2::color_sensor>() };
+    auto depth_sens{ device.first<rs2::depth_sensor>() };
     auto motion_sens{ device.first<rs2::motion_sensor>() };
+
+    rs2::frame_queue color_queue{ 1 };
+    rs2::frame_queue depth_queue{ 2 };
+    rs2::frame_queue motion_queue{ 4 };
 
     // Find a matching color profile
     auto color_profiles{ color_sens.get_stream_profiles() };
@@ -347,6 +340,7 @@ int main(int argc, char *argv[])
     }
 
     color_sens.open(color_stream_profile);
+    color_sens.start(color_queue);
 
     // Find and setup the gyro and accelerometer streams
     auto motion_profiles{ motion_sens.get_stream_profiles() };
@@ -380,6 +374,7 @@ int main(int argc, char *argv[])
     }
 
     motion_sens.open({ gyro_stream_profile, accel_stream_profile });
+    motion_sens.start(motion_queue);
 
     // Find and setup the depth stream
     auto depth_profiles{ depth_sens.get_stream_profiles() };
@@ -403,11 +398,12 @@ int main(int argc, char *argv[])
     }
 
     depth_sens.open(depth_stream_profile);
+    depth_sens.start(depth_queue);
 
     // Start all the stream threads
-    std::thread color_thread{ color_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(color_sens) };
-    std::thread motion_thread{ motion_sensor_thread, std::ref(pm), std::ref(motion_sens) };
-    std::thread depth_thread{ depth_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(depth_sens) };
+    std::thread color_thread{ color_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(color_sens), std::ref(color_queue)};
+    std::thread motion_thread{ motion_sensor_thread, std::ref(pm), std::ref(motion_sens), std::ref(motion_queue) };
+    std::thread depth_thread{ depth_sensor_thread, std::ref(vipc_server), std::ref(pm), std::ref(depth_sens), std::ref(depth_queue) };
 
     // Wait for any of the threads to finish
     color_thread.join();
