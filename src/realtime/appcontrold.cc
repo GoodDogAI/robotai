@@ -155,7 +155,9 @@ int main(int argc, char **argv)
                         if (buf[BUF_DISCRIMINANT_INDEX] == BUF_MOVE_MESSAGE) {
                             last_move_state = cereal::AppControl::MotionState::MANUAL_CONTROL;
                             last_cmd_vel_linear_x = ((int8_t)buf[BUF_CMD_VEL_LINEAR_X_INDEX]) / 127.0F * OVERRIDE_LINEAR_SPEED;
-                            last_cmd_vel_angular_z = ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * OVERRIDE_ANGULAR_SPEED;       
+                            last_cmd_vel_angular_z = ((int8_t)buf[BUF_CMD_VEL_ANGULAR_Z_INDEX]) / 127.0F * OVERRIDE_ANGULAR_SPEED;      
+
+                            fmt::print("Move: linear_x={}, angular_z={}\n", last_cmd_vel_linear_x, last_cmd_vel_angular_z); 
                         }
                         else if (buf[BUF_DISCRIMINANT_INDEX] == BUF_SCORE_MESSAGE) {
                             last_reward_state = static_cast<int8_t>(buf[BUF_SCORE_INDEX]) < 0  ? cereal::AppControl::RewardState::OVERRIDE_NEGATIVE : cereal::AppControl::RewardState::OVERRIDE_POSITIVE;
@@ -164,6 +166,8 @@ int main(int argc, char **argv)
                             last_move_state = cereal::AppControl::MotionState::NO_OVERRIDE;
                             last_cmd_vel_linear_x = 0;
                             last_cmd_vel_angular_z = 0;
+
+                            fmt::print("Empty message\n");
                         }
                         else {
                             fmt::print(stderr, "Unknown message recieved {}\n", buf[BUF_DISCRIMINANT_INDEX]);

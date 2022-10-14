@@ -3,6 +3,7 @@
 #include <string>
 #include <chrono>
 #include <thread>
+#include <mutex>
 #include <deque>
 
 #include <fmt/core.h>
