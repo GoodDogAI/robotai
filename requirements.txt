@@ -57,4 +57,5 @@ onnxruntime
 # HuggingFace datasets, which has great support for caching to local arrow files
 datasets
 
-
+# Training
+pytorch-lightning
