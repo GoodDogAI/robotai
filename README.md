@@ -85,8 +85,9 @@ Configure cmake
 Build the code
 `cmake --build .`
 
-Install the python libraries into their proper places
-`cmake --install . --prefix /home/jake/robotai`
+Install the python libraries into the current repository, so that python can find the pynvcodec modules
+Be sure to unclobber the README.md and CHANGELOG files
+`cmake --install . --prefix ..`
 
 
 
