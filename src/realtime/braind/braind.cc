@@ -35,7 +35,6 @@ namespace fs = std::experimental::filesystem;
 using json = nlohmann::json;
 
 const fs::path model_path{MODEL_STORAGE_PATH};
-const char *validation_service_name = "brainValidation";
 
 ExitHandler do_exit;
 
@@ -143,7 +142,7 @@ void send_model_inference_msg(PubMaster &pm, int32_t frame_id) {
 
     auto words = capnp::messageToFlatArray(msg);
     auto bytes = words.asBytes();
-    pm.send(validation_service_name, bytes.begin(), bytes.size());
+    pm.send("brainValidation", bytes.begin(), bytes.size());
 }
 
 int main(int argc, char *argv[])
@@ -182,7 +181,7 @@ int main(int argc, char *argv[])
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec_guard) };
-  PubMaster pm { {validation_service_name} };
+  PubMaster pm { {"brainValidation", "brainCommands"} };
   size_t last_10_sec_msgs { 0 };
   auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
@@ -303,7 +302,7 @@ int main(int argc, char *argv[])
 
       for (auto &msgdata : messages) {
          auto bytes = msgdata.asBytes();
-         pm.send(validation_service_name, bytes.begin(), bytes.size());
+         pm.send("brainCommands", bytes.begin(), bytes.size());
       }
     }
 
@@ -322,7 +321,7 @@ int main(int argc, char *argv[])
         
         auto words = capnp::messageToFlatArray(msg);
         auto bytes = words.asBytes();
-        pm.send(validation_service_name, bytes.begin(), bytes.size());
+        pm.send("brainValidation", bytes.begin(), bytes.size());
 
         // Log the actual input frame too, because there are some issues
         event = msg.initEvent(true);
@@ -338,7 +337,7 @@ int main(int argc, char *argv[])
         
         words = capnp::messageToFlatArray(msg);
         bytes = words.asBytes();
-        pm.send(validation_service_name, bytes.begin(), bytes.size());
+        pm.send("brainValidation", bytes.begin(), bytes.size());
     }
 
     // Basic status log every 10 seconds

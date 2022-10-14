@@ -23,48 +23,6 @@ enum class YawGyroState {
   OPERATING,
 };
 
-static void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
-  uint16_t counter;
-  uint16_t polynom = 0x8005;
-  uint16_t crc_register = (uint16_t)crc[0] | ((uint16_t)crc[1] << 8);
-  uint8_t shift_register;
-  uint8_t data_bit, crc_bit;
-  for (counter = 0; counter < length; counter++) {
-    for (shift_register = 0x01; shift_register > 0x00; shift_register <<= 1) {
-      data_bit = (data[counter] & shift_register) ? 1 : 0;
-      crc_bit = crc_register >> 15;
-      crc_register <<= 1;
-
-      if (data_bit != crc_bit) crc_register ^= polynom;
-    }
-  }
-
-  crc[0] = crc_register;
-  crc[1] = (crc_register >> 8);
-}
-
-static void crc16_calculate(uint16_t length, uint8_t *data, uint8_t crc[2]) {
-  crc[0] = 0; crc[1] = 0;
-  crc16_update(length, data, crc);
-}
-
-static void send_message(Serial &port, uint8_t cmd, uint8_t *payload, uint16_t payload_size) {
-  bgc_msg cmd_msg = {
-    .command_id = cmd,
-    .payload_size = static_cast<uint8_t>(payload_size),
-    .header_checksum = static_cast<uint8_t>(cmd + payload_size),
-  };
-
-  std::copy(payload, payload + payload_size, cmd_msg.payload);
-  
-  uint8_t crc[2];
-  crc16_calculate(BGC_HEADER_SIZE + payload_size, reinterpret_cast<uint8_t*>(&cmd_msg), crc);
-
-  port.write_byte(BGC_V2_START_BYTE);
-  port.write_bytes(&cmd_msg, BGC_HEADER_SIZE + payload_size);
-  port.write_bytes(crc, 2);
-}
-
 static int16_t degree_to_int16(float angle) {
    float result = round(DEG_TO_INT16(angle));
 
@@ -105,38 +63,6 @@ static void build_control_msg(float pitch, float yaw, bgc_control_data *control_
 //   //   msg->cmd_angle_yaw, control_data.angle_yaw);
   
 //   last_head_cmd = msg;
-//   ros_last_received = ros::Time::now();
-// }
-
-// void sound_cmd_callback(const bumble::SoundCommand& msg)
-// {
-//   if (ros::Time::now() - last_sound < ros::Duration(2.0)) {
-//     return;
-//   }
-
-//   bgc_beep_custom_sound beep_data;
-//   memset(&beep_data, 0, sizeof(bgc_beep_custom_sound));
-
-//   beep_data.mode = BEEPER_MODE_CUSTOM_MELODY;
-//   beep_data.note_length = 20;
-//   beep_data.decay_factor = 10;
-
-//   if (msg.sound == bumble::SoundCommand::PUNISHED) {
-//     beep_data.notes[0] = 2000;
-//     beep_data.notes[1] = 1000;
-//   }
-//   else if (msg.sound == bumble::SoundCommand::REWARDED) {
-//     beep_data.notes[0] = 1000;
-//     beep_data.notes[1] = 2000;
-//   }
-//   else {
-//     beep_data.notes[0] = 800;
-//     beep_data.notes[1] = 800;
-//   }
-
-//   send_message(serial_port, CMD_BEEP_SOUND, (uint8_t *)&beep_data, sizeof(bgc_beep_custom_sound));
-
-//   last_sound = ros::Time::now();
 //   ros_last_received = ros::Time::now();
 // }
 
@@ -237,6 +163,48 @@ class SimpleBGC {
       return std::move(result);
     }
 
+  static void crc16_update(uint16_t length, uint8_t *data, uint8_t crc[2]) {
+    uint16_t counter;
+    uint16_t polynom = 0x8005;
+    uint16_t crc_register = (uint16_t)crc[0] | ((uint16_t)crc[1] << 8);
+    uint8_t shift_register;
+    uint8_t data_bit, crc_bit;
+    for (counter = 0; counter < length; counter++) {
+      for (shift_register = 0x01; shift_register > 0x00; shift_register <<= 1) {
+        data_bit = (data[counter] & shift_register) ? 1 : 0;
+        crc_bit = crc_register >> 15;
+        crc_register <<= 1;
+
+        if (data_bit != crc_bit) crc_register ^= polynom;
+      }
+    }
+
+    crc[0] = crc_register;
+    crc[1] = (crc_register >> 8);
+  }
+
+  static void crc16_calculate(uint16_t length, uint8_t *data, uint8_t crc[2]) {
+    crc[0] = 0; crc[1] = 0;
+    crc16_update(length, data, crc);
+  }
+
+  void send_message(uint8_t cmd, uint8_t *payload, uint16_t payload_size) {
+    bgc_msg cmd_msg = {
+      .command_id = cmd,
+      .payload_size = static_cast<uint8_t>(payload_size),
+      .header_checksum = static_cast<uint8_t>(cmd + payload_size),
+    };
+
+    std::copy(payload, payload + payload_size, cmd_msg.payload);
+    
+    uint8_t crc[2];
+    crc16_calculate(BGC_HEADER_SIZE + payload_size, reinterpret_cast<uint8_t*>(&cmd_msg), crc);
+
+    port.write_byte(BGC_V2_START_BYTE);
+    port.write_bytes(&cmd_msg, BGC_HEADER_SIZE + payload_size);
+    port.write_bytes(crc, 2);
+  }
+
   private:
     Serial &port;
 
@@ -246,10 +214,22 @@ class SimpleBGC {
     bgc_msg cur_msg;
 };
 
+static void bgc_command_processor(SubMaster &sm, SimpleBGC &bgc) {
+  while(!do_exit) {
+    sm.update(50);
+
+    if (sm.updated("brainCommands") && sm["brainCommands"].which() == cereal::Event::HEAD_COMMAND) {
+      auto msg = sm["brainCommands"].getHeadCommand();
+
+      fmt::print("Got BGC Command {} {}\n", msg.getPitchAngle(), msg.getYawAngle());
+    }
+  }
+}
+
 int main(int argc, char **argv)
 {
   PubMaster pm{{"simpleBGCFeedback"}};
-  SubMaster sm{{"simpleBGCCommand"}};
+  SubMaster sm{{"brainCommands"}};
   
   Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
   SimpleBGC bgc{port};
@@ -261,7 +241,7 @@ int main(int argc, char **argv)
 
   // Reset the module, so you have a clean connection to it each time
   bgc_reset reset_cmd {};
-  send_message(port, CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(bgc_reset));
+  bgc.send_message(CMD_RESET, reinterpret_cast<uint8_t *>(&reset_cmd), sizeof(bgc_reset));
   std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
   for (int i = 0; i < 8; ++i)
@@ -277,16 +257,19 @@ int main(int argc, char **argv)
   stream_data.cmd_id = CMD_REALTIME_DATA_4;
   stream_data.interval_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_time).count();
   stream_data.sync_to_data = 0;
-  send_message(port, CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
+  bgc.send_message(CMD_DATA_STREAM_INTERVAL, reinterpret_cast<uint8_t *>(&stream_data), sizeof(stream_data));
 
   // Ask the yaw to be recenretered
   bgc_execute_menu exe_menu {};
   exe_menu.cmd_id = SBGC_MENU_CENTER_YAW;
-  send_message(port, CMD_EXECUTE_MENU, reinterpret_cast<uint8_t *>(&exe_menu), sizeof(bgc_execute_menu));
+  bgc.send_message(CMD_EXECUTE_MENU, reinterpret_cast<uint8_t *>(&exe_menu), sizeof(bgc_execute_menu));
 
   yaw_gyro_state = YawGyroState::WAIT_FOR_CENTER;
   gyro_center_start_time = std::chrono::steady_clock::now();
   bgc_last_received = std::chrono::steady_clock::now();
+
+  // Start the command processor thread
+  std::thread command_thread {bgc_command_processor, std::ref(sm), std::ref(bgc)};
 
   while (!do_exit)
   {
@@ -298,7 +281,7 @@ int main(int argc, char **argv)
         bgc_control_data control_data;
         build_control_msg(0.0f, 0.0f, &control_data);
 
-        send_message(port, CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
+        bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
         control_last_sent = start_loop;
       }
     }
@@ -366,7 +349,7 @@ int main(int argc, char **argv)
         
         auto words = capnp::messageToFlatArray(pmsg);
         auto bytes = words.asBytes();
-        pm.send(service_name, bytes.begin(), bytes.size());
+        pm.send("simpleBGCFeedback", bytes.begin(), bytes.size());
       }
       else if (msg->command_id == CMD_GET_ANGLES_EXT)
       {
@@ -395,6 +378,8 @@ int main(int argc, char **argv)
       }
     }
   }
+
+  command_thread.join();
 
   return EXIT_SUCCESS;
 }
