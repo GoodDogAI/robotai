@@ -221,6 +221,7 @@ target_link_libraries(
     odrived 
     PRIVATE
         serial 
+        atomic
         stdc++fs
         fmt::fmt
         ${CEREAL_LIBRARIES}

@@ -49,25 +49,6 @@ static void build_control_msg(float pitch, float yaw, bgc_control_data *control_
     control_data->speed_yaw = round(200.0f / CONTROL_SPEED_DEG_PER_SEC_PER_UNIT); 
 }
 
-// void head_cmd_callback(const bumble::HeadCommand& msg)
-// {
-//   // Send a control command immediately to set the new position
-//   if (yaw_gyro_state == GYRO_OPERATING) {
-//     bgc_control_data control_data;
-//     build_control_msg(msg, &control_data);
-
-//     send_message(serial_port, CMD_CONTROL, (uint8_t *)&control_data, sizeof(control_data));
-//     control_last_sent = ros::Time::now();
-//   }
-
-//   // ROS_INFO("Received head cmd %f %d, %f %d", 
-//   //   msg->cmd_angle_pitch, control_data.angle_pitch,
-//   //   msg->cmd_angle_yaw, control_data.angle_yaw);
-  
-//   last_head_cmd = msg;
-//   ros_last_received = ros::Time::now();
-// }
-
 class SimpleBGC {
   enum class ReadState {
       WAITING_FOR_START_BYTE,
@@ -277,7 +258,6 @@ int main(int argc, char **argv)
 
   YawGyroState yaw_gyro_state;
   auto gyro_center_start_time {std::chrono::steady_clock::now()};
-
  
   std::chrono::steady_clock::time_point bgc_last_received {};
 

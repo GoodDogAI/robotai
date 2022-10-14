@@ -4,6 +4,7 @@
 #include <thread>
 #include <chrono>
 #include <cassert>
+#include <atomic>
 
 #include <math.h>
 #include <fmt/core.h>
@@ -18,6 +19,13 @@ const char *service_name = "odriveFeedback";
 ExitHandler do_exit;
 const auto loop_time = std::chrono::milliseconds(100);
 
+struct ODriveCommandState {
+    float currentLeft;
+    float currentRight;
+    std::chrono::steady_clock::time_point time;
+};
+
+std::atomic<ODriveCommandState> command_state;
 
 static void send_raw_command(Serial &port, const std::string& command) {
     port.write_str(command);
@@ -69,6 +77,34 @@ static std::pair<float, float> request_feedback(Serial &port, int motor_index) {
 //   last_received = ros::Time::now();
 // }
 
+static void odrive_command_processor() {
+  // Note, we use a SubSocket, not a SubMaster, because the brain channel can have multiple messages queued up at once
+  // and a SubMaster only keeps one message buffered at a time
+  std::unique_ptr<Context> ctx{ Context::create() };
+  std::unique_ptr<SubSocket> sock{SubSocket::create(ctx.get(), "brainCommands")};
+
+  while(!do_exit) {
+    auto msg = std::unique_ptr<Message> {sock->receive(true)};
+    auto now = std::chrono::steady_clock::now();
+
+    if (msg) {
+        capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
+        auto event = cmsg.getRoot<cereal::Event>();
+
+        if (event.which() != cereal::Event::ODRIVE_COMMAND) 
+            continue;
+
+        ODriveCommandState new_state;
+
+        new_state.currentLeft = event.getOdriveCommand().getCurrentLeft();
+        new_state.currentRight = event.getOdriveCommand().getCurrentRight();
+        new_state.time = now;
+
+        command_state = new_state;
+    }
+
+  }
+}
 
 /**
  * This node provides a simple interface to the ODrive module, it accepts cmd_vel messages to drive the motors,
@@ -78,10 +114,7 @@ int main(int argc, char **argv)
 {
     PubMaster pm { {service_name} };
     Serial port { ODRIVE_SERIAL_PORT, ODRIVE_BAUD_RATE };
-    auto last_received { std::chrono::steady_clock::now() };
     bool motors_enabled { false };
-    float vel_left { 0.0 }, vel_right { 0.0 };
-
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
@@ -107,12 +140,17 @@ int main(int argc, char **argv)
         }
     }
 
+    // Start the command processor thread
+    std::thread command_thread {odrive_command_processor};
+
+    // Run the main loop
     while (!do_exit) {
         auto start_loop { std::chrono::steady_clock::now() };
+        ODriveCommandState cur_command = command_state;
 
-        if (start_loop - last_received > std::chrono::seconds(1)) {
+        if (start_loop - cur_command.time > std::chrono::seconds(1)) {
             if (motors_enabled) {
-                vel_left = vel_right = 0;
+                command_state = {0, 0, start_loop};
 
                 fmt::print("Disabling motors after inactivity\n");
                 send_raw_command(port, "w axis0.requested_state 1\n");
@@ -130,8 +168,8 @@ int main(int argc, char **argv)
         }
 
         // Send motor commands
-        send_raw_command(port, fmt::format("v 0 {}\n", vel_left));
-        send_raw_command(port, fmt::format("v 1 {}\n", vel_right));
+        send_raw_command(port, fmt::format("v 0 {}\n", cur_command.currentLeft));
+        send_raw_command(port, fmt::format("v 1 {}\n", cur_command.currentRight));
 
         // Read and update vbus voltage
         float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
@@ -184,6 +222,8 @@ int main(int argc, char **argv)
     // Disable motors when we quit the program
     send_raw_command(port, "w axis0.requested_state 1\n");
     send_raw_command(port, "w axis1.requested_state 1\n");
+
+    command_thread.join();
 
     return EXIT_SUCCESS;
 }
