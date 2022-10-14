@@ -10,10 +10,16 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
+from src.datasets import ModularAdditionDataset
 from src.msgvec.pymsgvec import PyMsgVec
 
 input_model = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]
 msgvec = PyMsgVec(json.dumps(input_model["msgvec"]).encode("utf-8"))
-act_shape = msgvec.act_size() # scalar (default: 4)
-obs_shape = msgvec.obs_size() # scalar (default: 17006)
-pass
+act_shape = msgvec.act_size()  # scalar (default: 4)
+obs_shape = msgvec.obs_size()  # scalar (default: 17006)
+
+dataset = ModularAdditionDataset(number_of_digits=10, seed=42)
+for i, entry in enumerate(dataset):
+    print(entry)
+    if i > 100:
+        break
