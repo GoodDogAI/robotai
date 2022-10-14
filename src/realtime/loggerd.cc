@@ -42,10 +42,6 @@ static fs::path get_log_filename(const std::string &identifier) {
     return log_path/fmt::format("{}-{}-{:04}-{:02}-{:02}-{:02}_{:02}.log", log_name, identifier, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 }
 
-static void close_message(Message *m) {
-    m->close();
-}
-
 
 int main(int argc, char *argv[])
 {
@@ -70,7 +66,7 @@ int main(int argc, char *argv[])
     std::ofstream log{ log_filename, std::ios::binary };
 
     // Register all sockets
-    std::unordered_set<std::unique_ptr<SubSocket>> socks;
+    std::unordered_map<std::unique_ptr<SubSocket>, std::string> socks;
 
     for (const auto& it : services) {
         if (!it.should_log) 
@@ -78,16 +74,19 @@ int main(int argc, char *argv[])
 
         fmt::print("logging {} (on port {})\n", it.name, it.port);
 
-        auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
-        assert(sock != NULL);
+        auto sock = std::unique_ptr<SubSocket> {SubSocket::create(ctx.get(), it.name)};
+        KJ_ASSERT(sock != NULL);
 
         poller->registerSocket(sock.get());
-        socks.insert(std::move(sock));
+        socks.insert(std::make_pair(std::move(sock), it.name));
     }
 
     while (!do_exit) {
         for (auto sock : poller->poll(1000)) {
-            auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
+            auto msg = std::unique_ptr<Message>(sock->receive(true));
+            if (msg == nullptr) {
+                continue;
+            }
 
             capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
             auto event = cmsg.getRoot<cereal::Event>();

@@ -91,34 +91,36 @@ std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
   return engine;
 }
 
-static void close_message(Message *m) {
-    m->close();
-}
 
 static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
   // Connect to all of the message queues to receive data to input into the RL model
   std::unique_ptr<Context> ctx{ Context::create() };
   std::unique_ptr<Poller> poller{ Poller::create() };
 
-   // Register all sockets
-  std::unordered_set<std::unique_ptr<SubSocket>> socks;
+  // Register all sockets
+  std::unordered_map<std::unique_ptr<SubSocket>, std::string> socks;
 
   for (const auto& it : services) {
     if (!it.should_log || strcmp(it.name, "braind") == 0)
         continue;
 
-    auto sock = std::unique_ptr<SubSocket> { SubSocket::create(ctx.get(), it.name) };
-    assert(sock != NULL);
+    fmt::print("braind {} (on port {})\n", it.name, it.port);
 
-    fmt::print("brain {} (on port {})\n", it.name, it.port);
+    auto sock = std::unique_ptr<SubSocket> {SubSocket::create(ctx.get(), it.name)};
+    KJ_ASSERT(sock != NULL);
 
     poller->registerSocket(sock.get());
-    socks.insert(std::move(sock));
+    socks.insert(std::make_pair(std::move(sock), it.name));
   }
 
   while (!do_exit) {
     for (auto sock : poller->poll(1000)) {
-      auto msg = std::unique_ptr<Message, std::function<void(Message*)>>(sock->receive(true), close_message);
+      auto msg = std::unique_ptr<Message>(sock->receive(true));
+      if (msg == nullptr) {
+          continue;
+      }
+
+      //std::cout <<  socks[sock] << " size" << msg->getSize() << std::endl;
 
       capnp::FlatArrayMessageReader cmsg(kj::ArrayPtr<capnp::word>((capnp::word *)msg->getData(), msg->getSize() / sizeof(capnp::word)));
       auto event = cmsg.getRoot<cereal::Event>();
@@ -127,6 +129,7 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
       msgvec->input(event);
     }
   }
+
 }
 
 void send_model_inference_msg(PubMaster &pm, int32_t frame_id) {
