@@ -81,10 +81,18 @@ static void odrive_command_processor() {
   // Note, we use a SubSocket, not a SubMaster, because the brain channel can have multiple messages queued up at once
   // and a SubMaster only keeps one message buffered at a time
   std::unique_ptr<Context> ctx{ Context::create() };
+  std::unique_ptr<Poller> poller{ Poller::create() };
   std::unique_ptr<SubSocket> sock{SubSocket::create(ctx.get(), "brainCommands")};
 
+  poller->registerSocket(sock.get());
+
   while(!do_exit) {
-    auto msg = std::unique_ptr<Message> {sock->receive(true)};
+    auto cur_sock = poller->poll(1000);
+    if (cur_sock.size() == 0) {
+      continue;
+    }
+
+    auto msg = std::unique_ptr<Message> {cur_sock[0]->receive(true)};
     auto now = std::chrono::steady_clock::now();
 
     if (msg) {
