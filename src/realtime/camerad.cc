@@ -186,7 +186,17 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
     uint32_t frame_id{ 0 };
     rs2_metadata_type last_start_of_frame {};
-    auto last_frame_mismatch { std::chrono::steady_clock::now() };
+
+    // Generate the lookup table for depth to YUV color mapping
+    std::vector<uint8_t> depth_to_yuv_lut(std::numeric_limits<uint16_t>::max());
+    std::generate(depth_to_yuv_lut.begin(), depth_to_yuv_lut.end(), [i = 0] () mutable {
+        uint16_t min = 200, max = 60000;
+        float val = ((float)i - min) / (max - min);
+        val = std::clamp(val, 0.0f, 1.0f);
+
+        i++;
+        return val * 255;
+    });
  
     // For some reason, the frame id's on the depth sensor always restart a short time after starting the queue
     // So, this workaround drains those frames off before starting to read the real frame id's
@@ -216,7 +226,7 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
             fmt::print(stderr, "Depth Frame number mismatch\n");
             fmt::print(stderr, "Got {} expected {}\n", depth_frame.get_frame_number(), frame_id + 1);
             
-            if (std::chrono::steady_clock::now() - last_frame_mismatch < std::chrono::seconds(1))
+            if (std::abs(static_cast<int64_t>(depth_frame.get_frame_number()) - (frame_id + 1)) > 1)
             {
                 fmt::print(stderr, "Too many depth frame mismatches\n");
                 do_exit = true;
@@ -224,7 +234,6 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
             }
 
             frame_id = depth_frame.get_frame_number();
-            last_frame_mismatch = std::chrono::steady_clock::now();
         }
         else
         {
@@ -251,10 +260,10 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         // The LSB we want to figure out how to stuff that into the UV if we can later.
         for(uint32_t row = 0; row < depth_frame_height / 2; row++) {
             for (uint32_t col = 0; col < depth_frame_width / 2; col++) {
-                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = 255 - (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = 255 - (z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = 255 - (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] & 0xFF00) >> 8;
-                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = 255 - (z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] & 0xFF00) >> 8;
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = depth_to_yuv_lut[z16_data[(row * 2) * depth_frame_width + col * 2]];
+                cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = depth_to_yuv_lut[z16_data[(row * 2) * depth_frame_width + col * 2 + 1]];
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = depth_to_yuv_lut[z16_data[(row * 2 + 1) * depth_frame_width + col * 2]];
+                cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = depth_to_yuv_lut[z16_data[(row * 2 + 1) * depth_frame_width + col * 2 + 1]];
 
                 // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = std::min({z16_data[(row * 2) * cur_yuv_buf->stride + col * 2],
                 //                                                                 z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],

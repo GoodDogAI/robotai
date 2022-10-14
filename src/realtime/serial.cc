@@ -102,6 +102,7 @@ std::optional<std::vector<uint8_t>> Serial::read_bytes(std::chrono::milliseconds
         return buf;
     }
     else if (ret < 0) {
+        fmt::print(stderr, "Error {} from poll: {}\n", errno, strerror(errno));
         throw std::runtime_error("Could not poll serial device");
     }
 
