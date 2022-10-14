@@ -4,7 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-    
+        {
+            "name": "Python: Train Playground",
+            "type": "python",
+            "request": "launch",
+            "module": "src.train.playground",
+            "justMyCode": true
+        },
         {
             "name": "Python: Train Vision to Reward",
             "type": "python",
