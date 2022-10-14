@@ -89,7 +89,13 @@ Install the python libraries into the current repository, so that python can fin
 Be sure to unclobber the README.md and CHANGELOG files
 `cmake --install . --prefix ..`
 
+## WSL 2 notes
 
+Must remove Windows PATH elements from Linux PATH and add /usr/local/cuda/bin
+then reconfigure. Might not work from VS Code.
+
+Must link libcuda to the cuda/lib64 directory:
+`sudo ln -s /usr/lib/wsl/lib/libcuda.so /usr/local/cuda/lib64/libcuda.so`
 
 ## Notes on Colorspaces
 
