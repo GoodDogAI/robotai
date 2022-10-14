@@ -249,8 +249,7 @@ static void bgc_command_processor(SimpleBGC &bgc) {
         continue;
         
       auto headcmd = event.getHeadCommand();
-      fmt::print("Got BGC Command {} {}\n", headcmd.getPitchAngle(), headcmd.getYawAngle());
-
+    
       bgc_control_data control_data;
       build_control_msg(headcmd.getPitchAngle(), headcmd.getYawAngle(), &control_data);
       bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
