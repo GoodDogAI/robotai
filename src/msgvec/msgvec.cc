@@ -311,7 +311,7 @@ static float transform_vec_to_msg(const json &transform, float vecValue) {
 
 
 MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
-    capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size()));
+    capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size() / sizeof(capnp::word)));
     auto event = cmsg.getRoot<cereal::Event>();
     return this->input(event);
 }

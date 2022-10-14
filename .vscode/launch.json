@@ -32,7 +32,20 @@
             "name": "Launch braind",
             "program": "${workspaceRoot}/build/braind",
             "cwd": "${workspaceRoot}",
-            "args": ["--config", "/home/robot/models/brain_config.json", "--vision_model", "yolov7-tiny-f6c3863fa45a58b1"],
+            "args": ["--config", "/home/robot/models/brain_config.json", "--vision_model", "yolov7-tiny-250bb44603956d1b"],
+            "setupCommands": [
+                {
+                    "description": "ignore SIGUSR2 signal",
+                    "text": "handle SIGUSR2 nostop noprint pass"
+                }
+            ]
+        },
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Launch loggerd",
+            "program": "${workspaceRoot}/build/loggerd",
+            "cwd": "${workspaceRoot}",
             "setupCommands": [
                 {
                     "description": "ignore SIGUSR2 signal",

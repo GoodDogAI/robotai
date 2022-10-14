@@ -194,6 +194,8 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         float val = ((float)i - min) / (max - min);
         val = std::clamp(val, 0.0f, 1.0f);
 
+
+
         i++;
         return val * 255;
     });
@@ -255,6 +257,7 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         int32_t depth_frame_width = depth_frame.get_width();
         int32_t depth_frame_height = depth_frame.get_height();
 
+
         // This squishes the z16 depth data down into the YUV buffer.
         // The MSB gets put into the Y, since that has the most resolution during video compression
         // The LSB we want to figure out how to stuff that into the UV if we can later.
@@ -269,6 +272,14 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
                 //                                                                 z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],
                 //                                                                 z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2],
                 //                                                                 z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1]}) & 0x00FF;
+                // const uint16_t z16 = std::min({z16_data[(row * 2) * cur_yuv_buf->stride + col * 2],
+                //                                z16_data[(row * 2) * cur_yuv_buf->stride + col * 2 + 1],
+                //                                z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2],
+                //                                z16_data[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1]});
+
+                // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = z16 & 0x00FF;
+                // cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (z16 & 0xFF00) >> 8;
+
                 cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = 127;
                 cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = 127;
             }
