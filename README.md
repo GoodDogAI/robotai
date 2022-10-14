@@ -88,7 +88,13 @@ Build the code
 Install the python libraries into their proper places
 `cmake --install . --prefix /home/jake/robotai`
 
+## WSL 2 notes
 
+Must remove Windows PATH elements from Linux PATH and add /usr/local/cuda/bin
+then reconfigure. Might not work from VS Code.
+
+Must link libcuda to the cuda/lib64 directory:
+`sudo ln -s /usr/lib/wsl/lib/libcuda.so /usr/local/cuda/lib64/libcuda.so`
 
 ## Notes on Colorspaces
 
