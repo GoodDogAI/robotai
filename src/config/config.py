@@ -19,7 +19,7 @@ DEVICE_CONFIG = dotdict({
     # 0 QP is nearly lossless, 50 is a huge lossy compression, we don't specify a bitrate because
     # we want each frame to be encoded to some minimum quality level
     "ENCODER_HEAD_COLOR_QP": 10, 
-    "ENCODER_HEAD_DEPTH_MAXBITRATE": 1_000_000,
+    "ENCODER_HEAD_DEPTH_MAXBITRATE": 2_000_000,
     "ENCODER_DEV": "/dev/nvhost-msenc",
     "ENCODER_COMP_NAME": "NVENC",
 
