@@ -834,7 +834,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
@@ -872,7 +872,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)

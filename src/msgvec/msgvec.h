@@ -73,6 +73,7 @@ class MsgVec {
     private:
         json m_config;
         MessageTimingMode m_timingMode;
+        uint64_t m_lastMsgLogMonoTime;
         size_t m_obsSize, m_actSize;
         std::vector<float> m_actVector;
         std::vector<bool> m_actVectorReady;
@@ -89,5 +90,5 @@ class MsgVec {
 
         // Returns action vector output given the last app control message
         std::vector<kj::Array<capnp::word>> _get_appcontrol_overrides();
-        
+        uint64_t _get_msgvec_log_mono_time();
 };

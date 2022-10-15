@@ -122,7 +122,7 @@ static std::pair<uint32_t, std::vector<int64_t>> get_queue_obs_len(const json &o
 }
 
 MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode):
- m_config(json::parse(jsonConfig)), m_timingMode(timingMode) {
+ m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0) {
 
     if (!m_config.contains("obs") || !m_config.contains("act")) {
         throw std::runtime_error("Must have obs and act sections");
@@ -362,6 +362,8 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
         processed = true;
     }
 
+    m_lastMsgLogMonoTime = evt.getLogMonoTime();
+
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
 }
 
@@ -385,16 +387,20 @@ size_t MsgVec::vision_size() const {
     return m_visionSize;
 }
 
-uint64_t get_log_mono_time() {
-    struct timespec t;
-    clock_gettime(CLOCK_BOOTTIME, &t);
-    uint64_t current_time = t.tv_sec * 1000000000ULL + t.tv_nsec;
-    return current_time;
+uint64_t MsgVec::_get_msgvec_log_mono_time() {
+    if (m_timingMode == MessageTimingMode::REPLAY) {
+        return m_lastMsgLogMonoTime;
+    } else {
+        struct timespec t;
+        clock_gettime(CLOCK_BOOTTIME, &t);
+        uint64_t current_time = t.tv_sec * 1000000000ULL + t.tv_nsec;
+        return current_time;
+    }
 }
 
 MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
     TimeoutResult timestamps_valid = TimeoutResult::MESSAGES_ALL_READY;
-    const uint64_t cur_time = get_log_mono_time();
+    const uint64_t cur_time = _get_msgvec_log_mono_time();
     size_t index = 0;
     size_t curpos = 0;
 
@@ -455,12 +461,12 @@ bool MsgVec::get_reward(float *reward) {
     }
 
     if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE &&
-        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9) {
+        _get_msgvec_log_mono_time() <= appCtrl.getLogMonoTime() + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9) {
         *reward = m_config["rew"]["override"]["positive_reward"].get<float>();
         return true;
     }
     else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE &&
-        get_log_mono_time() < appCtrl.getLogMonoTime() + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9) {
+        _get_msgvec_log_mono_time() <= appCtrl.getLogMonoTime() + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9) {
         *reward = m_config["rew"]["override"]["negative_reward"].get<float>();
         return true;
     }
@@ -513,7 +519,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
 
     if (appCtrl.hasAppControl() && appCtrl.getAppControl().getConnectionState() == cereal::AppControl::ConnectionState::CONNECTED &&
         m_config.contains("appcontrol") && 
-        get_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
+        _get_msgvec_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
         && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
        return _get_appcontrol_overrides();
     }
