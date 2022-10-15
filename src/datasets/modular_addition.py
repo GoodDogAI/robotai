@@ -1,5 +1,5 @@
-from telnetlib import TELNET_PORT
-from typing import Iterable, Optional, Tuple
+from typing import Optional, Tuple
+
 import torch
 
 from torch import device as Device, Generator, Tensor
@@ -47,7 +47,7 @@ class ModularAdditionDataset(IterableDataset):
 
 def _entry(a: Tuple[Tensor, Tensor]) -> Tensor:
     neg, val = a
-    return torch.cat([-1-neg.to(torch.int8), val], -1)
+    return torch.cat([-1 - neg.to(torch.int8), val], -1)
 
 
 def _int(a: Tuple[Tensor, Tensor]) -> Tensor:
