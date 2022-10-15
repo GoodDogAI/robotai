@@ -576,7 +576,7 @@ class TestMsgVec(unittest.TestCase):
 
 
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         self.assertEqual(msgvec.act_size(), 1)
 
@@ -602,7 +602,7 @@ class TestMsgVec(unittest.TestCase):
                 });
     
         with self.assertRaises(Exception):
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
     def test_populate_message(self):
         config = {"obs": [], "act": [
@@ -644,7 +644,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         self.assertEqual(msgvec.act_size(), 4)
 
@@ -674,7 +674,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         result = msgvec.get_action_command([2.0])
         self.assertEqual(result[0].headCommand.yawAngle, 45.0)
@@ -739,17 +739,19 @@ class TestMsgVec(unittest.TestCase):
                 },
             },
         ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec_replay = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec_realtime = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
 
         for i in range(1000):
             f = random.uniform(-2, 2)
-            messages = msgvec.get_action_command([f])
+            messages = msgvec_realtime.get_action_command([f])
 
             self.assertEqual(len(messages), 1)
-            self.assertMsgProcessed(msgvec.input(messages[0].as_builder().to_bytes()))
+            self.assertMsgProcessed(msgvec_replay.input(messages[0].as_builder().to_bytes()))
+            self.assertMsgProcessed(msgvec_realtime.input(messages[0].as_builder().to_bytes()))
 
-            self.assertAlmostEqual(msgvec.get_act_vector()[0], min(max(f, -1), 1) , places=3)
+            self.assertAlmostEqual(msgvec_replay.get_act_vector()[0], min(max(f, -1), 1) , places=3)
 
     def test_transform_ranges_minmax(self):
         with self.assertRaises(Exception):
@@ -939,7 +941,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
@@ -971,7 +973,7 @@ class TestMsgVec(unittest.TestCase):
                 "timeout": 0.125,
             },
          }
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         result = msgvec.get_action_command([])
         self.assertEqual(result, [])
@@ -1060,7 +1062,7 @@ class TestMsgVec(unittest.TestCase):
                 "mode": "steering_override_v1",
                 "timeout": 0.125,
             },}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         
         result = msgvec.get_action_command([-1.0, 1.0])
