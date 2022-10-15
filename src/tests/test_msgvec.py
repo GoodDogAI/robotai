@@ -1094,7 +1094,94 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
         self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
 
-    def test_override_reward(self):
+    def test_override_reward_realtime(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.currentRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+        "appcontrol": {
+            "mode": "steering_override_v1",
+            "timeout": 0.125,
+        },
+        "rew": {
+            "override": {
+                "positive_reward": 3.0,
+                "positive_reward_timeout": 0.50,
+
+                "negative_reward": -12.0,
+                "negative_reward_timeout": 0.50,
+            }
+        },}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
+
+        # No override, no reward
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+        # Override, positive reward
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overridePositive"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        self.assertEqual(rew, 3.0)
+
+        # Override, negative reward
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overrideNegative"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        self.assertEqual(rew, -12.0)
+
+        # Override, not connected
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.rewardState = "overrideNegative"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+        self.assertTrue(math.isnan(rew))
+        
+        # Override, timeout
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "overridePositive"
+        msgvec.input(msg.to_bytes())
+
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        time.sleep(0.25)    
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+        time.sleep(0.35)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+    def test_override_reward_replay(self):
         config = {"obs": [], "act": [
             {
                 "type": "msg",
@@ -1174,10 +1261,18 @@ class TestMsgVec(unittest.TestCase):
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
-        time.sleep(0.25)    
+
+        stale_msg = new_message("voltage")
+        stale_msg.logMonoTime = msg.logMonoTime + 0.25 * 1e9
+        msgvec.input(stale_msg.to_bytes())
+         
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
-        time.sleep(0.35)
+
+        stale_msg = new_message("voltage")
+        stale_msg.logMonoTime = msg.logMonoTime + 0.55 * 1e9
+        msgvec.input(stale_msg.to_bytes())
+     
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
 
