@@ -180,13 +180,20 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
     // Generate the lookup table for depth to YUV color mapping
     std::vector<uint8_t> depth_to_yuv_lut(std::numeric_limits<uint16_t>::max());
-    std::generate(depth_to_yuv_lut.begin(), depth_to_yuv_lut.end(), [i = 0] () mutable {
-        uint16_t min = 200, max = 60000;
-        float val = ((float)i - min) / (max - min);
-        val = std::clamp(val, 0.0f, 1.0f);
+    std::generate(depth_to_yuv_lut.begin(), depth_to_yuv_lut.end(), [i = 0] () mutable -> uint8_t {
+        if (i == 0) {
+            // 0 depth means that there is no depth data for this pixel, so definitely write full black
+            i++;
+            return 0;
+        }
+        else {
+            uint16_t min = 200, max = 40000; // Units are mm
+            float val = ((float)i - min) / (max - min);
+            val = std::clamp(val, 0.01f, 1.0f);
 
-        i++;
-        return val * 255;
+            i++;
+            return std::round(std::sqrt(val) * 255);
+        }
     });
  
     // For some reason, the frame id's on the depth sensor always restart a short time after starting the queue
