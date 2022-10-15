@@ -172,6 +172,8 @@ class TestMsgVecRealData(unittest.TestCase):
                         self.assertTrue(rew_valid)
                         self.assertEqual(rew_value, -1.0)
 
+                    expected_next_reward = "noOverride"
+
                     print(f"Act: {act} - Reward: {rew_valid} {rew_value}")
 
                     # if expect_next_reward_positive:
