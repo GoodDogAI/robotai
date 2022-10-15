@@ -133,7 +133,7 @@ class TestMsgVecRealData(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         messages_since_last_inference = []
-        expect_next_reward_positive = False
+        expected_next_reward = "noOverride"
         seen_act_ready = False
 
         with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-7d8256e7-2022-10-15-20_12.log"), "rb") as f:
@@ -157,13 +157,21 @@ class TestMsgVecRealData(unittest.TestCase):
 
                 if evt.which() == "appControl":
                     self.assertEqual(result["msg_processed"], True)
-                    if evt.appControl.rewardState == "overridePositive":
-                        expect_next_reward_positive = True
-                        print("Expecting positive reward")
+                    expected_next_reward = evt.appControl.rewardState
 
                 if result["act_ready"]:
                     act = msgvec.get_act_vector()
                     rew_valid, rew_value = msgvec.get_reward()
+
+                    if expected_next_reward == "noOverride":
+                        self.assertFalse(rew_valid)
+                    elif expected_next_reward == "positiveOverride":
+                        self.assertTrue(rew_valid)
+                        self.assertEqual(rew_value, 1.0)
+                    elif expected_next_reward == "negativeOverride":
+                        self.assertTrue(rew_valid)
+                        self.assertEqual(rew_value, -1.0)
+
                     print(f"Act: {act} - Reward: {rew_valid} {rew_value}")
 
                     # if expect_next_reward_positive:
