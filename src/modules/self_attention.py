@@ -33,11 +33,11 @@ class MultiHeadAttention(Module):
         B, T, C = x.size()
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        q, k, v = self.kqv(x).split(self.n_embd, dim=2)
+        q, k, v = self.kqv(x).split(self.embedding_size, dim=2)
         # (B, nh, T, hs)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        k = k.view(B, T, self.heads, C // self.heads).transpose(1, 2)
+        q = q.view(B, T, self.heads, C // self.heads).transpose(1, 2)
+        v = v.view(B, T, self.heads, C // self.heads).transpose(1, 2)
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
@@ -54,7 +54,7 @@ class MultiHeadAttention(Module):
 
     @staticmethod
     def causal_attention(
-        max_seq_len: Tensor,
+        max_seq_len: int,
         embedding_size: int,
         heads: int,
         attention_dropout: float = 0.1,
