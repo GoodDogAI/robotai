@@ -11,19 +11,23 @@ from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
 
 cdef extern from "msgvec.h":
     cdef cppclass MsgVec:
-        MsgVec(const string &jsonConfig) except +
+        MsgVec(const string &jsonConfig, const MessageTimingMode timingMode) except +
         size_t obs_size()
         size_t act_size()
         size_t vision_size()
         
         InputResult input(const vector[uchar] &bytes) except +
-        void input_vision(const float *visionIntermediate, uint32_t frameId) except +
+        void input_vision(const float *visionIntermediate, const uint32_t frameId) except +
         TimeoutResult get_obs_vector(float *obsVector) except +
         bool get_act_vector(float *actVector) except +
         bool get_reward(float *reward) except +
         vector[WordArray] get_action_command(const float *actVector) except +
 
 cdef extern from "msgvec.h" namespace "MsgVec":
+    cpdef enum MessageTimingMode:
+        REALTIME"MsgVec::MessageTimingMode::REALTIME"
+        REPLAY"MsgVec::MessageTimingMode::REPLAY"
+
     cpdef enum TimeoutResult:
         MESSAGES_NOT_READY
         MESSAGES_PARTIALLY_READY

@@ -15,6 +15,14 @@ using json = nlohmann::json;
 
 class MsgVec {
     public:
+        enum class MessageTimingMode {
+            // You are reading and writing messages live, ex. in braind, and so you measure time using the system clock
+            REALTIME,
+
+            // You are replaying messages from a log, and so you measure time using the message timestamps
+            REPLAY,
+        };
+
         enum class TimeoutResult {
             // Vector is not populated at all
             MESSAGES_NOT_READY,
@@ -32,15 +40,14 @@ class MsgVec {
             bool act_ready;
         };
 
-        //, std::function<int(std::vector<float>)> visionIntermediateProvider
-        MsgVec(const std::string &jsonConfig);
+        MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode);
 
         // Feeds in messages, will update internal state
         InputResult input(const std::vector<uint8_t> &bytes);
         InputResult input(const cereal::Event::Reader &evt);
 
         // Feeds in current vision frame, for tracking intermediate states
-        void input_vision(const float *visionIntermediate, uint32_t frameId);
+        void input_vision(const float *visionIntermediate, const uint32_t frameId);
 
         size_t obs_size() const;
         size_t act_size() const;
@@ -65,6 +72,7 @@ class MsgVec {
 
     private:
         json m_config;
+        MessageTimingMode m_timingMode;
         size_t m_obsSize, m_actSize;
         std::vector<float> m_actVector;
         std::vector<bool> m_actVectorReady;
@@ -81,4 +89,5 @@ class MsgVec {
 
         // Returns action vector output given the last app control message
         std::vector<kj::Array<capnp::word>> _get_appcontrol_overrides();
+        
 };

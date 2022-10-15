@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
   KJ_ASSERT(brain_config.is_object());
   KJ_ASSERT(brain_config["type"] == "brain");
 
-  kj::MutexGuarded<MsgVec> msgvec_guard { brain_config["msgvec"].dump() };
+  kj::MutexGuarded<MsgVec> msgvec_guard { brain_config["msgvec"].dump(), MsgVec::MessageTimingMode::REALTIME };
 
   VisionIpcClient vipc_client { "camerad", VISION_STREAM_HEAD_COLOR, false };
   std::thread msgvec_thread { &msgvec_reader, std::ref(msgvec_guard) };

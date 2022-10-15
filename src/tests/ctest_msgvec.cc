@@ -31,7 +31,7 @@ TEST_CASE( "Process a simple message", "[msgvec]" ) {
             }],
             "act": []
         }
-    )"};
+    )", MsgVec::MessageTimingMode::REALTIME};
 
     REQUIRE(msgvec.obs_size() == 1);
 

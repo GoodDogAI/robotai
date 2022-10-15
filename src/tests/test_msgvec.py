@@ -6,7 +6,7 @@ import time
 import random
 from cereal import log
 from src.messaging import new_message
-from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
+from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 
@@ -17,7 +17,7 @@ class TestMsgVec(unittest.TestCase):
     
     def test_init(self):
         config = {"obs": [], "act": []}
-        PyMsgVec(json.dumps(config).encode("utf-8"))
+        PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
     
     def test_failed_init(self):
         with self.assertRaises(Exception):
@@ -26,7 +26,7 @@ class TestMsgVec(unittest.TestCase):
     def test_feed_real_data(self):
         log_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
         default_cfg = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_BRAIN_CONFIG]
-        msgvec = PyMsgVec(json.dumps(default_cfg["msgvec"]).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(default_cfg["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         start = time.perf_counter()
         count = 0
@@ -60,7 +60,7 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
 
         with self.assertRaises(Exception):
-            PyMsgVec(json.dumps(config).encode("utf-8"))
+            PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
     def test_init_multiindex(self):
         config = {"obs": [
@@ -83,7 +83,7 @@ class TestMsgVec(unittest.TestCase):
         ], "act": []}
 
         with self.assertRaises(Exception):
-            PyMsgVec(json.dumps(config).encode("utf-8"))
+            PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
     def test_obs_size(self):
         config = {"obs": [
@@ -104,7 +104,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
         self.assertEqual(msgvec.obs_size(), 1)
 
         config = {"obs": [
@@ -125,7 +125,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
         self.assertEqual(msgvec.obs_size(), 4)
 
 
@@ -147,7 +147,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
         self.assertEqual(msgvec.obs_size(), 2)
 
     def test_input(self):
@@ -169,7 +169,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 1)
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
@@ -226,7 +226,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 2)
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0])
@@ -259,7 +259,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 5)
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 5)
@@ -328,7 +328,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 11)
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 11)
@@ -407,7 +407,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             ], "act": []}
 
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
 
@@ -473,7 +473,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             ], "act": []}
 
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + [0.0] * 10 * 3)
 
@@ -542,7 +542,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             ], "act": []}
 
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
 
@@ -576,7 +576,7 @@ class TestMsgVec(unittest.TestCase):
 
 
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.act_size(), 1)
 
@@ -602,7 +602,7 @@ class TestMsgVec(unittest.TestCase):
                 });
     
         with self.assertRaises(Exception):
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
     def test_populate_message(self):
         config = {"obs": [], "act": [
@@ -644,7 +644,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.act_size(), 4)
 
@@ -674,7 +674,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         result = msgvec.get_action_command([2.0])
         self.assertEqual(result[0].headCommand.yawAngle, 45.0)
@@ -701,7 +701,7 @@ class TestMsgVec(unittest.TestCase):
                 },
             },
         ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         test_params = [
             (45, 1),
@@ -739,7 +739,7 @@ class TestMsgVec(unittest.TestCase):
                 },
             },
         ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
 
         for i in range(1000):
@@ -765,7 +765,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         with self.assertRaises(Exception):
             config = {"obs": [], "act": [
@@ -780,7 +780,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         with self.assertRaises(Exception):
             config = {"obs": [], "act": [
@@ -795,7 +795,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         with self.assertRaises(Exception):
             config = {"obs": [], "act": [
@@ -810,7 +810,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
     def test_obs_timeouts(self):
         config = {"obs": [
@@ -832,7 +832,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
@@ -870,7 +870,7 @@ class TestMsgVec(unittest.TestCase):
             },
 
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
@@ -939,7 +939,7 @@ class TestMsgVec(unittest.TestCase):
                 }
             },
         ], "act": []}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
@@ -971,7 +971,7 @@ class TestMsgVec(unittest.TestCase):
                 "timeout": 0.125,
             },
          }
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         result = msgvec.get_action_command([])
         self.assertEqual(result, [])
@@ -1060,7 +1060,7 @@ class TestMsgVec(unittest.TestCase):
                 "mode": "steering_override_v1",
                 "timeout": 0.125,
             },}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         
         result = msgvec.get_action_command([-1.0, 1.0])
@@ -1128,7 +1128,7 @@ class TestMsgVec(unittest.TestCase):
                 "negative_reward_timeout": 0.50,
             }
         },}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         # No override, no reward
         valid, rew = msgvec.get_reward()
@@ -1207,7 +1207,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
@@ -1296,7 +1296,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
@@ -1325,7 +1325,7 @@ class TestMsgVec(unittest.TestCase):
                     },
                 },  
             ]}
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         with self.assertRaises(RuntimeError):
             msgvec.get_action_command([math.inf])
@@ -1451,7 +1451,7 @@ class TestMsgVec(unittest.TestCase):
                 "mode": "on_reward_override",
             }
         }
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"))
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         messages_since_last_inference = []
         seen_act_ready = False

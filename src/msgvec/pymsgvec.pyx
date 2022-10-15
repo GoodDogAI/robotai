@@ -3,7 +3,7 @@
 from libcpp.vector cimport vector
 from cpython cimport array
 
-from pymsgvec cimport MsgVec, TimeoutResult
+from pymsgvec cimport MsgVec, TimeoutResult, MessageTimingMode
 from typing import List, Tuple
 from enum import IntEnum, auto
 
@@ -20,11 +20,16 @@ class PyTimeoutResult(IntEnum):
     MESSAGES_PARTIALLY_READY = auto()
     MESSAGES_ALL_READY = auto()
 
+class PyMessageTimingMode(IntEnum):
+    REALTIME = 0
+    REPLAY = auto()
+
+
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
 
-    def __cinit__(self, config_json):
-        self.c_msgvec = new MsgVec(config_json)
+    def __cinit__(self, config_json, timing_mode: PyMessageTimingMode):
+        self.c_msgvec = new MsgVec(config_json, <MessageTimingMode><int>timing_mode)
 
     def __dealloc__(self):
         del self.c_msgvec

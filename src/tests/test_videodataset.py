@@ -10,9 +10,7 @@ from torch.utils.data import DataLoader
 from polygraphy.cuda import DeviceView
 
 from src.config import YOLOV7_CLASS_NAMES, HOST_CONFIG
-from src.train.modelloader import load_vision_model, model_fullname
-from src.train.videoloader import build_datapipe
-from src.train.videodataset import IntermediateRewardDataset
+
 
 class VideoLoaderTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -56,12 +54,6 @@ class VideoLoaderTest(unittest.TestCase):
             }
         }
 
-    def test_pyarrow(self):
-        ds = IntermediateRewardDataset(base_path=HOST_CONFIG.RECORD_DIR)
-        ds.download_and_prepare()
-
-        ds = ds.as_dataset()
-        print(ds)
 
         
 

@@ -121,8 +121,8 @@ static std::pair<uint32_t, std::vector<int64_t>> get_queue_obs_len(const json &o
     return std::pair(queue_size, std::move(indices));
 }
 
-MsgVec::MsgVec(const std::string &jsonConfig):
- m_config(json::parse(jsonConfig)) {
+MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode):
+ m_config(json::parse(jsonConfig)), m_timingMode(timingMode) {
 
     if (!m_config.contains("obs") || !m_config.contains("act")) {
         throw std::runtime_error("Must have obs and act sections");
@@ -436,6 +436,10 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
 }
 
 bool MsgVec::get_act_vector(float *actVector) {
+    if (m_timingMode == MessageTimingMode::REALTIME) {
+        throw std::logic_error("Cannot get action vector in realtime mode");
+    }
+
     std::copy(m_actVector.begin(), m_actVector.end(), actVector);
     return std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
 }
@@ -500,6 +504,10 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
     std::map<std::string, MessageBuilder> msgs;
     size_t act_index = 0;
+
+    if (m_timingMode == MessageTimingMode::REPLAY) {
+        throw std::logic_error("Cannot get action commands in replay mode");
+    }
 
     auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
 
