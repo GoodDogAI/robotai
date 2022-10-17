@@ -1,6 +1,6 @@
 # distutils: language = c++
 import numpy as np
-cimport numpy as np
+cimport numpy as cnp
 
 from libcpp.vector cimport vector
 from cpython cimport array
@@ -45,18 +45,20 @@ cdef class PyMsgVec:
     def input(self, obs: bytes) -> bool:
         return self.c_msgvec.input(obs)
 
-    def input_vision(self, vision_vector: List[float], frame_id: int):
-        assert len(vision_vector) == self.c_msgvec.vision_size()
-        cdef array.array a = array.array('f', vision_vector)
-        self.c_msgvec.input_vision(a.data.as_floats, frame_id)
+    def input_vision(self, vision_vector: np.ndarray[float], frame_id: int):
+        assert vision_vector.shape == (self.c_msgvec.vision_size(),)
+        assert vision_vector.dtype == np.float32
+        # From https://stackoverflow.com/questions/10718699/convert-numpy-array-to-cython-pointer
+        cdef const cnp.float32_t[::1] vision_buf = np.ascontiguousarray(vision_vector, dtype=np.float32)
+        self.c_msgvec.input_vision(&vision_buf[0], frame_id)
 
-    def get_obs_vector(self) -> Tuple[PyTimeoutResult, List[float]]:
+    def get_obs_vector(self) -> Tuple[PyTimeoutResult, np.ndarray[float]]:
         cdef vector[float] obs_vector = vector[float](self.c_msgvec.obs_size())
         timeout_res = self.c_msgvec.get_obs_vector(obs_vector.data())
-        return PyTimeoutResult(timeout_res), list(obs_vector)
+        return PyTimeoutResult(timeout_res), np.array(obs_vector, dtype=np.float32)
 
     # Same as get_obs_vector but doesn't return the timeout info
-    def get_obs_vector_raw(self) -> List[float]:
+    def get_obs_vector_raw(self) -> np.ndarray[float]:
         timeout, obs_vector = self.get_obs_vector()
         return obs_vector
 
@@ -70,11 +72,16 @@ cdef class PyMsgVec:
         cdef bool valid = self.c_msgvec.get_reward(&reward)
         return valid, reward
 
-    def get_action_command(self, act: List[float]):
-        assert len(act) == self.c_msgvec.act_size()
-        cdef array.array a = array.array('f', act)
+    def get_action_command(self, act: np.ndarray[float]):
+        assert act.shape == (self.c_msgvec.act_size(),)
+        assert act.dtype == np.float32
+        cdef const cnp.float32_t[::1] act_buf = np.ascontiguousarray(act, dtype=np.float32)
 
-        cdef vector[WordArray] result = move(self.c_msgvec.get_action_command(a.data.as_floats))
+        # Special case if action size is zero (no outputs, useful for tests), we want to have something to index on, so we just expand the size
+        if self.c_msgvec.act_size() == 0:
+            act_buf = np.ascontiguousarray([0.0], dtype=np.float32)
+
+        cdef vector[WordArray] result = move(self.c_msgvec.get_action_command(&act_buf[0]))
         pyresult = []
 
         cdef array.array word_array_template = array.array('L', [])

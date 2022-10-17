@@ -232,7 +232,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 2)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 0.0])
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 0.0])
 
         event = log.Event.new_message()
         event.init("voltage")
@@ -240,7 +240,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.type = "mainBattery"
 
         self.assertTrue(msgvec.input(event.to_bytes()))
-        self.assertEqual(msgvec.get_obs_vector_raw(), [1.0, 2.0])
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [1.0, 2.0])
 
     def test_single_larger_index(self):
         config = {"obs": [
@@ -265,7 +265,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 5)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 5)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 5)
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         expected = [[1, 0, 0, 0, 0],
@@ -285,7 +285,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.type = "mainBattery"
 
             self.assertMsgProcessed(msgvec.input(event.to_bytes()))
-            self.assertEqual(msgvec.get_obs_vector_raw(), expect)
+            self.assertEqual(msgvec.get_obs_vector_raw().tolist(), expect)
 
     def test_multi_index(self):
         config = {"obs": [
@@ -334,7 +334,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         self.assertEqual(msgvec.obs_size(), 11)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 11)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 11)
 
         feeds = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         expected = [[1, 0, 0, 10, 00, 00, 00, 00, 10, 0, 0],
@@ -360,7 +360,7 @@ class TestMsgVec(unittest.TestCase):
             event.headFeedback.yawAngle = feed 
             self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
-            self.assertEqual(msgvec.get_obs_vector_raw(), expect)
+            self.assertEqual(msgvec.get_obs_vector_raw().tolist(), expect)
 
     def test_vision_vectors1(self):
         config = {"obs": [
@@ -478,13 +478,13 @@ class TestMsgVec(unittest.TestCase):
 
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + [0.0] * 10 * 3)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 3 + [0.0] * 10 * 3)
 
-        msgvec.input_vision(list(range(10, 20)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + list(range(10, 20)) + [0.0] * 10 * 2)
+        msgvec.input_vision(np.arange(10, 20, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 3 + list(range(10, 20)) + [0.0] * 10 * 2)
 
-        msgvec.input_vision(list(range(40, 50)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 3 + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
+        msgvec.input_vision(np.arange(40, 50, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 3 + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
 
         event = log.Event.new_message()
         event.init("voltage")
@@ -492,10 +492,10 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.type = "mainBattery"
         self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
 
-        msgvec.input_vision(list(range(60, 70)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(60, 70)) + list(range(40,50)) + list(range(10, 20)))
+        msgvec.input_vision(np.arange(60, 70, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + list(range(60, 70)) + list(range(40,50)) + list(range(10, 20)))
 
     def test_vision_vectors2(self):
         config = {"obs": [
@@ -547,13 +547,13 @@ class TestMsgVec(unittest.TestCase):
 
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 13)
 
-        msgvec.input_vision(list(range(10, 20)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+        msgvec.input_vision(np.arange(10, 20, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 13)
 
-        msgvec.input_vision(list(range(40, 50)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0] * 13)
+        msgvec.input_vision(np.arange(40, 50, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0] * 13)
 
         event = log.Event.new_message()
         event.init("voltage")
@@ -561,10 +561,10 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.type = "mainBattery"
         self.assertMsgProcessed(msgvec.input(event.to_bytes()))
 
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + [0.0] * 10)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + [0.0] * 10)
 
-        msgvec.input_vision(list(range(60, 70)), 1)
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0] + list(range(10, 20)))
+        msgvec.input_vision(np.arange(60, 70, dtype=np.float32), 1)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + list(range(10, 20)))
 
     def test_act_basic(self):
         config = {"obs": [], "act": [
@@ -584,11 +584,11 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(msgvec.act_size(), 1)
 
         for i in range(1000):
-            result = msgvec.get_action_command([i])
+            result = msgvec.get_action_command(np.array([i], dtype=np.float32))
 
             # Make sure the saved result is still valid, even if you do some other stuff in between (memory testing)
-            msgvec.get_action_command([0.0])
-            msgvec.get_action_command([-1.0])
+            msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+            msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
                 
             self.assertAlmostEqual(result[0].voltage.volts, i, places=3)
 
@@ -651,7 +651,7 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(msgvec.act_size(), 4)
 
-        result = msgvec.get_action_command([1.0, 2.0, 3.0, 4.0])
+        result = msgvec.get_action_command(np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32))
         print(result)
 
         self.assertEqual(len(result), 2)
@@ -682,16 +682,16 @@ class TestMsgVec(unittest.TestCase):
         ]}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
-        result = msgvec.get_action_command([2.0])
+        result = msgvec.get_action_command(np.array([2.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, 45.0)
 
-        result = msgvec.get_action_command([-2.0])
+        result = msgvec.get_action_command(np.array([-2.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -45.0)
 
-        result = msgvec.get_action_command([0.0])
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, 0.0)
 
-        result = msgvec.get_action_command([0.5])
+        result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, 45.0 / 2)
 
     def test_feed_acts(self):
@@ -752,7 +752,7 @@ class TestMsgVec(unittest.TestCase):
 
         for i in range(1000):
             f = random.uniform(-2, 2)
-            messages = msgvec_realtime.get_action_command([f])
+            messages = msgvec_realtime.get_action_command(np.array([f], dtype=np.float32))
 
             self.assertEqual(len(messages), 1)
             self.assertMsgProcessed(msgvec_replay.input(messages[0].as_builder().to_bytes()))
@@ -982,14 +982,14 @@ class TestMsgVec(unittest.TestCase):
          }
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(result, [])
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(result, [])
 
         msg = new_message("appControl")
@@ -998,7 +998,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.linearXOverride = 1.0
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[1].which(), "headCommand")
@@ -1014,7 +1014,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.angularZOverride = 1.0
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
    
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0, places=3)
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityRight, 2.0, places=3)
@@ -1023,7 +1023,7 @@ class TestMsgVec(unittest.TestCase):
 
         time.sleep(0.15)
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(result, [])
 
         msg = new_message("appControl")
@@ -1033,7 +1033,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.angularZOverride = 1.0
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([])
+        result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[1].which(), "headCommand")
@@ -1072,7 +1072,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
         
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, -3.0)
@@ -1083,7 +1083,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "stopAllOutputs"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
@@ -1095,7 +1095,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "stopAllOutputs"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
@@ -1110,7 +1110,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "suspendMajorMotion"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
@@ -1125,7 +1125,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "suspendMajorMotion"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
@@ -1141,7 +1141,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "suspendMajorMotion"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
@@ -1371,7 +1371,7 @@ class TestMsgVec(unittest.TestCase):
         },}
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
@@ -1382,7 +1382,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "noOverride"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
@@ -1393,7 +1393,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "suspendMajorMotion"
         msgvec.input(msg.to_bytes())
 
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, 0.0)
@@ -1402,7 +1402,7 @@ class TestMsgVec(unittest.TestCase):
         time.sleep(0.25)
 
         # If the last app control messages has timed out, then you just resume operating normally
-        result = msgvec.get_action_command([-1.0, 1.0])
+        result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
@@ -1558,13 +1558,13 @@ class TestMsgVec(unittest.TestCase):
         msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
         with self.assertRaises(RuntimeError):
-            msgvec.get_action_command([math.inf])
+            msgvec.get_action_command(np.array([math.inf], dtype=np.float32))
 
         with self.assertRaises(RuntimeError):
-            msgvec.get_action_command([-math.inf])
+            msgvec.get_action_command(np.array([-math.inf], dtype=np.float32))
 
         with self.assertRaises(RuntimeError):
-            msgvec.get_action_command([math.nan])
+            msgvec.get_action_command(np.array([math.nan], dtype=np.float32))
 
     def test_real_data_to_vector(self):
         config = {"obs": [
