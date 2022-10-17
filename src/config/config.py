@@ -240,6 +240,8 @@ MODEL_CONFIGS = dotdict({
             ],
 
             "rew": {
+                "base": "reward",
+
                 "override": {
                     "positive_reward": 1.0,
                     "positive_reward_timeout": 0.0667,

@@ -81,6 +81,7 @@ int main(int argc, char *argv[])
         socks.insert(std::make_pair(std::move(sock), it.name));
     }
 
+
     while (!do_exit) {
         for (auto sock : poller->poll(1000)) {
             auto msg = std::unique_ptr<Message>(sock->receive(true));
@@ -96,6 +97,15 @@ int main(int argc, char *argv[])
                 if (!started_logging) {
                     fmt::print("Received first Iframe, starting to log\n");
                     started_logging = true;
+
+                    // Write the initdata header to the log
+                    MessageBuilder initmsg;
+                    auto initdata = initmsg.initEvent().initInitData();
+                    initdata.setGitCommit(GIT_COMMIT_HASH);
+                    initdata.setGitBranch(GIT_BRANCH);
+
+                    auto data = initmsg.toBytes();
+                    log.write((const char *)data.begin(), data.size());
                 }
                 else if (need_to_rotate) {
                     log.close();

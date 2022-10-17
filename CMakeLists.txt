@@ -157,6 +157,26 @@ add_compile_options(-Wunused -Werror -Wshadow)
 
 set(MASTER_CONFIG_H "${CMAKE_SOURCE_DIR}/src/config/config.h")
 
+# Encode some git hashes into your compiled binaries
+
+# Get the current working branch
+execute_process(
+    COMMAND git rev-parse --abbrev-ref HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_BRANCH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# Get the latest commit hash
+execute_process(
+    COMMAND git rev-parse HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+message("Git Branch: ${GIT_BRANCH}")
+message("Git Commit Hash: ${GIT_COMMIT_HASH}")
+add_compile_definitions(GIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\" GIT_BRANCH=\"${GIT_BRANCH}\")
+
 add_executable(loggerd src/realtime/loggerd.cc ${MASTER_CONFIG_H})
 target_link_libraries(
     loggerd 
