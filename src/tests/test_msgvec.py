@@ -4,6 +4,9 @@ import os
 import math
 import time
 import random
+
+import numpy as np
+
 from cereal import log
 from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
@@ -719,6 +722,7 @@ class TestMsgVec(unittest.TestCase):
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
             self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
 
         # Feed in a message that doesn't exist in the config
@@ -1708,7 +1712,7 @@ class TestMsgVec(unittest.TestCase):
                 if result["act_ready"]:
                     act = msgvec.get_act_vector()
                     rew_valid, rew_value = msgvec.get_reward()
-                    self.assertEqual(act, [0.0, 0.0, 0.0, 0.0])
+                    self.assertEqual(act.tolist(), [0.0, 0.0, 0.0, 0.0])
                     self.assertFalse(rew_valid)
                     self.assertTrue(math.isnan(rew_value))
           

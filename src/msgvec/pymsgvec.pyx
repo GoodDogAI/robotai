@@ -1,4 +1,5 @@
 # distutils: language = c++
+import numpy as np
 cimport numpy as np
 
 from libcpp.vector cimport vector
@@ -59,10 +60,10 @@ cdef class PyMsgVec:
         timeout, obs_vector = self.get_obs_vector()
         return obs_vector
 
-    def get_act_vector(self) -> float[:]:
+    def get_act_vector(self) -> np.ndarray[float]:
         cdef vector[float] act_vector = vector[float](self.c_msgvec.act_size())
         self.c_msgvec.get_act_vector(act_vector.data())
-        return list(act_vector)
+        return np.asarray(act_vector, dtype=np.float32)
 
     def get_reward(self) -> Tuple["bool", float]:
         cdef float reward
