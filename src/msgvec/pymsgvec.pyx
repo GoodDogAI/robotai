@@ -1,4 +1,5 @@
 # distutils: language = c++
+cimport numpy as np
 
 from libcpp.vector cimport vector
 from cpython cimport array
@@ -58,7 +59,7 @@ cdef class PyMsgVec:
         timeout, obs_vector = self.get_obs_vector()
         return obs_vector
 
-    def get_act_vector(self) -> List[float]:
+    def get_act_vector(self) -> float[:]:
         cdef vector[float] act_vector = vector[float](self.c_msgvec.act_size())
         self.c_msgvec.get_act_vector(act_vector.data())
         return list(act_vector)

@@ -20,7 +20,7 @@ from src.video import V4L2_BUF_FLAG_KEYFRAME
 from src.logutil import LogHashes, LogSummary, get_runname
 from src.train.videoloader import surface_to_y_uv
 from src.train.modelloader import load_vision_model, model_fullname
-from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult
+from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 
 
 # This class takes in a directory, and runs models on all of the video frames, saving
@@ -132,12 +132,11 @@ class ArrowModelCache():
         table = pyarrow.ipc.RecordBatchFileReader(source).read_all()
         search = pyarrow.compute.field("key") == key
         
-        data = table.filter(search).to_pydict()
-        
-        result = np.array(data["value"][0]).reshape(data["shape"][0])
+        pd = table.to_pandas()
+        result = pd.loc[key]
         print(f"Took {time.perf_counter() - start} to load {bag_cache_name}")
 
-        return data["value"][0]
+        return result["value"][0]
                             
 
 # This class is similar to ArrowModelCache, but it will read in log entries and actually create
@@ -166,7 +165,7 @@ class ArrowRLCache():
             if os.path.exists(cache_path) and not force_rebuild:
                 continue
 
-            msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"))
+            msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
             raw_data = []
 
             got_inference = False

@@ -15,12 +15,13 @@ set(CMAKE_CUDA_COMPILER ${CUDAToolkit_NVCC_EXECUTABLE})
 
 # Locate Python
 set(Python_FIND_VIRTUALENV FIRST)
-find_package(Python3 3.8 COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 3.8 COMPONENTS Interpreter Development NumPy REQUIRED)
 execute_process(COMMAND ${Python3_EXECUTABLE} -c "import site; print(site.getusersitepackages())"
                 OUTPUT_VARIABLE Python3_USERSITELIB
                 OUTPUT_STRIP_TRAILING_WHITESPACE)
 message("Using Python from ${Python3_INCLUDE_DIRS}")
 message("Python sitelib ${Python3_SITELIB} and usersitelib ${Python3_USERSITELIB}")
+message("Python using NumPy from ${Python3_NumPy_INCLUDE_DIRS}")
 
 # Set the default location for the jetson multimedia sdk
 set(JETSON_MULTIMEDIA_API_INCLUDE_DIRS "/usr/src/jetson_multimedia_api/include")
@@ -192,6 +193,7 @@ add_library(serial src/realtime/serial.cc)
 target_link_libraries(serial PUBLIC fmt::fmt)
 
 add_library(msgvec src/msgvec/msgvec.cc)
+target_compile_definitions(msgvec PUBLIC NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION)
 set_property(TARGET msgvec PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(
     msgvec 
@@ -214,7 +216,7 @@ add_custom_command(
   )
 
 Python3_add_library(pymsgvec MODULE WITH_SOABI src/msgvec/_pymsgvec.cpp)
-target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB} ${Python3_USERSITELIB})
+target_include_directories(pymsgvec PRIVATE ${Python3_SITELIB} ${Python3_USERSITELIB} ${Python3_NumPy_INCLUDE_DIRS})
 
 target_link_libraries(pymsgvec PRIVATE msgvec)
 # Cython has a bug where it produces code with shadow warnings, so we need to supress them here
