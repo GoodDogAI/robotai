@@ -151,7 +151,7 @@ def create_video(frames: List[np.ndarray]) -> List[Bytes]:
 
     nv_enc = nvc.PyNvEncoder({'preset': 'P5', 'tuning_info': 'high_quality', 'codec': 'hevc',
                                 'fps': '15', 'rc': 'vbr', 'gop': '15', 'bf': '0',
-                                'qmax': str(DEVICE_CONFIG.ENCODER_QP),
+                                'qmax': str(DEVICE_CONFIG.ENCODER_HEAD_COLOR_QP),
                                 'profile': 'high', 's': f"{width}x{height}", 'bitrate': '10M', 'maxbitrate': '20M'}, format=nvc.PixelFormat.NV12, gpu_id=HOST_CONFIG.DEFAULT_DECODE_GPU_ID)
 
     nv_cc = nvc.ColorspaceConversionContext(color_space=nvc.ColorSpace.BT_601,
