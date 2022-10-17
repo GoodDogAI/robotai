@@ -114,10 +114,10 @@ class TestMsgVecRealData(unittest.TestCase):
             "rew": {
                 "override": {
                     "positive_reward": 1.0,
-                    "positive_reward_timeout": 0.50,
+                    "positive_reward_timeout": 0.0667,
 
                     "negative_reward": -1.0,
-                    "negative_reward_timeout": 0.50,
+                    "negative_reward_timeout": 0.0667,
                 }
             },
 
@@ -142,7 +142,8 @@ class TestMsgVecRealData(unittest.TestCase):
                 result = msgvec.input(evt.as_builder().to_bytes())
                 messages_since_last_inference.append(evt.which())
                
-                print(f"Result: {result} - {evt.which()}")
+                if result["msg_processed"]:
+                    print(f"Result: {result} - {evt.which()}")
 
                 if evt.which() == "headCameraState":
                     messages_since_last_inference = []
@@ -162,6 +163,7 @@ class TestMsgVecRealData(unittest.TestCase):
                 if result["act_ready"]:
                     act = msgvec.get_act_vector()
                     rew_valid, rew_value = msgvec.get_reward()
+                    print(f"Act: {act} - Reward: {rew_valid} {rew_value}")
 
                     if expected_next_reward == "noOverride":
                         self.assertFalse(rew_valid)
@@ -172,15 +174,9 @@ class TestMsgVecRealData(unittest.TestCase):
                         self.assertTrue(rew_valid)
                         self.assertEqual(rew_value, -1.0)
 
+                    # Next frame of rewards should be back to zero
                     expected_next_reward = "noOverride"
 
-                    print(f"Act: {act} - Reward: {rew_valid} {rew_value}")
 
-                    # if expect_next_reward_positive:
-                    #     self.assertTrue(rew_valid)
-                    #     self.assertGreater(rew_value, 0)
-                        
                     
-          
-
-
+    

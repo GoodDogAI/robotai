@@ -357,7 +357,7 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
 
     // Handle the appcontrol messages as a special case, which can override actions
-    if (reader.has("appControl")) {
+    if (evt.which() == cereal::Event::APP_CONTROL) {
         m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
         processed = true;
     }
