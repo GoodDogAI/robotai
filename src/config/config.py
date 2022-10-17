@@ -194,7 +194,7 @@ MODEL_CONFIGS = dotdict({
             "act": [
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredVelocityLeft",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -205,7 +205,7 @@ MODEL_CONFIGS = dotdict({
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentRight",
+                    "path": "odriveCommand.desiredVelocityRight",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",

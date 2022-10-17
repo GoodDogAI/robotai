@@ -37,7 +37,12 @@ void sendMessage(PubMaster &pm, bool connected,
     auto adat = event.initAppControl();
     adat.setConnectionState(connected ? cereal::AppControl::ConnectionState::CONNECTED : cereal::AppControl::ConnectionState::NOT_CONNECTED);
     adat.setRewardState(rewardState);
-    adat.setMotionState(moveState);
+
+    if (!connected)
+        adat.setMotionState(cereal::AppControl::MotionState::SUSPEND_MAJOR_MOTION);
+    else
+        adat.setMotionState(moveState);
+        
     adat.setLinearXOverride(cmdVelLinearX);
     adat.setAngularZOverride(cmdVelAngularZ);
     

@@ -66,7 +66,7 @@ class TestMsgVecRealData(unittest.TestCase):
             "act": [
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredVelocityLeft",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -77,7 +77,7 @@ class TestMsgVecRealData(unittest.TestCase):
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentRight",
+                    "path": "odriveCommand.desiredVelocityRight",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",

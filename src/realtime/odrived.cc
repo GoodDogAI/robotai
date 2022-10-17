@@ -22,6 +22,9 @@ const auto loop_time = std::chrono::milliseconds(100);
 struct ODriveCommandState {
     float currentLeft;
     float currentRight;
+    float velocityLeft;
+    float velocityRight;
+    cereal::ODriveCommand::ControlMode controlMode;
     std::chrono::steady_clock::time_point time;
 };
 
@@ -104,8 +107,11 @@ static void odrive_command_processor() {
 
         ODriveCommandState new_state;
 
-        new_state.currentLeft = event.getOdriveCommand().getCurrentLeft();
-        new_state.currentRight = event.getOdriveCommand().getCurrentRight();
+        new_state.currentLeft = event.getOdriveCommand().getDesiredCurrentLeft();
+        new_state.currentRight = event.getOdriveCommand().getDesiredCurrentRight();
+        new_state.velocityLeft = event.getOdriveCommand().getDesiredVelocityLeft();
+        new_state.velocityRight = event.getOdriveCommand().getDesiredVelocityRight();
+        new_state.controlMode = event.getOdriveCommand().getControlMode();
         new_state.time = now;
 
         command_state = new_state;
@@ -158,7 +164,7 @@ int main(int argc, char **argv)
 
         if (start_loop - cur_command.time > std::chrono::seconds(1)) {
             if (motors_enabled) {
-                command_state = {0, 0, start_loop};
+                command_state = {0, 0, 0, 0, cereal::ODriveCommand::ControlMode::VELOCITY, start_loop};
 
                 fmt::print("Disabling motors after inactivity\n");
                 send_raw_command(port, "w axis0.requested_state 1\n");
@@ -176,8 +182,17 @@ int main(int argc, char **argv)
         }
 
         // Send motor commands
-        send_raw_command(port, fmt::format("v 0 {}\n", cur_command.currentLeft));
-        send_raw_command(port, fmt::format("v 1 {}\n", cur_command.currentRight));
+        if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::VELOCITY) {
+            send_raw_command(port, fmt::format("v 0 {}\n", cur_command.velocityLeft));
+            send_raw_command(port, fmt::format("v 1 {}\n", cur_command.velocityRight));
+        }
+        else if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::CURRENT) {
+            send_raw_command(port, fmt::format("c 0 {}\n", cur_command.currentLeft));
+            send_raw_command(port, fmt::format("c 1 {}\n", cur_command.currentRight));
+        }
+        else {
+            throw std::invalid_argument("Invalid control mode");
+        }
 
         // Read and update vbus voltage
         float vbus_voltage = send_float_command(port, "r vbus_voltage\n");

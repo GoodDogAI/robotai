@@ -2,6 +2,7 @@
 #include <functional>
 #include <string_view>
 #include <algorithm>
+#include <random>
 #include <set>
 #include <iostream>
 
@@ -482,7 +483,8 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     float linearX = appCtrl.getAppControl().getLinearXOverride();
     float angularZ = appCtrl.getAppControl().getAngularZOverride();
 
-    if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::STOP_ALL_OUTPUTS) {
+    if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::STOP_ALL_OUTPUTS ||
+        appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::SUSPEND_MAJOR_MOTION) {
         linearX = 0.0;
         angularZ = 0.0;
     }
@@ -490,18 +492,30 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     MessageBuilder odriveMsg;
     auto odriveevt = odriveMsg.initEvent();
     auto odrive = odriveevt.initOdriveCommand();
+    odrive.setControlMode(cereal::ODriveCommand::ControlMode::VELOCITY);
      // -1 to flip direction
     float cmd_left = -1.0f * (linearX - angularZ);
     float cmd_right = (linearX + angularZ);
-    odrive.setCurrentLeft(cmd_left);
-    odrive.setCurrentRight(cmd_right);
+    odrive.setDesiredVelocityLeft(cmd_left);
+    odrive.setDesiredVelocityRight(cmd_right);
     overrides.push_back(capnp::messageToFlatArray(odriveMsg));
 
     MessageBuilder headMsg;
     auto headevt = headMsg.initEvent();
     auto head = headevt.initHeadCommand();
-    head.setPitchAngle(0.0);
-    head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
+
+    if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::SUSPEND_MAJOR_MOTION) {
+        // In suspend major motion mode, the wheels are disabled, but the head switches to a new random position every 1.5 seconds
+        uint64_t seed = _get_msgvec_log_mono_time() / 1500000000ULL;
+        std::mt19937 gen(seed);
+        std::uniform_real_distribution<float> dis(-45, 45);
+        head.setPitchAngle(dis(gen));
+        head.setYawAngle(dis(gen));
+    }
+    else {
+        head.setPitchAngle(0.0);
+        head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
+    }
     overrides.push_back(capnp::messageToFlatArray(headMsg));
 
     return overrides;
@@ -517,8 +531,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
 
     auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
 
-    if (appCtrl.hasAppControl() && appCtrl.getAppControl().getConnectionState() == cereal::AppControl::ConnectionState::CONNECTED &&
-        m_config.contains("appcontrol") && 
+    if (appCtrl.hasAppControl() && m_config.contains("appcontrol") && 
         _get_msgvec_log_mono_time() - appCtrl.getLogMonoTime() < m_config["appcontrol"]["timeout"].get<float>() * 1e9
         && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
        return _get_appcontrol_overrides();

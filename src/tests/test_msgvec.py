@@ -628,7 +628,7 @@ class TestMsgVec(unittest.TestCase):
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredVelocityLeft",
                     "timeout": 0.01,
                     "transform": {
                         "type": "identity",
@@ -637,7 +637,7 @@ class TestMsgVec(unittest.TestCase):
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentRight",
+                    "path": "odriveCommand.desiredVelocityRight",
                     "timeout": 0.01,
                     "transform": {
                         "type": "identity",
@@ -657,8 +657,11 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(result[0].headCommand.pitchAngle, 1.0)
         self.assertEqual(result[0].headCommand.yawAngle, 45.0)
-        self.assertEqual(result[1].odriveCommand.currentLeft, 3.0)
-        self.assertEqual(result[1].odriveCommand.currentRight, 4.0)
+        self.assertEqual(result[1].odriveCommand.desiredCurrentLeft, 0.0)
+        self.assertEqual(result[1].odriveCommand.desiredCurrentRight, 0.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, 3.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityRight, 4.0)
+        self.assertEqual(result[1].odriveCommand.controlMode, "velocity")
 
     def test_act_transforms(self):
         config = {"obs": [], "act": [
@@ -995,8 +998,8 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[1].which(), "headCommand")
-        self.assertEqual(result[0].odriveCommand.currentLeft, -1.0)
-        self.assertEqual(result[0].odriveCommand.currentRight, 1.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, -1.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 1.0)
         self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
         self.assertEqual(result[1].headCommand.yawAngle, 0.0)
 
@@ -1009,8 +1012,8 @@ class TestMsgVec(unittest.TestCase):
 
         result = msgvec.get_action_command([])
    
-        self.assertAlmostEqual(result[0].odriveCommand.currentLeft, 0.0, places=3)
-        self.assertAlmostEqual(result[0].odriveCommand.currentRight, 2.0, places=3)
+        self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0, places=3)
+        self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityRight, 2.0, places=3)
         self.assertAlmostEqual(result[1].headCommand.pitchAngle, 0.0)
         self.assertAlmostEqual(result[1].headCommand.yawAngle, -30.0)
 
@@ -1030,8 +1033,8 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
         self.assertEqual(result[1].which(), "headCommand")
-        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
-        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
         self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
         self.assertEqual(result[1].headCommand.yawAngle, 0.0)
 
@@ -1039,7 +1042,7 @@ class TestMsgVec(unittest.TestCase):
         config = {"obs": [], "act": [
             {
                 "type": "msg",
-                "path": "odriveCommand.currentLeft",
+                "path": "odriveCommand.desiredVelocityLeft",
                 "timeout": 0.01,
                 "transform": {
                     "type": "rescale",
@@ -1049,7 +1052,7 @@ class TestMsgVec(unittest.TestCase):
             },
             {
                 "type": "msg",
-                "path": "odriveCommand.currentRight",
+                "path": "odriveCommand.desiredVelocityRight",
                 "timeout": 0.01,
                 "transform": {
                     "type": "rescale",
@@ -1068,8 +1071,8 @@ class TestMsgVec(unittest.TestCase):
         result = msgvec.get_action_command([-1.0, 1.0])
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].which(), "odriveCommand")
-        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
-        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 3.0)
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
@@ -1079,20 +1082,70 @@ class TestMsgVec(unittest.TestCase):
         result = msgvec.get_action_command([-1.0, 1.0])
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
-        self.assertEqual(result[0].odriveCommand.currentLeft, 0.0)
-        self.assertEqual(result[0].odriveCommand.currentRight, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
 
-        # Not connected means no effect on action command
+        # Not connected means it will read the motion state
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "stopAllOutputs"
         msgvec.input(msg.to_bytes())
 
         result = msgvec.get_action_command([-1.0, 1.0])
-        self.assertEqual(len(result), 1)
+        self.assertEqual(len(result), 2)
         self.assertEqual(result[0].which(), "odriveCommand")
-        self.assertEqual(result[0].odriveCommand.currentLeft, -3.0)
-        self.assertEqual(result[0].odriveCommand.currentRight, 3.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.yawAngle, 0.0)
+
+        # Not connected means it will read the motion state
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "suspendMajorMotion"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
+        self.assertEqual(result[1].which(), "headCommand")
+        baseYaw = result[1].headCommand.yawAngle
+        basePitch = result[1].headCommand.pitchAngle
+
+        # No delay should mean the same results
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "suspendMajorMotion"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertAlmostEqual(result[1].headCommand.yawAngle, baseYaw)
+        self.assertAlmostEqual(result[1].headCommand.pitchAngle, basePitch)
+
+        # Delay should mean the head moves
+        time.sleep(1.50)
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "suspendMajorMotion"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 0.0)
+        self.assertEqual(result[1].which(), "headCommand")
+        self.assertNotAlmostEqual(result[1].headCommand.yawAngle, baseYaw)
+        self.assertNotAlmostEqual(result[1].headCommand.pitchAngle, basePitch)
+
 
     def test_override_reward_realtime(self):
         config = {"obs": [], "act": [
@@ -1185,7 +1238,7 @@ class TestMsgVec(unittest.TestCase):
         config = {"obs": [], "act": [
             {
                 "type": "msg",
-                "path": "odriveCommand.currentLeft",
+                "path": "odriveCommand.desiredVelocityLeft",
                 "timeout": 0.01,
                 "transform": {
                     "type": "rescale",
@@ -1195,7 +1248,7 @@ class TestMsgVec(unittest.TestCase):
             },
             {
                 "type": "msg",
-                "path": "odriveCommand.currentRight",
+                "path": "odriveCommand.desiredVelocityRight",
                 "timeout": 0.01,
                 "transform": {
                     "type": "rescale",
@@ -1276,6 +1329,82 @@ class TestMsgVec(unittest.TestCase):
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
 
+    def test_appcontrol_disconnected(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.desiredCurrentLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.desiredCurrentRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+        "appcontrol": {
+            "mode": "steering_override_v1",
+            "timeout": 0.125,
+        },
+        "rew": {
+            "override": {
+                "positive_reward": 3.0,
+                "positive_reward_timeout": 0.50,
+
+                "negative_reward": -12.0,
+                "negative_reward_timeout": 0.50,
+            }
+        },}
+        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.desiredCurrentRight, 3.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "noOverride"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.desiredCurrentRight, 3.0)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "notConnected"
+        msg.appControl.motionState = "suspendMajorMotion"
+        msgvec.input(msg.to_bytes())
+
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, 0.0)
+        self.assertEqual(result[0].odriveCommand.desiredCurrentRight, 0.0)
+
+        time.sleep(0.25)
+
+        # If the last app control messages has timed out, then you just resume operating normally
+        result = msgvec.get_action_command([-1.0, 1.0])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].which(), "odriveCommand")
+        self.assertEqual(result[0].odriveCommand.desiredCurrentLeft, -3.0)
+        self.assertEqual(result[0].odriveCommand.desiredCurrentRight, 3.0)
+
+
     def test_input_ready_status(self):
         config = {"obs":  [
             {
@@ -1349,7 +1478,7 @@ class TestMsgVec(unittest.TestCase):
         ], "act": [
                     {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredCurrentLeft",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -1360,7 +1489,7 @@ class TestMsgVec(unittest.TestCase):
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentRight",
+                    "path": "odriveCommand.desiredCurrentRight",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -1413,7 +1542,7 @@ class TestMsgVec(unittest.TestCase):
         config = {"obs":  [], "act": [
                     {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredCurrentLeft",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -1484,7 +1613,7 @@ class TestMsgVec(unittest.TestCase):
             "act": [
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentLeft",
+                    "path": "odriveCommand.desiredCurrentLeft",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -1495,7 +1624,7 @@ class TestMsgVec(unittest.TestCase):
 
                 {
                     "type": "msg",
-                    "path": "odriveCommand.currentRight",
+                    "path": "odriveCommand.desiredCurrentRight",
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
