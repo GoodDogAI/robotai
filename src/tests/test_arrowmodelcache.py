@@ -15,4 +15,6 @@ class TestArrowModelCache(unittest.TestCase):
 class TestArrowRLCache(unittest.TestCase):
     def test_basic(self):
         cache = ArrowRLCache(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
-        cache.build_cache(force_rebuild=True)
+        
+        for entry in cache.generate_samples():
+            print(entry)

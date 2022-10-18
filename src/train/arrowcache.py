@@ -147,7 +147,7 @@ class ArrowModelCache():
         except KeyError:
             return default
 
-        print(f"Took {time.perf_counter() - start} to load {key}")
+        #print(f"Took {time.perf_counter() - start} to load {key}")
 
         if len(result["shape"]) == 0:
             return result["value"].item()
@@ -164,89 +164,83 @@ class ArrowRLCache():
         self.lh = LogHashes(dir)
         self.brain_config = brain_model_config
         self.brain_fullname = model_fullname(brain_model_config)
-        Path(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname).mkdir(parents=True, exist_ok=True)
 
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
-        self.vision_cache.build_cache()
-
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
-        self.reward_cache.build_cache()
 
-    def get_cache_path(self, run_name: str):
-        return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.brain_fullname, run_name + ".arrow")
+    def _generate_log_group(self, log_group):
+        msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
 
-    def build_cache(self, force_rebuild=False):
-        for group in self.lh.group_logs():
-            cache_path = self.get_cache_path(group[0].get_runname())
+        assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
 
-            if os.path.exists(cache_path) and not force_rebuild:
-                continue
+        raw_data = []
 
-            msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        got_inference = False
+        last_reward_was_override = False
+        continue_processing_group = True
+        cur_packet = {}
 
-            assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
+        for logfile in log_group:
+            if not continue_processing_group:
+                break
 
-            raw_data = []
+            with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
+                print("Processing", logfile.filename)
+                events = log.Event.read_multiple(f)
 
-            got_inference = False
-            last_reward_was_override = False
-            continue_processing_group = True
-            cur_packet = {}
+                # Get the actual events, starting with a keyframe, which we will need
+                for evt in events:
+                    status = msgvec.input(evt.as_builder().to_bytes())
 
-            for logfile in group:
-                if not continue_processing_group:
-                    break
+                    if status["act_ready"]:
+                        cur_packet["act"] = msgvec.get_act_vector()
 
-                with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
-                    print("Processing", logfile.filename)
-                    events = log.Event.read_multiple(f)
+                        if got_inference and "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
+                            raw_data.append(cur_packet)
+                            cur_packet = {}
 
-                    # Get the actual events, starting with a keyframe, which we will need
-                    for evt in events:
-                        status = msgvec.input(evt.as_builder().to_bytes())
+                    if evt.which() == "headCameraState":
+                        key = f"{logfile.get_runname()}-{evt.headCameraState.frameId}"
 
-                        if status["act_ready"]:
-                            cur_packet["act"] = msgvec.get_act_vector()
+                        vision_vec = self.vision_cache.get(key, None)
 
-                            if got_inference and "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
-                                raw_data.append(cur_packet)
-                                cur_packet = {}
+                        if vision_vec is None:
+                            continue_processing_group = False
+                            break
 
-                        if evt.which() == "headCameraState":
-                            key = f"{logfile.get_runname()}-{evt.headCameraState.frameId}"
+                        msgvec.input_vision(vision_vec, evt.headCameraState.frameId)
+                        timeout, cur_packet["obs"] = msgvec.get_obs_vector()
+                        reward_valid, reward_value = msgvec.get_reward()
 
-                            vision_vec = self.vision_cache.get(key, None)
-
-                            if vision_vec is None:
+                        if reward_valid:
+                            cur_packet["reward"] = reward_value
+                        else:
+                            reward = self.reward_cache.get(key, None)
+                            if reward is None:
                                 continue_processing_group = False
                                 break
+                            cur_packet["reward"] = reward
 
-                            msgvec.input_vision(vision_vec, evt.headCameraState.frameId)
-                            timeout, cur_packet["obs"] = msgvec.get_obs_vector()
-                            reward_valid, reward_value = msgvec.get_reward()
+                        cur_packet["key"] = key
+                        cur_packet["done"] = False
 
-                            if reward_valid:
-                                cur_packet["reward"] = reward_value
-                            else:
-                                reward = self.reward_cache.get(key, None)
-                                if reward is None:
-                                    continue_processing_group = False
-                                    break
-                                cur_packet["reward"] = reward
+                        if not reward_valid and last_reward_was_override:
+                            cur_packet["done"] = True
 
-                            cur_packet["key"] = key
-                            cur_packet["done"] = False
+                        last_reward_was_override = reward_valid
 
-                            if not reward_valid and last_reward_was_override:
-                                cur_packet["done"] = True
+                    elif evt.which() == "modelInference":
+                        got_inference = True
 
-                            if reward_valid:
-                                last_reward_was_override = True
+        # The last packet is always done
+        if len(raw_data) > 0:
+            raw_data[-1]["done"] = True
 
-                        elif evt.which() == "modelInference":
-                            got_inference = True
+        # Once you process a whole group, you can yield the results
+        yield from raw_data        
 
-            # The last packet is always done
-            if len(raw_data) > 0:
-                raw_data[-1]["done"] = True
+    def generate_samples(self):
+        # Each grouped log is handled separately
+        for group in self.lh.group_logs():
+            yield from self._generate_log_group(group)
                         
