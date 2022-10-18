@@ -123,7 +123,7 @@ class ArrowModelCache():
                     with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
                         writer.write_table(table)
 
-    def __getitem__(self, key):
+    def get(self, key, default=None):
         start = time.perf_counter()
 
         run_name = "-".join(key.split("-")[0:-1])
@@ -133,10 +133,19 @@ class ArrowModelCache():
         search = pyarrow.compute.field("key") == key
         
         pd = table.to_pandas()
-        result = pd.loc[key]
+
+        try:
+            result = pd.loc[key]
+        except KeyError:
+            return default
+            
         print(f"Took {time.perf_counter() - start} to load {bag_cache_name}")
 
-        return result["value"][0]
+        if len(result["shape"]) == 0:
+            return result["value"].item()
+        else:
+            return result["value"]
+
                             
 
 # This class is similar to ArrowModelCache, but it will read in log entries and actually create
@@ -166,12 +175,19 @@ class ArrowRLCache():
                 continue
 
             msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
+
+            assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
+
             raw_data = []
 
             got_inference = False
+            continue_processing_group = True
             cur_packet = {}
 
             for logfile in group:
+                if not continue_processing_group:
+                    break
+
                 with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
                     print("Processing", logfile.filename)
                     events = log.Event.read_multiple(f)
@@ -188,18 +204,33 @@ class ArrowRLCache():
                                 cur_packet = {}
 
                         if evt.which() == "headCameraState":
-                            cur_inference = evt
-                            msgvec.input_vision(self.vision_cache[f"{logfile.get_runname()}-{evt.headCameraState.frameId}"], evt.headCameraState.frameId)
+                            key = f"{logfile.get_runname()}-{evt.headCameraState.frameId}"
+
+                            vision_vec = self.vision_cache.get(key, None)
+
+                            if vision_vec is None:
+                                continue_processing_group = False
+                                break
+
+                            msgvec.input_vision(vision_vec, evt.headCameraState.frameId)
                             timeout, cur_packet["obs"] = msgvec.get_obs_vector()
                             reward_valid, reward_value = msgvec.get_reward()
 
                             if reward_valid:
                                 cur_packet["reward"] = reward_value
                             else:
-                                cur_packet["reward"] = self.reward_cache[f"{logfile.get_runname()}-{evt.headCameraState.frameId}"]
+                                reward = self.reward_cache.get(key, None)
+                                if reward is None:
+                                    continue_processing_group = False
+                                    break
+                                cur_packet["reward"] = reward
 
-                            cur_packet["key"] = f"{logfile.get_runname()}-{cur_inference.headCameraState.frameId}"
+                            cur_packet["key"] = key
                             cur_packet["done"] = False
                         elif evt.which() == "modelInference":
                             got_inference = True
+
+            # The last packet is always done
+            if len(raw_data) > 0:
+                raw_data[-1]["done"] = True
                         
