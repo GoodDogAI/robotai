@@ -253,7 +253,7 @@ MODEL_CONFIGS = dotdict({
 
             "appcontrol": {
                 "mode": "steering_override_v1",
-                "timeout": 0.250,
+                "timeout": 0.300,
             },
 
             "done": {
