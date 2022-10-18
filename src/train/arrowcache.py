@@ -97,9 +97,21 @@ class ArrowModelCache():
                     else:
                         y, uv = surface_to_y_uv(surface)
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
-                            
+
+    def _cache_needs_rebuild(self):
+        for group in self.lh.group_logs():
+            cache_path = self.get_cache_path(group[0].get_runname())
+
+            if not os.path.exists(cache_path):
+                return True
+
+        return False                        
 
     def _build_cache(self, force_rebuild=False):
+        # Quick exit if we already have the cache and it doesn't need to be added to or rebuilt
+        if not force_rebuild and not self._cache_needs_rebuild():
+            return
+
         with load_vision_model(self.model_fullname) as engine:
             for group in self.lh.group_logs():
                 cache_path = self.get_cache_path(group[0].get_runname())
