@@ -27,12 +27,13 @@ from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 # This class takes in a directory, and runs models on all of the video frames, saving
 # the results to an arrow cache file. The keys are the videofilename-frameindex.
 class ArrowModelCache():
-    def __init__(self, dir: str, model_config: Dict):
+    def __init__(self, dir: str, model_config: Dict, force_rebuild: bool=False):
         self.lh = LogHashes(dir)
         self.model_fullname = model_fullname(model_config)
         self.model_config = model_config
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
-        
+
+        self._build_cache(force_rebuild)
 
     def get_cache_path(self, run_name: str):
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, run_name + ".arrow")
@@ -94,7 +95,7 @@ class ArrowModelCache():
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
                             
 
-    def build_cache(self, force_rebuild=False):
+    def _build_cache(self, force_rebuild=False):
         with load_vision_model(self.model_fullname) as engine:
             for group in self.lh.group_logs():
                 cache_path = self.get_cache_path(group[0].get_runname())
@@ -188,6 +189,7 @@ class ArrowRLCache():
             raw_data = []
 
             got_inference = False
+            last_reward_was_override = False
             continue_processing_group = True
             cur_packet = {}
 
@@ -234,6 +236,13 @@ class ArrowRLCache():
 
                             cur_packet["key"] = key
                             cur_packet["done"] = False
+
+                            if not reward_valid and last_reward_was_override:
+                                cur_packet["done"] = True
+
+                            if reward_valid:
+                                last_reward_was_override = True
+
                         elif evt.which() == "modelInference":
                             got_inference = True
 
