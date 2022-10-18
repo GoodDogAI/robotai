@@ -1,6 +1,8 @@
 import os
 import gym
 import tempfile
+import torch
+import numpy as np
 
 from gym import spaces
 
@@ -40,3 +42,15 @@ if __name__ == "__main__":
         buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["obs"], done=entry["done"], infos=None)
 
     model.train(gradient_steps=1, batch_size=64)
+
+    # Test exporting to onnx
+    observation_size = model.observation_space.shape
+    dummy_input = torch.randn(1, *observation_size).to(model.device)
+    torch.onnx.export(
+        model.actor,
+        dummy_input,
+        "my_sac_actor.onnx",
+        opset_version=12,
+        input_names=["input"])
+
+    print("Exported ONNX")
