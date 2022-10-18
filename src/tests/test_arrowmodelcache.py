@@ -2,7 +2,7 @@ import os
 import unittest
 
 from src.train.modelloader import model_fullname
-from src.train.arrowcache import ArrowModelCache, ArrowRLCache
+from src.train.arrowcache import ArrowModelCache, ArrowRLDataset
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 class TestArrowModelCache(unittest.TestCase):
@@ -14,7 +14,7 @@ class TestArrowModelCache(unittest.TestCase):
 
 class TestArrowRLCache(unittest.TestCase):
     def test_basic(self):
-        cache = ArrowRLCache(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
         
         for entry in cache.generate_samples():
             print(entry)

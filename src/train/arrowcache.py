@@ -14,8 +14,7 @@ import src.PyNvCodec as nvc
 import src.PytorchNvCodec as pnvc
 from polygraphy.cuda import DeviceView
 
-from config import HOST_CONFIG, DEVICE_CONFIG
-from src.config.config import MODEL_CONFIGS
+from src.config import MODEL_CONFIGS, HOST_CONFIG, DEVICE_CONFIG
 
 from src.video import V4L2_BUF_FLAG_KEYFRAME
 from src.logutil import LogHashes, LogSummary, get_runname
@@ -39,15 +38,20 @@ class ArrowModelCache():
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, run_name + ".arrow")
 
     def _process_frame(self, engine, y, uv):
+        # Unsqueeze to batch size 1
         y = torch.unsqueeze(y, 0)
         uv = torch.unsqueeze(uv, 0)
 
         result = engine.infer({"y": DeviceView(y.data_ptr(), y.shape, np.float32),
                                "uv": DeviceView(uv.data_ptr(), uv.shape, np.float32)}, copy_outputs_to_host=True)
 
+
         if self.model_config["type"] == "vision":
-            return result["intermediate"]
+            # Remember to resqueeze to remove the batch dimension
+            # Later, this can be optimized to process frames in bigger batches
+            return result["intermediate"][0]
         elif self.model_config["type"] == "reward":
+            # Reward does not need to be resqueezed
             return result["reward"]
         else:
             raise NotImplementedError()
@@ -156,10 +160,10 @@ class ArrowModelCache():
 
                             
 
-# This class is similar to ArrowModelCache, but it will read in log entries and actually create
+# This class will read in log entries and actually create
 # the obs, act, reward, done tuples that will be used for RL training.
 # It relies on the ArrowModelCache for filling in vision intermediates and rewards
-class ArrowRLCache():
+class ArrowRLDataset():
     def __init__(self, dir: str, brain_model_config: Dict) -> None:
         self.lh = LogHashes(dir)
         self.brain_config = brain_model_config
