@@ -4,7 +4,7 @@ include(CMakePrintHelpers)
 project(RobotAI LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
 
@@ -226,6 +226,8 @@ set_target_properties(pymsgvec PROPERTIES
 )
 
 add_executable(msgvec_tests src/tests/ctest_msgvec.cc)
+target_compile_options(msgvec_tests PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+target_link_options(msgvec_tests PRIVATE -fsanitize=address -fno-omit-frame-pointer)
 target_link_libraries(
     msgvec_tests
     PRIVATE 
