@@ -2,6 +2,7 @@ import os
 import torch
 import pyarrow
 import time
+import functools
 import json
 import pandas as pd
 import numpy as np
@@ -31,6 +32,7 @@ class ArrowModelCache():
         self.model_fullname = model_fullname(model_config)
         self.model_config = model_config
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
+        
 
     def get_cache_path(self, run_name: str):
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, run_name + ".arrow")
@@ -122,24 +124,29 @@ class ArrowModelCache():
                 with pyarrow.OSFile(cache_path, 'wb') as sink:
                     with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
                         writer.write_table(table)
+    
+    @functools.lru_cache(maxsize=16)
+    def get_dataframe(self, run_name: str):
+        print("Loading dataframe", run_name)
+        bag_cache_name = self.get_cache_path(run_name)
+        source = pyarrow.memory_map(bag_cache_name, "r")
+        table = pyarrow.ipc.RecordBatchFileReader(source).read_all()
+
+        pd = table.to_pandas()
+        return pd
 
     def get(self, key, default=None):
         start = time.perf_counter()
 
         run_name = "-".join(key.split("-")[0:-1])
-        bag_cache_name = self.get_cache_path(run_name)
-        source = pyarrow.memory_map(bag_cache_name, "r")
-        table = pyarrow.ipc.RecordBatchFileReader(source).read_all()
-        search = pyarrow.compute.field("key") == key
-        
-        pd = table.to_pandas()
+        pd = self.get_dataframe(run_name)
 
         try:
             result = pd.loc[key]
         except KeyError:
             return default
-            
-        print(f"Took {time.perf_counter() - start} to load {bag_cache_name}")
+
+        print(f"Took {time.perf_counter() - start} to load {key}")
 
         if len(result["shape"]) == 0:
             return result["value"].item()
