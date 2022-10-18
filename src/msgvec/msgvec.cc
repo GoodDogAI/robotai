@@ -505,8 +505,8 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     auto head = headevt.initHeadCommand();
 
     if (appCtrl.getAppControl().getMotionState() == cereal::AppControl::MotionState::SUSPEND_MAJOR_MOTION) {
-        // In suspend major motion mode, the wheels are disabled, but the head switches to a new random position every 1.5 seconds
-        uint64_t seed = _get_msgvec_log_mono_time() / 1500000000ULL;
+        // In suspend major motion mode, the wheels are disabled, but the head switches to a new random position every 2 seconds
+        uint64_t seed = _get_msgvec_log_mono_time() / 2000000000ULL;
         std::mt19937 gen(seed);
         std::uniform_real_distribution<float> dis(-45, 45);
         head.setPitchAngle(dis(gen));

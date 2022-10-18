@@ -25,6 +25,8 @@
 #define BUF_CMD_VEL_LINEAR_X_INDEX 5
 #define BUF_CMD_VEL_ANGULAR_Z_INDEX 6
 
+const auto POLL_TIMEOUT = std::chrono::milliseconds(250);
+
 const char *service_name = "appControl";
 ExitHandler do_exit;
 
@@ -101,9 +103,9 @@ int main(int argc, char **argv)
 
     while(!do_exit) {
         int input_ret;
-        KJ_SYSCALL(input_ret = poll(input_fds.data(), input_fds.size(), 500), "input poll failed");
+        KJ_SYSCALL(input_ret = poll(input_fds.data(), input_fds.size(), std::chrono::duration_cast<std::chrono::milliseconds>(POLL_TIMEOUT).count()), "input poll failed");
         
-        if (std::chrono::steady_clock::now() - last_msg_sent > std::chrono::milliseconds(1000)) {
+        if (std::chrono::steady_clock::now() - last_msg_sent >= POLL_TIMEOUT) {
             sendMessage(pm, connected);
             last_msg_sent = std::chrono::steady_clock::now();
         }
@@ -119,13 +121,13 @@ int main(int argc, char **argv)
             conn_fds.push_back({client, POLLIN, 0});
             
             while (!do_exit) {
-                if (std::chrono::steady_clock::now() - last_msg_sent > std::chrono::milliseconds(1000)) {
+                if (std::chrono::steady_clock::now() - last_msg_sent >= POLL_TIMEOUT) {
                     sendMessage(pm, connected);
                     last_msg_sent = std::chrono::steady_clock::now();
                 }
 
                 int con_ret;
-                KJ_SYSCALL(con_ret = poll(conn_fds.data(), conn_fds.size(), 500), "connection poll failed");
+                KJ_SYSCALL(con_ret = poll(conn_fds.data(), conn_fds.size(), std::chrono::duration_cast<std::chrono::milliseconds>(POLL_TIMEOUT).count()), "connection poll failed");
 
                 if (conn_fds[0].revents & POLLIN) {
 

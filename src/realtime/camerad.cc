@@ -211,6 +211,10 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
         else
         {
             frame_id = depth_frame.get_frame_number();
+
+            // After some point, it's running good enough that the drain is finished
+            if (frame_id > CAMERA_FPS * 5)
+                break;
         }
     }
 

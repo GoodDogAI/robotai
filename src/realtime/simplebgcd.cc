@@ -243,11 +243,13 @@ static void bgc_command_processor(SimpleBGC &bgc) {
       build_control_msg(headcmd.getPitchAngle(), headcmd.getYawAngle(), &control_data);
       bgc.send_message(CMD_CONTROL, reinterpret_cast<uint8_t *>(&control_data), sizeof(bgc_control_data));
 
+      //fmt::print("Sent pitch: {}, yaw: {}\n", headcmd.getPitchAngle(), headcmd.getYawAngle());
+
       control_last_sent = now;
     }
 
     if (now - control_last_sent > std::chrono::milliseconds(100)) {
-        fmt::print("Sending timeout BGC command\n");
+        fmt::print(stderr, "Sending timeout BGC command\n");
         bgc_control_data control_data;
         build_control_msg(30.0f, -10.0f, &control_data);
 
