@@ -5,6 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Train Stable baselines",
+            "type": "python",
+            "request": "launch",
+            "module": "src.train.stable_baselines_train",
+        },
+        {
             "name": "Python: Train Playground",
             "type": "python",
             "request": "launch",

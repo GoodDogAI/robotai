@@ -1,4 +1,6 @@
 # distutils: language = c++
+import json
+
 import numpy as np
 cimport numpy as cnp
 
@@ -6,7 +8,7 @@ from libcpp.vector cimport vector
 from cpython cimport array
 
 from pymsgvec cimport MsgVec, TimeoutResult, MessageTimingMode
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from enum import IntEnum, auto
 
 from cereal import log
@@ -29,9 +31,13 @@ class PyMessageTimingMode(IntEnum):
 
 cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
-
-    def __cinit__(self, config_json, timing_mode: PyMessageTimingMode):
-        self.c_msgvec = new MsgVec(config_json, <MessageTimingMode><int>timing_mode)
+    config_dict: Dict
+    config_json: bytes
+    
+    def __cinit__(self, config_dict: Dict, timing_mode: PyMessageTimingMode):
+        self.config_dict = config_dict
+        self.config_json = json.dumps(config_dict).encode("utf-8")
+        self.c_msgvec = new MsgVec(self.config_json, <MessageTimingMode><int>timing_mode)
 
     def __dealloc__(self):
         del self.c_msgvec

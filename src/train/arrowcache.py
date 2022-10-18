@@ -169,7 +169,7 @@ class ArrowRLCache():
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
 
     def _generate_log_group(self, log_group):
-        msgvec = PyMsgVec(json.dumps(self.brain_config["msgvec"]).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REPLAY)
 
         assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
 

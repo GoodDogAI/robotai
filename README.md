@@ -118,11 +118,8 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 
 ## TODOs
 - Add custom reward modification to msgvec (ex. speed penalty or other such variants)
-- Add checking of msgvec timestamps, especially on the appCommand overrides when played back, with unit tests
 - Add obs/act verification messages
 - Add simplebgc accel/gyro
-- Encode depth frames (fix z16 to regular float conversion, or calibrate it to fix the weird issues)
-- Add sentinel data to logs
 - Add selecting which messages streams to show in the web viewer
 - Allow browsing depth vs vision frames
 - Bag2log conversion of other message types

@@ -130,7 +130,7 @@ class TestMsgVecRealData(unittest.TestCase):
                 "mode": "on_reward_override",
             }
         }
-        msgvec = PyMsgVec(json.dumps(config).encode("utf-8"), PyMessageTimingMode.REPLAY)
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
 
         messages_since_last_inference = []
         expected_next_reward = "noOverride"

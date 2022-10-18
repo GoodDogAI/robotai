@@ -59,3 +59,6 @@ datasets
 
 # Training
 pytorch-lightning
+
+# For working with reinforcement learning
+stable-baselines3
