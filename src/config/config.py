@@ -13,7 +13,7 @@ DEVICE_CONFIG = dotdict({
     "LOG_PATH": "/media/card",
     "LOG_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
-    "MODEL_STORAGE_PATH": "/home/robot/models",
+    "MODEL_STORAGE_PATH": "/home/media/card/models",
     "MODEL_SERVICE": "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000",
 
     # 0 QP is nearly lossless, 50 is a huge lossy compression, we don't specify a bitrate because

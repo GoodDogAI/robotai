@@ -43,6 +43,7 @@ async def get_default_brain_model() -> str:
     
     config = copy.deepcopy(MODEL_CONFIGS[brain])
     config["_fullname"] = model_fullname(config)
+    config["basename"] = brain
     
     for type, model in config["models"].items():
         config["models"][type] = {"basename": model, "_fullname": model_fullname(MODEL_CONFIGS[model])}
