@@ -361,7 +361,7 @@ def create_and_validate_trt(onnx_path: str, skip_cache: bool=False) -> str:
         config = json.load(f)
     assert config is not None, "Unable to find cached config"
     model_type = config["type"]
-    assert model_type in {"vision", "reward"}, "Config must be a vision or reward model"
+    assert model_type in {"vision", "reward", "brain"}, "Config type is not supported"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True) 
 

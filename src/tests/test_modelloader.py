@@ -218,3 +218,4 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_stable_baselines_actor(self):
         onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)
+        create_and_validate_trt(onnx_path, skip_cache=True)
