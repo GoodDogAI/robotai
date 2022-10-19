@@ -131,13 +131,12 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
 
 }
 
-void send_model_inference_msg(PubMaster &pm, int32_t frame_id) {
+void send_model_inference_msg(PubMaster &pm, argparse::ArgumentParser &args, int32_t frame_id) {
     MessageBuilder msg;
     auto event = msg.initEvent(true);
     auto mdat = event.initModelInference();
 
-    //TODO enable it
-    //mdat.setModelFullName(args.get<std::string>("brain_model"));
+    mdat.setModelFullName(args.get<std::string>("brain_model"));
     mdat.setFrameId(frame_id);
 
     auto words = capnp::messageToFlatArray(msg);
@@ -265,7 +264,6 @@ int main(int argc, char *argv[])
     }
 
     // Once you get a frame, we lock msgvec until that frame is completed
-    auto msgvec = msgvec_guard.lockExclusive();
     const auto cur_time = std::chrono::steady_clock::now();
 
     // Copy and convert from vision ipc to float inputs in range of [16.0, 235.0]
@@ -284,8 +282,9 @@ int main(int argc, char *argv[])
 
     const auto vision_inference_completed_time = std::chrono::steady_clock::now();
 
-    // Send a model inference message to indicate that inference was performed and this moment should be included in the training data
-    send_model_inference_msg(pm, extra.frame_id);
+    // Send a model inference message to indicate that inference was performed and this is the moment that we sampled the observation vector
+    auto msgvec = msgvec_guard.lockExclusive();
+    send_model_inference_msg(pm, args, extra.frame_id);
 
     msgvec->input_vision(static_cast<const float*>(vision_engine->get_host_buffer("intermediate")), extra.frame_id);
     auto timeout_res = msgvec->get_obs_vector(static_cast<float*>(brain_engine->get_host_buffer("observation")));

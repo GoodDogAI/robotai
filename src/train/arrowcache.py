@@ -215,8 +215,8 @@ class ArrowRLDataset():
                             raw_data.append(cur_packet)
                             cur_packet = {}
 
-                    if evt.which() == "headCameraState":
-                        key = f"{logfile.get_runname()}-{evt.headCameraState.frameId}"
+                    if evt.which() == "modelInference":
+                        key = f"{logfile.get_runname()}-{evt.headCammodelInferenceeraState.frameId}"
 
                         vision_vec = self.vision_cache.get(key, None)
 
@@ -224,7 +224,7 @@ class ArrowRLDataset():
                             continue_processing_group = False
                             break
 
-                        msgvec.input_vision(vision_vec, evt.headCameraState.frameId)
+                        msgvec.input_vision(vision_vec, evt.modelInference.frameId)
                         timeout, cur_packet["obs"] = msgvec.get_obs_vector()
                         reward_valid, reward_value = msgvec.get_reward()
 
