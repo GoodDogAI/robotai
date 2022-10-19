@@ -42,7 +42,7 @@ class TestModelValidation(unittest.TestCase):
             print(f"Logged Output matches: {matches / trt_intermediate_1perturb.size:.3%}")
 
             # Cosine similarity to a random vector should be around zero
-            self.assertLess(cosine_similarity(trt_intermediate_1[0], np.random.uniform(-1, 1, trt_intermediate_1perturb[0].shape)), 0.01)
+            self.assertLess(cosine_similarity(trt_intermediate_1[0], np.random.uniform(-1, 1, trt_intermediate_1perturb[0].shape)), 0.02)
 
             # Cosine similarity to a perturbed image should be quite high
             print(f"Cosine Similarity: {cosine_similarity(trt_intermediate_1[0], trt_intermediate_1perturb[0]):.3%}")

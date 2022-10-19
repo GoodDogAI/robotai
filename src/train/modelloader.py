@@ -246,15 +246,20 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
 
     # The first version will only do batch_size 1, but for later speed in recalculating the cache, we should increase the size
     # However, I did some testing, and increasing to an optimal batch size will increase throughput maybe 2x, but at vast increase to code complexity
+    full_model = create_pt_model(config)
     batch_size = 1
     device = "cuda:0"
-    # slice down the image size to the nearest multiple of the stride
-    inputs = {
-        "y": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
-        "uv": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
-    }
 
-    full_model = create_pt_model(config)
+    if model_type == "vision" or model_type == "reward":
+        # slice down the image size to the nearest multiple of the stride
+        inputs = {
+            "y": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
+            "uv": torch.from_numpy(get_reference_input((batch_size, 1, DEVICE_CONFIG.CAMERA_HEIGHT // 2, DEVICE_CONFIG.CAMERA_WIDTH), np.float32, model_type)).to(device=device),
+        }
+    else:
+        inputs = {
+            "observation": torch.from_numpy(get_reference_input((batch_size, full_model.actor.features_dim), np.float32, model_type)).to(device=device),
+        }
 
     _ = full_model(**inputs)  # dry run
 
@@ -273,8 +278,12 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
 
         if model_type == "reward":
             output_names = ["reward", "bboxes", "raw_detections"]
+        elif model_type == "brain":
+            output_names = ["action"]
 
-        torch.onnx.export(copy.deepcopy(full_model), inputs, orig_onnx_path, input_names=list(inputs), output_names=output_names,
+        # Torch export actually modifies the model, so we need to make a copy, but not all models support deepcopy
+        full_model_copy = create_pt_model(config)
+        torch.onnx.export(full_model_copy, inputs, orig_onnx_path, input_names=list(inputs), output_names=output_names,
                           verbose=False, opset_version=12, dynamic_axes=None)
 
         onnx_model = onnx.load(orig_onnx_path)  # load onnx model
