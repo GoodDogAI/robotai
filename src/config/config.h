@@ -10,7 +10,7 @@
 #define LOG_DURATION_SECONDS 60
 #define LOG_PATH "/media/card"
 #define LOG_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
-#define MODEL_STORAGE_PATH "/home/robot/models"
+#define MODEL_STORAGE_PATH "/home/media/card/models"
 #define MODEL_SERVICE "http://jake-training-box.jakepoz.gmail.com.beta.tailscale.net:8000"
 #define ENCODER_HEAD_COLOR_QP 10
 #define ENCODER_HEAD_DEPTH_MAXBITRATE 2000000

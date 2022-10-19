@@ -37,7 +37,7 @@ def prepare_model_reference(base_name: str, full_name: str, io: str, type: Liter
         with open(reference_path, "wb") as f:
             f.write(resp.content)
 
-def prepare_device_model(base_name: str, full_name: str):
+def prepare_device_model(base_name: str, full_name: str) -> str:
     logger.warning(f"Preparing model {base_name}")
     onnx_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}.onnx")
     trt_path = os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}.engine")
@@ -79,7 +79,7 @@ def prepare_device_model(base_name: str, full_name: str):
             reference = np.load(os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, f"{full_name}-output-{output_name}.npy"))
             assert np.allclose(output_tensor, reference, rtol=1e-4, atol=1e-4), f"Output {output_name} does not match reference"
 
-    
+    return full_name
 
 def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
     # If brain_config is None, then get the current brain config name & checksum from the server
@@ -121,13 +121,17 @@ def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
 
     result = {}
 
+    # Prepare required submodels
     for model_name in brain_config["models"]:
         if model_name == "reward":
             logger.warning(f"Skipping {model_name} as it is a reward model")
             continue
 
-        prepare_device_model(brain_config["models"][model_name]["basename"],
-                             brain_config["models"][model_name]["_fullname"])
-        result[model_name] = brain_config["models"][model_name]["_fullname"]                             
+        result[model_name] = prepare_device_model(brain_config["models"][model_name]["basename"],
+                                                  brain_config["models"][model_name]["_fullname"])
+
+    # Prepare the main actor/brain model
+    result[brain_config["_fullname"]] = prepare_device_model(brain_config["basename"],
+                                                             brain_config["_fullname"])
 
     return result
