@@ -252,8 +252,21 @@ class ArrowRLDataset():
         if len(raw_data) > 0:
             raw_data[-1]["done"] = True
 
+        # You're going to want to reprocess the dictionary to create the next_obs datapoints
+        # Note: One day this could be better optimized
+        final_data = []
+
+        for index, data in enumerate(raw_data[:-1]):
+            if data["done"]:
+                continue
+
+            data["next_obs"] = raw_data[index + 1]["obs"]
+            data["done"] = raw_data[index + 1]["done"]
+
+            final_data.append(data)
+
         # Once you process a whole group, you can yield the results
-        yield from raw_data        
+        yield from final_data        
 
     def generate_samples(self):
         # Each grouped log is handled separately
