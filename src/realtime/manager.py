@@ -116,7 +116,8 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("simplebgcd"),
         NativeProcess("appcontrold"),
         NativeProcess("braind", ["--config", os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"),
-                                 "--vision_model", models["vision"]]),
+                                 "--vision_model", models["vision"],
+                                 "--brain_model", models["brain"]]),
     ]
 
 

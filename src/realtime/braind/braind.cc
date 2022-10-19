@@ -154,9 +154,13 @@ int main(int argc, char *argv[])
       .required();
 
   args.add_argument("--vision_model")
-      .help("fullname of the vision model to use")
+      .help("fullname of the intermediate vision model to use")
       .required();  
 
+  args.add_argument("--brain_model")
+      .help("fullname of the brain actor model to use")
+      .required();  
+  
   try
   {
     args.parse_args(argc, argv);
@@ -185,6 +189,7 @@ int main(int argc, char *argv[])
   size_t last_10_sec_msgs { 0 };
   auto last_10_sec_time { std::chrono::steady_clock::now() };
   auto vision_engine = prepare_engine(args.get<std::string>("vision_model"));
+  auto brain_engine = prepare_engine(args.get<std::string>("brain_model"));
   MsgVec::TimeoutResult msgvec_obs_result { MsgVec::TimeoutResult::MESSAGES_NOT_READY };
 
   // Make sure the vision engine inputs and outputs are setup as we expect them

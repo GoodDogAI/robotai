@@ -131,7 +131,6 @@ def prepare_brain_models(orig_brain_name: str=None) -> Dict[str, str]:
                                                   brain_config["models"][model_name]["_fullname"])
 
     # Prepare the main actor/brain model
-    result[brain_config["_fullname"]] = prepare_device_model(brain_config["basename"],
-                                                             brain_config["_fullname"])
+    result["brain"] = prepare_device_model(brain_config["basename"], brain_config["_fullname"])
 
     return result
