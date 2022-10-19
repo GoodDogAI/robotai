@@ -264,6 +264,8 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    // Once you get a frame, we lock msgvec until that frame is completed
+    auto msgvec = msgvec_guard.lockExclusive();
     const auto cur_time = std::chrono::steady_clock::now();
 
     // Copy and convert from vision ipc to float inputs in range of [16.0, 235.0]
@@ -275,42 +277,40 @@ int main(int argc, char *argv[])
         host_uv[i] = buf->uv[i];
     }
 
-    {
-      auto msgvec = msgvec_guard.lockExclusive();
-      std::vector<float> obs(msgvec->obs_size());
-      auto timeout_res = msgvec->get_obs_vector(obs.data());
-
-      if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
-        throw std::runtime_error("msgvec completely lost ready state");
-      }
-      else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
-        throw std::runtime_error("msgvec partially lost ready state");
-      }
-      msgvec_obs_result = timeout_res;
-    }
-
     vision_engine->copy_input_to_device();
     vision_engine->infer();
     vision_engine->copy_output_to_host();
     vision_engine->sync();
 
-    const auto inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - cur_time);
+    const auto vision_inference_completed_time = std::chrono::steady_clock::now();
 
     // Send a model inference message to indicate that inference was performed and this moment should be included in the training data
     send_model_inference_msg(pm, extra.frame_id);
 
-    // TODO Run the ML model and get the act tensor
-    {
-      auto msgvec = msgvec_guard.lockExclusive();
-      std::vector<float> act(msgvec->act_size(), 0.0f);
-      auto messages = msgvec->get_action_command(act.data());
+    msgvec->input_vision(static_cast<const float*>(vision_engine->get_host_buffer("intermediate")), extra.frame_id);
+    auto timeout_res = msgvec->get_obs_vector(static_cast<float*>(brain_engine->get_host_buffer("observation")));
 
-      for (auto &msgdata : messages) {
-         auto bytes = msgdata.asBytes();
-         pm.send("brainCommands", bytes.begin(), bytes.size());
-      }
+    if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
+      throw std::runtime_error("msgvec completely lost ready state");
+    }
+    else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
+      throw std::runtime_error("msgvec partially lost ready state");
+    }
+    msgvec_obs_result = timeout_res;
+
+    brain_engine->copy_input_to_device();
+    brain_engine->infer();
+    brain_engine->copy_output_to_host();
+    brain_engine->sync();
+    
+    auto messages = msgvec->get_action_command(static_cast<const float*>(brain_engine->get_host_buffer("action")));
+
+    for (auto &msgdata : messages) {
+        auto bytes = msgdata.asBytes();
+        pm.send("brainCommands", bytes.begin(), bytes.size());
     }
 
+    const auto brain_inference_completed_time = std::chrono::steady_clock::now();
 
     // Log every N frames with a model validation message
     if (extra.frame_id % 60 == 0) {
@@ -347,7 +347,10 @@ int main(int argc, char *argv[])
 
     // Basic status log every 10 seconds
     if (cur_time - last_10_sec_time > std::chrono::seconds(10)) {
-        fmt::print("braind {:1.1f} frames/sec, inference time {}\n", last_10_sec_msgs / 10.0f, inference_elapsed);
+        const auto vision_inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(vision_inference_completed_time - cur_time);
+        const auto brain_inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(brain_inference_completed_time - vision_inference_completed_time);
+
+        fmt::print("braind {:1.1f} frames/sec, inference time {}v + {}b\n", last_10_sec_msgs / 10.0f, vision_inference_elapsed, brain_inference_elapsed);
         last_10_sec_msgs = 0;
         last_10_sec_time = cur_time;
     }
