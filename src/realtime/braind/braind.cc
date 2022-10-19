@@ -351,6 +351,8 @@ int main(int argc, char *argv[])
         const auto brain_inference_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(brain_inference_completed_time - vision_inference_completed_time);
 
         fmt::print("braind {:1.1f} frames/sec, inference time {}v + {}b\n", last_10_sec_msgs / 10.0f, vision_inference_elapsed, brain_inference_elapsed);
+        fmt::print("braind action {:1.2f}\n",  fmt::join(static_cast<const float*>(brain_engine->get_host_buffer("action")),
+                                                    static_cast<const float*>(brain_engine->get_host_buffer("action")) + msgvec->act_size(), ","));
         last_10_sec_msgs = 0;
         last_10_sec_time = cur_time;
     }
