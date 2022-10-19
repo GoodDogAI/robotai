@@ -37,11 +37,13 @@ class ManagerProcess:
     name: str = ""
     args: List[str] = []
     running: bool = False
+    delay: float = 0.0
     p = None
     
-    def __init__(self, name: str, args: List[str] = []):
+    def __init__(self, name: str, args: List[str] = [], delay: float = 0.0):
         self.name = name
         self.args = args
+        self.delay = delay
 
     async def start(self):
         raise NotImplementedError()
@@ -57,13 +59,15 @@ class PythonProcess(ManagerProcess):
     func: str = ""
     nice: int = 0
 
-    def __init__(self, name: str, module: str, func: str="main",  args: List[str] = [], nice: int=0):
-        super().__init__(name, args)
+    def __init__(self, name: str, module: str, func: str="main",  args: List[str] = [], delay: float=0.0, nice: int=0):
+        super().__init__(name, args, delay)
         self.module = module
         self.func = func
         self.nice = nice
 
     async def start(self):
+        await asyncio.sleep(self.delay)
+
         self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module, self.func, self.nice))
         self.running = True
         self.p.start()
@@ -84,11 +88,13 @@ class PythonProcess(ManagerProcess):
 class NativeProcess(ManagerProcess):
     nice: int = 0
 
-    def __init__(self, name: str,  args: List[str] = [], nice: int=0):
-        super().__init__(name, args)
+    def __init__(self, name: str,  args: List[str] = [], delay: float=0.0, nice: int=0):
+        super().__init__(name, args, delay)
         self.nice = nice
 
     async def start(self):
+        await asyncio.sleep(self.delay)
+        
         self.p = await asyncio.create_subprocess_exec(os.path.abspath(f"build/{self.name}"), *self.args)
 
         setnice = psutil.Process(self.p.pid)
@@ -107,7 +113,7 @@ class NativeProcess(ManagerProcess):
 
 def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
     return [
-        NativeProcess("camerad", nice=-2), 
+        NativeProcess("camerad", nice=-2, delay=5.0), 
         NativeProcess("encoderd", ["head_color", "--maxqp", str(DEVICE_CONFIG.ENCODER_HEAD_COLOR_QP)]),
         NativeProcess("encoderd", ["head_depth", "--maxbitrate", str(DEVICE_CONFIG.ENCODER_HEAD_DEPTH_MAXBITRATE)]),
         NativeProcess("loggerd"),
