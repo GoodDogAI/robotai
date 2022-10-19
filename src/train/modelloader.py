@@ -69,6 +69,13 @@ def get_reference_input(shape: List[int], dtype: np.dtype, model_type: Literal["
             return np.random.randint(low=16, high=235, size=shape, dtype=np.uint8).astype(np.float32)
         else:
             raise NotImplementedError()
+    elif model_type == "brain":
+        if dtype == np.uint8:
+            return np.random.randint(low=0, high=255, size=shape, dtype=np.uint8)
+        elif dtype == np.float32:
+            return np.random.rand(*shape).astype(np.float32)
+        else:
+            raise NotImplementedError()
     else:
         raise NotImplementedError()
 
@@ -179,30 +186,35 @@ def validate_onnx_trt(onnx_path: str, trt_path: str, model_type:Literal["vision"
 
 def create_pt_model(config: Dict[str, Any]) -> torch.nn.Module:
     model_type = config["type"]
-    assert model_type in {"vision", "reward"}, "Config must be a vision model"
+    assert model_type in {"vision", "reward", "brain"}, "Config type not supported"
 
     # Load the original pytorch model
     # Import and call function by string from the config
     load_module = importlib.import_module(".".join(config["load_fn"].split(".")[:-1]))
     load_fn = getattr(load_module, config["load_fn"].split(".")[-1])
-    vision_model = load_fn(config["checkpoint"])
-
-    internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
-                     DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+    root_model = load_fn(config["checkpoint"])
 
     # Make a module that is going to include the input format conversion and any required cropping
     if model_type == "vision":
-        full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), vision_model)
+        internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
+                         DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+
+        full_model = ConvertCropVision(NV12MToRGB(), CenterCrop(internal_size), root_model)
     elif model_type == "reward":
+        internal_size = (DEVICE_CONFIG.CAMERA_HEIGHT // config["dimension_stride"] * config["dimension_stride"],
+                         DEVICE_CONFIG.CAMERA_WIDTH // config["dimension_stride"] * config["dimension_stride"])
+
         assert config["reward_module"] == "src.train.reward.SumCenteredObjectsPresentReward", "Other modules not implemented yet"
         full_model = ConvertCropVisionReward(NV12MToRGB(), CenterCrop(internal_size),
-                                             vision_model,
+                                             root_model,
                                              ThresholdNMS(iou_threshold=config["iou_threshold"], max_detections=config["max_detections"]),
                                              SumCenteredObjectsPresentReward(width=internal_size[1], height=internal_size[0], 
                                                                              class_names=config["class_names"],
                                                                              class_weights=config["reward_kwargs"]["class_weights"],
                                                                              reward_scale=config["reward_kwargs"]["reward_scale"],
                                                                              center_epsilon=config["reward_kwargs"]["center_epsilon"]))
+    elif model_type == "brain":
+        full_model = root_model
     else:
         raise NotImplementedError()
 
@@ -212,9 +224,10 @@ def create_pt_model(config: Dict[str, Any]) -> torch.nn.Module:
 def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> str:
     assert config is not None, "Unable to find config"
     model_type = config["type"]
-    assert model_type in {"vision", "reward"}, "Config must be a vision model"
+    assert model_type in {"vision", "reward", "brain"}, "Config model type not supported"
 
-    assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
+    if "input_format" in config:
+        assert config["input_format"] == "rgb", "Only NV12M to RGB conversion is supported"
 
     Path(HOST_CONFIG.CACHE_DIR, "models").mkdir(parents=True, exist_ok=True)
 

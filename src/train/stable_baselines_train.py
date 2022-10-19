@@ -43,6 +43,9 @@ if __name__ == "__main__":
 
     model.train(gradient_steps=1, batch_size=64)
 
+    model.save("/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip")
+
+    
     # Test exporting to onnx
     observation_size = model.observation_space.shape
     dummy_input = torch.randn(1, *observation_size).to(model.device)

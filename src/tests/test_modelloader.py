@@ -64,6 +64,136 @@ class TestModelLoaderTRT(unittest.TestCase):
             }
         }
 
+        self.sampleBrainConfig = {
+             "type": "brain",
+
+            "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip",
+            "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
+
+            "models": {
+                "vision": "yolov7-tiny-s53",
+                "reward": "yolov7-tiny-prioritize_centered_nms",
+            },
+
+            "msgvec": {
+                "obs": [
+                    { 
+                        "type": "msg",
+                        "path": "odriveFeedback.leftMotor.vel",
+                        "index": -1,
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "identity",
+                        },
+                    },
+
+                    {
+                        "type": "msg",
+                        "path": "voltage.volts",
+                        "index": -1,
+                        "timeout": 0.125,
+                        "filter": {
+                            "field": "voltage.type",
+                            "op": "eq",
+                            "value": "mainBattery",
+                        },
+                        "transform": {
+                            "type": "rescale",
+                            "msg_range": [0, 15],
+                            "vec_range": [-1, 1],
+                        }
+                    },
+                    
+                    { 
+                        "type": "msg",
+                        "path": "headFeedback.pitchAngle",
+                        "index": -1,
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "rescale",
+                            "msg_range": [-45.0, 45.0],
+                            "vec_range": [-1, 1],
+                        },
+                    },
+
+                    {
+                        "type": "vision",
+                        "size": 17003,
+                        "index": -1,
+                    }
+                ],
+
+                "act": [
+                    {
+                        "type": "msg",
+                        "path": "odriveCommand.desiredVelocityLeft",
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "rescale",
+                            "msg_range": [-2, 2],
+                            "vec_range": [-1, 1],
+                        },
+                    },
+
+                    {
+                        "type": "msg",
+                        "path": "odriveCommand.desiredVelocityRight",
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "rescale",
+                            "msg_range": [-2, 2],
+                            "vec_range": [-1, 1],
+                        },
+                    },
+
+                    { 
+                        "type": "msg",
+                        "path": "headCommand.pitchAngle",
+                        "index": -1,
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "rescale",
+                            "vec_range": [-1, 1],
+                            "msg_range": [-45.0, 45.0],
+                        },
+                    },
+
+                    { 
+                        "type": "msg",
+                        "path": "headCommand.yawAngle",
+                        "index": -1,
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "rescale",
+                            "vec_range": [-1, 1],
+                            "msg_range": [-45.0, 45.0],
+                        },
+                    },
+                ],
+
+                "rew": {
+                    "base": "reward",
+
+                    "override": {
+                        "positive_reward": 1.0,
+                        "positive_reward_timeout": 0.0667,
+
+                        "negative_reward": -1.0,
+                        "negative_reward_timeout": 0.0667,
+                    }
+                },
+
+                "appcontrol": {
+                    "mode": "steering_override_v1",
+                    "timeout": 0.300,
+                },
+
+                "done": {
+                    "mode": "on_reward_override",
+                }
+            }   
+        }
+
     def test_onnx_vision(self):
         create_and_validate_onnx(self.sampleVisionConfig, skip_cache=True)
 
@@ -85,3 +215,6 @@ class TestModelLoaderTRT(unittest.TestCase):
     def test_multilayer_intermediate_concat(self):
         onnx_path = create_and_validate_onnx(self.sampleVisionConfigMultiLayers, skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
+
+    def test_stable_baselines_actor(self):
+        onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)

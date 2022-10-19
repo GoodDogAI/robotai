@@ -19,6 +19,7 @@ class TestArrowRLCache(unittest.TestCase):
         for entry in cache.generate_samples():
             print(entry)
 
+    # Test that you wait for the obs vectors to populate, though this is somewhat helped by waiting for the first inference
     # TODO test the case of done flags being set on last entry, plus following the "on_reward_override" mode
     # TODO test reward overrides
     # TODO test next_obs mode flags

@@ -136,7 +136,8 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-test1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/empty-brain.pt",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip",
+        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {
             "vision": "yolov7-tiny-s53",
