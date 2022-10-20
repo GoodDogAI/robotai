@@ -158,6 +158,8 @@ async def brain_main():
     done, pending = await asyncio.wait([cancelation_task] + [proc.join() for proc in procs], return_when=asyncio.FIRST_COMPLETED)
 
     print("Task finished", done)
+    asyncio.get_running_loop().remove_signal_handler(signal.SIGINT)
+    asyncio.get_running_loop().remove_signal_handler(signal.SIGTERM)
 
     for proc in procs:
         try:
