@@ -13,7 +13,7 @@
 #include "config.h"
 #include "cereal/messaging/messaging.h"
 
-#define MAX_MISSED_INTERVALS 3
+#define MAX_MISSED_INTERVALS 8
 
 #define BUF_DISCRIMINANT_INDEX 4
 
