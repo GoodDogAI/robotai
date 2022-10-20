@@ -2,8 +2,8 @@ import os
 import torch
 import pyarrow
 import time
+import random
 import functools
-import json
 import pandas as pd
 import numpy as np
 
@@ -191,7 +191,6 @@ class ArrowRLDataset():
 
         raw_data = []
 
-        got_inference = False
         last_reward_was_override = False
         continue_processing_group = True
         cur_packet = {}
@@ -211,12 +210,12 @@ class ArrowRLDataset():
                     if status["act_ready"]:
                         cur_packet["act"] = msgvec.get_act_vector()
 
-                        if got_inference and "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
+                        if "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
                             raw_data.append(cur_packet)
                             cur_packet = {}
 
                     if evt.which() == "modelInference":
-                        key = f"{logfile.get_runname()}-{evt.headCammodelInferenceeraState.frameId}"
+                        key = f"{logfile.get_runname()}-{evt.modelInference.frameId}"
 
                         vision_vec = self.vision_cache.get(key, None)
 
@@ -245,8 +244,6 @@ class ArrowRLDataset():
 
                         last_reward_was_override = reward_valid
 
-                    elif evt.which() == "modelInference":
-                        got_inference = True
 
         # The last packet is always done
         if len(raw_data) > 0:
@@ -269,7 +266,10 @@ class ArrowRLDataset():
         yield from final_data        
 
     def generate_samples(self):
-        # Each grouped log is handled separately
-        for group in self.lh.group_logs():
+        # Each grouped log is handled separately, but the root-level groups are shuffled
+        groups = self.lh.group_logs()
+        random.shuffle(groups)
+
+        for group in groups:
             yield from self._generate_log_group(group)
                         

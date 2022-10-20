@@ -149,7 +149,37 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "odriveFeedback.leftMotor.vel",
-                    "index": -1,
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.current",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.rightMotor.vel",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.rightMotor.current",
+                    "index": -3,
                     "timeout": 0.125,
                     "transform": {
                         "type": "identity",
@@ -176,7 +206,19 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "headFeedback.pitchAngle",
-                    "index": -1,
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.yawAngle",
+                    "index": -3,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -199,7 +241,7 @@ MODEL_CONFIGS = dotdict({
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [-2, 2],
+                        "msg_range": [-0.5, 0.5],
                         "vec_range": [-1, 1],
                     },
                 },
@@ -210,7 +252,7 @@ MODEL_CONFIGS = dotdict({
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [-2, 2],
+                        "msg_range": [-0.5, 0.5],
                         "vec_range": [-1, 1],
                     },
                 },
@@ -244,11 +286,11 @@ MODEL_CONFIGS = dotdict({
                 "base": "reward",
 
                 "override": {
-                    "positive_reward": 1.0,
-                    "positive_reward_timeout": 0.0667,
+                    "positive_reward": 10.0,
+                    "positive_reward_timeout": 2.0,
 
-                    "negative_reward": -1.0,
-                    "negative_reward_timeout": 0.0667,
+                    "negative_reward": -15.0,
+                    "negative_reward_timeout": 2.0,
                 }
             },
 
