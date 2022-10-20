@@ -215,8 +215,8 @@ class ArrowRLDataset():
                             raw_data.append(cur_packet)
                             cur_packet = {}
 
-                    if evt.which() == "headCameraState":
-                        key = f"{logfile.get_runname()}-{evt.headCameraState.frameId}"
+                    if evt.which() == "modelInference":
+                        key = f"{logfile.get_runname()}-{evt.headCammodelInferenceeraState.frameId}"
 
                         vision_vec = self.vision_cache.get(key, None)
 
@@ -224,7 +224,7 @@ class ArrowRLDataset():
                             continue_processing_group = False
                             break
 
-                        msgvec.input_vision(vision_vec, evt.headCameraState.frameId)
+                        msgvec.input_vision(vision_vec, evt.modelInference.frameId)
                         timeout, cur_packet["obs"] = msgvec.get_obs_vector()
                         reward_valid, reward_value = msgvec.get_reward()
 
@@ -252,8 +252,21 @@ class ArrowRLDataset():
         if len(raw_data) > 0:
             raw_data[-1]["done"] = True
 
+        # You're going to want to reprocess the dictionary to create the next_obs datapoints
+        # Note: One day this could be better optimized
+        final_data = []
+
+        for index, data in enumerate(raw_data[:-1]):
+            if data["done"]:
+                continue
+
+            data["next_obs"] = raw_data[index + 1]["obs"]
+            data["done"] = raw_data[index + 1]["done"]
+
+            final_data.append(data)
+
         # Once you process a whole group, you can yield the results
-        yield from raw_data        
+        yield from final_data        
 
     def generate_samples(self):
         # Each grouped log is handled separately
