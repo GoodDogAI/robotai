@@ -1135,7 +1135,7 @@ class TestMsgVec(unittest.TestCase):
         self.assertAlmostEqual(result[1].headCommand.pitchAngle, basePitch)
 
         # Delay should mean the head moves
-        time.sleep(1.50)
+        time.sleep(2.50)
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "suspendMajorMotion"
