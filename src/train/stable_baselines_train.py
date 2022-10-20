@@ -41,9 +41,7 @@ if __name__ == "__main__":
         print(entry)
         buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
 
-    model.train(gradient_steps=1000, batch_size=64)
-
-    model.save("/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip")
-
-    
-    print("Trained 1000 steps")
+    for i in range(100):
+        model.train(gradient_steps=10000, batch_size=64)
+        model.save("/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip")
+        print("Trained 1000 steps")
