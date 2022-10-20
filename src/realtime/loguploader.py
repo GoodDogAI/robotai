@@ -25,7 +25,7 @@ def sync(lh: LogHashes) -> bool:
             return False
         all_hashes = {x["sha256"] for x in chain.from_iterable(all_logs.json())} | {x["orig_sha256"] for x in chain.from_iterable(all_logs.json())}
 
-        for ls in tqdm(ls for ls in lh.values() if ls.sha256 not in all_hashes):
+        for ls in tqdm([ls for ls in lh.values() if ls.sha256 not in all_hashes]):
             logger.info(f"Uploading {ls}")
             with open(os.path.join(lh.dir, ls.filename), "rb") as f:
                 result = requests.post(DEVICE_CONFIG.LOG_SERVICE + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
