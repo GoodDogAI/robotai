@@ -1,9 +1,9 @@
-import signal
 import os
 import time
 import requests
 import logging
 
+from tqdm import tqdm
 from itertools import chain
 from typing import Dict, Any
 from inotify_simple import INotify, flags
@@ -25,16 +25,14 @@ def sync(lh: LogHashes) -> bool:
             return False
         all_hashes = {x["sha256"] for x in chain.from_iterable(all_logs.json())} | {x["orig_sha256"] for x in chain.from_iterable(all_logs.json())}
 
-        for ls in lh.values():
-            if ls.sha256 not in all_hashes:
-                with open(os.path.join(lh.dir, ls.filename), "rb") as f:
-                    result = requests.post(DEVICE_CONFIG.LOG_SERVICE + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
+        for ls in tqdm([ls for ls in lh.values() if ls.sha256 not in all_hashes]):
+            logger.info(f"Uploading {ls}")
+            with open(os.path.join(lh.dir, ls.filename), "rb") as f:
+                result = requests.post(DEVICE_CONFIG.LOG_SERVICE + "/logs", files={"logfile": f, "sha256": (None, ls.sha256)})
 
-                if result.status_code != 200:
-                    logger.warning(f"Warning, unable to upload {ls} response code {result.status_code}")
-                    return False
-                
-                logger.info(f"Uploaded {ls} successfully")
+            if result.status_code != 200:
+                logger.warning(f"Warning, unable to upload {ls} response code {result.status_code}")
+                return False 
 
         logger.info(f"Took {time.perf_counter() - start:0.3f}s to sync logs")
 

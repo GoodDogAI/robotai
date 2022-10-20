@@ -13,7 +13,7 @@
 #include "config.h"
 #include "cereal/messaging/messaging.h"
 
-#define MAX_MISSED_INTERVALS 3
+#define MAX_MISSED_INTERVALS 6
 
 #define BUF_DISCRIMINANT_INDEX 4
 
@@ -116,6 +116,7 @@ int main(int argc, char **argv)
 
             ba2str( &rem_addr.rc_bdaddr, buf );
             fmt::print("accepted connection from {} (on fd {})\n", buf, client);
+            missed_intervals = 0;
             
             std::vector<pollfd> conn_fds;
             conn_fds.push_back({client, POLLIN, 0});

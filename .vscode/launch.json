@@ -33,6 +33,13 @@
             "justMyCode": true
         },
         {
+            "name": "Python: Run loguploader",
+            "type": "python",
+            "request": "launch",
+            "module": "src.realtime.loguploader",
+            "justMyCode": true
+        },
+        {
             "name": "Python: Convert Old Bags",
             "type": "python",
             "request": "launch",

@@ -68,6 +68,7 @@ class PythonProcess(ManagerProcess):
     async def start(self):
         await asyncio.sleep(self.delay)
 
+        logger.warning(f"Starting {self.name}...")
         self.p = multiprocessing.Process(name=self.name, target=pythonlauncher, args=(self.name, self.module, self.func, self.nice))
         self.running = True
         self.p.start()
@@ -95,6 +96,7 @@ class NativeProcess(ManagerProcess):
     async def start(self):
         await asyncio.sleep(self.delay)
         
+        logger.warning(f"Starting {self.name}...")
         self.p = await asyncio.create_subprocess_exec(os.path.abspath(f"build/{self.name}"), *self.args)
 
         setnice = psutil.Process(self.p.pid)
@@ -149,13 +151,15 @@ async def brain_main():
     asyncio.get_running_loop().add_signal_handler(signal.SIGINT, cancelation_task.cancel)
     asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, cancelation_task.cancel)
 
-    for proc in procs:
-        logger.warning(f"Starting {proc.name}...")
-        await proc.start()
+    # Start everything
+    await asyncio.wait([proc.start() for proc in procs], return_when=asyncio.ALL_COMPLETED)
 
+    # Wait for first to exit, or for the cancellation task
     done, pending = await asyncio.wait([cancelation_task] + [proc.join() for proc in procs], return_when=asyncio.FIRST_COMPLETED)
 
     print("Task finished", done)
+    asyncio.get_running_loop().remove_signal_handler(signal.SIGINT)
+    asyncio.get_running_loop().remove_signal_handler(signal.SIGTERM)
 
     for proc in procs:
         try:
