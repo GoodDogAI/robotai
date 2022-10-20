@@ -415,6 +415,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
             
                 if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
                     if (i == 0) {
+                        //std::cerr << "Failure syncing " << obs["path"]  << " Cur time: " << cur_time << ", history time: " << m_obsHistoryTimestamps[index][history_index] << ", timeout: " << obs["timeout"].get<float>() << std::endl;
                         timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
                     } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
                         timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
