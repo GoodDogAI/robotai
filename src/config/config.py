@@ -286,10 +286,10 @@ MODEL_CONFIGS = dotdict({
                 "base": "reward",
 
                 "override": {
-                    "positive_reward": 1.0,
+                    "positive_reward": 10.0,
                     "positive_reward_timeout": 2.0,
 
-                    "negative_reward": -1.0,
+                    "negative_reward": -15.0,
                     "negative_reward_timeout": 2.0,
                 }
             },
