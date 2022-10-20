@@ -303,6 +303,7 @@ int main(int argc, char *argv[])
     brain_engine->sync();
     
     auto messages = msgvec->get_action_command(static_cast<const float*>(brain_engine->get_host_buffer("action")));
+    msgvec.release();
 
     for (auto &msgdata : messages) {
         auto bytes = msgdata.asBytes();
