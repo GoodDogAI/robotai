@@ -100,7 +100,9 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
   std::unordered_map<std::unique_ptr<SubSocket>, std::string> socks;
 
   for (const auto& it : services) {
-    if (!it.should_log || strcmp(it.name, "brainCommands") == 0 || strcmp(it.name, "brainValidation") == 0)
+    std::string name {it.name};
+
+    if (!it.should_log || name == "brainCommands" || name == "brainValidation" || endsWith(name, "EncodeData"))
         continue;
 
     fmt::print("braind {} (on port {})\n", it.name, it.port);
