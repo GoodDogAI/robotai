@@ -376,6 +376,43 @@ void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
     m_visionHistoryIds.pop_back();
 }
 
+std::unordered_set<std::string> MsgVec::get_possible_event_types() const {
+    // It would be nicer if this return a set of ints, but for some reason the python bindings don't map the exact same values
+
+    // appcontrol messages are always parsed
+    std::unordered_set<std::string> possibleEventTypes { "appControl" };
+
+    for (auto &obs : m_config["obs"]) {
+        if (obs["type"] == "msg") {
+            const std::string event_type {get_event_type(obs["path"])};
+            MessageBuilder msg;
+            capnp::DynamicStruct::Builder evt = msg.initEvent();
+            evt.init(event_type.c_str());
+            KJ_IF_MAYBE(msgEnumerant, evt.which()) {
+                possibleEventTypes.insert(event_type);
+            } else {
+                throw std::domain_error("Unknown event type: " + event_type);
+            } 
+        }
+    }
+
+    for (auto &act : m_config["act"]) {
+        if (act["type"] == "msg") {
+            const std::string event_type {get_event_type(act["path"])};
+            MessageBuilder msg;
+            capnp::DynamicStruct::Builder evt = msg.initEvent();
+            evt.init(event_type.c_str());
+            KJ_IF_MAYBE(msgEnumerant, evt.which()) {
+                possibleEventTypes.insert(event_type);
+            } else {
+                throw std::domain_error("Unknown event type: " + event_type);
+            } 
+        }
+    }
+
+    return possibleEventTypes;
+}
+
 size_t MsgVec::obs_size() const {
     return m_obsSize;
 }

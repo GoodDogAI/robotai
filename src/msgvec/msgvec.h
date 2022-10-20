@@ -3,6 +3,7 @@
 #include <string>
 #include <functional>
 #include <map>
+#include <unordered_set>
 #include <vector>
 #include <deque>
 #include <nlohmann/json.hpp>
@@ -68,7 +69,7 @@ class MsgVec {
         // Given an action vector output from the RL model, returns the list of messages to send
         std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);
 
-        
+        std::unordered_set<std::string> get_possible_event_types() const;
 
     private:
         json m_config;

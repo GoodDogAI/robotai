@@ -205,7 +205,7 @@ class ArrowRLDataset():
 
                 # Get the actual events, starting with a keyframe, which we will need
                 for evt in events:
-                    status = msgvec.input(evt.as_builder().to_bytes())
+                    status = msgvec.input(evt.as_builder())
 
                     if status["act_ready"]:
                         cur_packet["act"] = msgvec.get_act_vector()
@@ -213,6 +213,8 @@ class ArrowRLDataset():
                         if "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
                             raw_data.append(cur_packet)
                             cur_packet = {}
+
+                        act_evt = time.perf_counter_ns()
 
                     if evt.which() == "modelInference":
                         key = f"{logfile.get_runname()}-{evt.modelInference.frameId}"

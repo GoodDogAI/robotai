@@ -8,10 +8,11 @@ from libcpp.vector cimport vector
 from cpython cimport array
 
 from pymsgvec cimport MsgVec, TimeoutResult, MessageTimingMode
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Set, Union
 from enum import IntEnum, auto
 
 from cereal import log
+from capnp import _DynamicStructReader, _DynamicStructBuilder
 from capnp.includes.schema_cpp cimport WordArray, WordArrayPtr
 from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
 
@@ -33,11 +34,15 @@ cdef class PyMsgVec:
     cdef MsgVec *c_msgvec
     config_dict: Dict
     config_json: bytes
+    possible_event_types: Set[str]
     
     def __cinit__(self, config_dict: Dict, timing_mode: PyMessageTimingMode):
         self.config_dict = config_dict
         self.config_json = json.dumps(config_dict).encode("utf-8")
         self.c_msgvec = new MsgVec(self.config_json, <MessageTimingMode><int>timing_mode)
+        self.possible_event_types = [name.decode("utf-8") for name in self.c_msgvec.get_possible_event_types()]
+
+        print("PyMsgVec.__cinit__(): possible_event_types = ", self.possible_event_types)
 
     def __dealloc__(self):
         del self.c_msgvec
@@ -48,8 +53,16 @@ cdef class PyMsgVec:
     def act_size(self):
         return self.c_msgvec.act_size()
 
-    def input(self, obs: bytes) -> bool:
-        return self.c_msgvec.input(obs)
+    def input(self, message: Union[_DynamicStructReader, _DynamicStructBuilder]):
+        if message.which() not in self.possible_event_types:
+            return {"msg_processed": False, "act_ready": False}
+
+        if isinstance(message, _DynamicStructReader):
+            return self.c_msgvec.input(message.as_builder().to_bytes())
+        elif isinstance(message, _DynamicStructBuilder):
+            return self.c_msgvec.input(message.to_bytes())
+        else:
+            raise TypeError("message must be a DynamicStructReader or DynamicStructBuilder")
 
     def input_vision(self, vision_vector: np.ndarray[float], frame_id: int):
         assert vision_vector.shape == (self.c_msgvec.vision_size(),)

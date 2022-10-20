@@ -37,7 +37,7 @@ class TestMsgVec(unittest.TestCase):
         with open(log_path, "rb") as f:
             events = log.Event.read_multiple(f)
             for evt in events:
-                msgvec.input(evt.as_builder().to_bytes())
+                msgvec.input(evt)
                 count += 1
 
         print(f"Processed {count} events in {time.perf_counter() - start} seconds")
@@ -183,7 +183,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = voltage
             event.voltage.type = "mainBattery"
 
-            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event))
 
             self.assertAlmostEqual(msgvec.get_obs_vector_raw()[0], vector, places=3)
 
@@ -239,7 +239,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.volts = 13.5
         event.voltage.type = "mainBattery"
 
-        self.assertTrue(msgvec.input(event.to_bytes()))
+        self.assertTrue(msgvec.input(event))
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [1.0, 2.0])
 
     def test_single_larger_index(self):
@@ -284,7 +284,7 @@ class TestMsgVec(unittest.TestCase):
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
 
-            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event))
             self.assertEqual(msgvec.get_obs_vector_raw().tolist(), expect)
 
     def test_multi_index(self):
@@ -352,13 +352,13 @@ class TestMsgVec(unittest.TestCase):
             event.init("voltage")
             event.voltage.volts = feed
             event.voltage.type = "mainBattery"
-            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event))
 
             event = log.Event.new_message()
             event.init("headFeedback")
             event.headFeedback.pitchAngle = feed
             event.headFeedback.yawAngle = feed 
-            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event))
 
             self.assertEqual(msgvec.get_obs_vector_raw().tolist(), expect)
 
@@ -424,7 +424,7 @@ class TestMsgVec(unittest.TestCase):
         event.init("voltage")
         event.voltage.volts = 15
         event.voltage.type = "mainBattery"
-        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+        self.assertMsgProcessed(msgvec.input(event))
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0, 1.0, 0.0, 40.0, 41.0, 42.0, 43.0, 44.0, 45.0, 46.0, 47.0, 48.0, 49.0])
 
@@ -490,7 +490,7 @@ class TestMsgVec(unittest.TestCase):
         event.init("voltage")
         event.voltage.volts = 15
         event.voltage.type = "mainBattery"
-        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+        self.assertMsgProcessed(msgvec.input(event))
 
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + list(range(40,50)) + list(range(10, 20)) + [0.0] * 10)
 
@@ -559,7 +559,7 @@ class TestMsgVec(unittest.TestCase):
         event.init("voltage")
         event.voltage.volts = 15
         event.voltage.type = "mainBattery"
-        self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+        self.assertMsgProcessed(msgvec.input(event))
 
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [0.0, 1.0, 0.0] + [0.0] * 10)
 
@@ -721,7 +721,7 @@ class TestMsgVec(unittest.TestCase):
             event = log.Event.new_message()
             event.init("headCommand")
             event.headCommand.yawAngle = msg
-            self.assertMsgProcessed(msgvec.input(event.to_bytes()))
+            self.assertMsgProcessed(msgvec.input(event))
             self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
             self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
 
@@ -731,7 +731,7 @@ class TestMsgVec(unittest.TestCase):
         event.voltage.volts = 13.5
         event.voltage.type = "mainBattery"
 
-        self.assertFalse(msgvec.input(event.to_bytes())["msg_processed"])
+        self.assertFalse(msgvec.input(event)["msg_processed"])
 
     def test_action_inverse(self):
         config = {"obs": [], "act": [
@@ -755,8 +755,8 @@ class TestMsgVec(unittest.TestCase):
             messages = msgvec_realtime.get_action_command(np.array([f], dtype=np.float32))
 
             self.assertEqual(len(messages), 1)
-            self.assertMsgProcessed(msgvec_replay.input(messages[0].as_builder().to_bytes()))
-            self.assertMsgProcessed(msgvec_realtime.input(messages[0].as_builder().to_bytes()))
+            self.assertMsgProcessed(msgvec_replay.input(messages[0]))
+            self.assertMsgProcessed(msgvec_realtime.input(messages[0]))
 
             self.assertAlmostEqual(msgvec_replay.get_act_vector()[0], min(max(f, -1), 1) , places=3)
 
@@ -849,7 +849,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("voltage")
         msg.voltage.volts = 13.5
         msg.voltage.type = "mainBattery"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
@@ -887,7 +887,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("voltage")
         msg.voltage.volts = 13.5
         msg.voltage.type = "mainBattery"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_PARTIALLY_READY)
@@ -900,7 +900,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("voltage")
         msg.voltage.volts = 13.5
         msg.voltage.type = "mainBattery"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_PARTIALLY_READY)
@@ -909,7 +909,7 @@ class TestMsgVec(unittest.TestCase):
             msg = new_message("voltage")
             msg.voltage.volts = 13.5
             msg.voltage.type = "mainBattery"
-            msgvec.input(msg.to_bytes())
+            msgvec.input(msg)
 
         timeout, vec = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
@@ -956,14 +956,14 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("voltage")
         msg.voltage.volts = 13.5
         msg.voltage.type = "mainBattery"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_NOT_READY)
 
         msg = new_message("odriveFeedback")
         msg.odriveFeedback.leftMotor.vel = 1.0
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         timeout, _ = msgvec.get_obs_vector()
         self.assertEqual(timeout, PyTimeoutResult.MESSAGES_ALL_READY)
@@ -987,7 +987,7 @@ class TestMsgVec(unittest.TestCase):
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(result, [])
@@ -996,7 +996,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.connectionState = "connected"
         msg.appControl.motionState = "manualControl"
         msg.appControl.linearXOverride = 1.0
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1012,7 +1012,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "manualControl"
         msg.appControl.linearXOverride = 1.0
         msg.appControl.angularZOverride = 1.0
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([], dtype=np.float32))
    
@@ -1031,7 +1031,7 @@ class TestMsgVec(unittest.TestCase):
         msg.appControl.motionState = "stopAllOutputs"
         msg.appControl.linearXOverride = 1.0
         msg.appControl.angularZOverride = 1.0
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1081,7 +1081,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.motionState = "stopAllOutputs"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1093,7 +1093,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "stopAllOutputs"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1108,7 +1108,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "suspendMajorMotion"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1123,7 +1123,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "suspendMajorMotion"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1139,7 +1139,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "suspendMajorMotion"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1197,7 +1197,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overridePositive"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
@@ -1207,7 +1207,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overrideNegative"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
@@ -1217,7 +1217,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.rewardState = "overrideNegative"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
@@ -1227,7 +1227,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overridePositive"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
@@ -1284,7 +1284,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overridePositive"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
@@ -1294,7 +1294,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overrideNegative"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
@@ -1304,7 +1304,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.rewardState = "overrideNegative"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
@@ -1314,21 +1314,21 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.rewardState = "overridePositive"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
 
         stale_msg = new_message("voltage")
         stale_msg.logMonoTime = msg.logMonoTime + 0.25 * 1e9
-        msgvec.input(stale_msg.to_bytes())
+        msgvec.input(stale_msg)
          
         valid, rew = msgvec.get_reward()
         self.assertTrue(valid)
 
         stale_msg = new_message("voltage")
         stale_msg.logMonoTime = msg.logMonoTime + 0.55 * 1e9
-        msgvec.input(stale_msg.to_bytes())
+        msgvec.input(stale_msg)
      
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
@@ -1380,7 +1380,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "noOverride"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 1)
@@ -1391,7 +1391,7 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "suspendMajorMotion"
-        msgvec.input(msg.to_bytes())
+        msgvec.input(msg)
 
         result = msgvec.get_action_command(np.array([-1.0, 1.0], dtype=np.float32))
         self.assertEqual(len(result), 2)
@@ -1442,24 +1442,24 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "stopAllOutputs"
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
         msg = new_message("headFeedback")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": False, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": False, "act_ready": False})
 
         msg = new_message("headCommand")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": True})
 
         msg = new_message("headCommand")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
         msg = new_message("voltage")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
         self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
 
         msg = new_message("headCommand")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": True})
 
     def test_input_ready_status_multimsg(self):
         config = {"obs":  [
@@ -1531,16 +1531,16 @@ class TestMsgVec(unittest.TestCase):
         msg = new_message("appControl")
         msg.appControl.connectionState = "notConnected"
         msg.appControl.motionState = "stopAllOutputs"
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
         msg = new_message("headFeedback")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": False, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": False, "act_ready": False})
 
         msg = new_message("headCommand")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": False})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
         msg = new_message("odriveCommand")
-        self.assertEqual(msgvec.input(msg.to_bytes()), {"msg_processed": True, "act_ready": True})
+        self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": True})
     
     def test_act_values_bounded(self):
         config = {"obs":  [], "act": [
@@ -1689,7 +1689,7 @@ class TestMsgVec(unittest.TestCase):
         with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-2fd2bf40-2022-10-10-23_14.log"), "rb") as f:
             events = log.Event.read_multiple(f)
             for evt in events:
-                result = msgvec.input(evt.as_builder().to_bytes())
+                result = msgvec.input(evt)
                 messages_since_last_inference.append(evt.which())
                
                 print(f"Result: {result} - {evt.which()}")

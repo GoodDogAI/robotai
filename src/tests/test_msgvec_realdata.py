@@ -139,7 +139,7 @@ class TestMsgVecRealData(unittest.TestCase):
         with open(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-7d8256e7-2022-10-15-20_12.log"), "rb") as f:
             events = log.Event.read_multiple(f)
             for evt in events:
-                result = msgvec.input(evt.as_builder().to_bytes())
+                result = msgvec.input(evt.as_builder())
                 messages_since_last_inference.append(evt.which())
                
                 if result["msg_processed"]:

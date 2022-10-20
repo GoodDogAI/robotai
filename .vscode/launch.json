@@ -8,6 +8,7 @@
             "name": "Python: Train Stable baselines",
             "type": "python",
             "request": "launch",
+            "justMyCode": false,
             "module": "src.train.stable_baselines_train",
         },
         {

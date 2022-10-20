@@ -118,8 +118,8 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 
 ## TODOs
 - Add custom reward modification to msgvec (ex. speed penalty or other such variants)
+- Bag2log conversion of other message types
 - Add obs/act verification messages
 - Add simplebgc accel/gyro
 - Add selecting which messages streams to show in the web viewer
 - Allow browsing depth vs vision frames
-- Bag2log conversion of other message types
