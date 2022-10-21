@@ -122,6 +122,23 @@ static std::pair<uint32_t, std::vector<int64_t>> get_queue_obs_len(const json &o
     return std::pair(queue_size, std::move(indices));
 }
 
+static std::string get_event_type(const std::string &dotted_path) {
+    auto dotPos = dotted_path.find('.');
+    if (dotPos == std::string::npos) {
+        return dotted_path;
+    }
+
+    return dotted_path.substr(0, dotPos);
+}
+
+static kj::Maybe<capnp::StructSchema::Field> get_event_which(const std::string &dotted_path) {
+    const std::string event_type {get_event_type(dotted_path)};
+    MessageBuilder msg;
+    capnp::DynamicStruct::Builder evt = msg.initEvent();
+    evt.init(event_type.c_str());
+    return evt.which();
+}
+
 MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode):
  m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0) {
 
@@ -140,6 +157,12 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
             m_obsHistory[obs_index] = std::deque<float>(queue_size, 0.0f);
             m_obsHistoryTimestamps[obs_index] = std::deque<uint64_t>(queue_size, 0);
             m_obsSize += indices.size();
+
+            KJ_IF_MAYBE(msgEnumerant, get_event_which(obs["path"])) {
+                obs["_msgEnumerant"] = msgEnumerant->getIndex();
+            } else {
+                throw std::domain_error("Unknown event type: " + obs["path"].get<std::string>());
+            } 
           
             verify_transform(obs["transform"]);
         }
@@ -173,6 +196,12 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
     for (auto &act: m_config["act"]) {
         if (act["type"] == "msg") {
             m_actSize += 1;
+
+            KJ_IF_MAYBE(msgEnumerant, get_event_which(act["path"])) {
+                act["_msgEnumerant"] = msgEnumerant->getIndex();
+            } else {
+                throw std::domain_error("Unknown event type: " + act["path"].get<std::string>());
+            } 
 
             verify_transform(act["transform"]);
         }
@@ -228,23 +257,16 @@ static void set_dotted_value(capnp::DynamicStruct::Builder &root, std::string do
     }
 }
 
-static std::string get_event_type(const std::string &dotted_path) {
-    auto dotPos = dotted_path.find('.');
-    if (dotPos == std::string::npos) {
-        return dotted_path;
-    }
-
-    return dotted_path.substr(0, dotPos);
-}
-
 static bool message_matches(const capnp::DynamicStruct::Reader &msg, const json &obs) {
-    const std::string &path = obs["path"];
-    std::string event_type {get_event_type(path)};
-
-    if (!msg.has(event_type)) {
+    KJ_IF_MAYBE(msgEnumerant, msg.which()) {
+        if (msgEnumerant->getIndex() != obs["_msgEnumerant"]) {
+            return false;
+        }
+    }
+    else {
         return false;
     }
- 
+
     if (!obs.contains("filter")) {
         return true;
     }
@@ -374,43 +396,6 @@ void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
 
     m_visionHistoryIds.push_front(frameId);
     m_visionHistoryIds.pop_back();
-}
-
-std::unordered_set<std::string> MsgVec::get_possible_event_types() const {
-    // It would be nicer if this return a set of ints, but for some reason the python bindings don't map the exact same values
-
-    // appcontrol messages are always parsed
-    std::unordered_set<std::string> possibleEventTypes { "appControl" };
-
-    for (auto &obs : m_config["obs"]) {
-        if (obs["type"] == "msg") {
-            const std::string event_type {get_event_type(obs["path"])};
-            MessageBuilder msg;
-            capnp::DynamicStruct::Builder evt = msg.initEvent();
-            evt.init(event_type.c_str());
-            KJ_IF_MAYBE(msgEnumerant, evt.which()) {
-                possibleEventTypes.insert(event_type);
-            } else {
-                throw std::domain_error("Unknown event type: " + event_type);
-            } 
-        }
-    }
-
-    for (auto &act : m_config["act"]) {
-        if (act["type"] == "msg") {
-            const std::string event_type {get_event_type(act["path"])};
-            MessageBuilder msg;
-            capnp::DynamicStruct::Builder evt = msg.initEvent();
-            evt.init(event_type.c_str());
-            KJ_IF_MAYBE(msgEnumerant, evt.which()) {
-                possibleEventTypes.insert(event_type);
-            } else {
-                throw std::domain_error("Unknown event type: " + event_type);
-            } 
-        }
-    }
-
-    return possibleEventTypes;
 }
 
 size_t MsgVec::obs_size() const {
@@ -551,7 +536,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
         head.setYawAngle(dis(gen));
     }
     else {
-        head.setPitchAngle(std::clamp(50.0f * linearX, -30.0f, 30.0f));
+        head.setPitchAngle(std::clamp(15.0f * linearX, -15.0f, 15.0f));
         head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
     }
     overrides.push_back(capnp::messageToFlatArray(headMsg));

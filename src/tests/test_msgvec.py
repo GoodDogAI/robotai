@@ -1035,7 +1035,7 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].which(), "headCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, -1.0)
         self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 1.0)
-        self.assertEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 15.0)
         self.assertEqual(result[1].headCommand.yawAngle, 0.0)
 
         msg = new_message("appControl")
@@ -1049,7 +1049,7 @@ class TestMsgVec(unittest.TestCase):
    
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0, places=3)
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityRight, 2.0, places=3)
-        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 0.0)
+        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 15.0)
         self.assertAlmostEqual(result[1].headCommand.yawAngle, -30.0)
 
         time.sleep(0.15)
