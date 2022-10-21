@@ -194,6 +194,37 @@ class TestMsgVec(unittest.TestCase):
         _sendAndAssert(-1000.0, -1.0)
         _sendAndAssert(1000.0, 1.0)
 
+    def test_input_reader(self):
+        config = {"obs": [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 13.5],
+                    "vec_range": [-1, 1],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        res = msgvec.input(event.as_reader())
+        print(res)
+
+
+
     def test_two_inputs_same_message(self):
         config = {"obs": [
             {

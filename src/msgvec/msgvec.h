@@ -46,6 +46,7 @@ class MsgVec {
         // Feeds in messages, will update internal state
         InputResult input(const std::vector<uint8_t> &bytes);
         InputResult input(const cereal::Event::Reader &evt);
+        InputResult input(const capnp::DynamicStruct::Reader &evt);
 
         // Feeds in current vision frame, for tracking intermediate states
         void input_vision(const float *visionIntermediate, const uint32_t frameId);

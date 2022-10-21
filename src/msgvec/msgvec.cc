@@ -317,14 +317,13 @@ MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
     return this->input(event);
 }
 
-MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
-    // Cast to a dynamic reader, so we can access the fields by name
-    capnp::DynamicStruct::Reader reader = evt;
-
+MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     // Iterate over each possible msg observation
     bool allActionsInitiallyReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
     bool processed = false;
     size_t obs_index = 0;
+
+    m_lastMsgLogMonoTime = reader.get("logMonoTime").as<uint64_t>();
 
     for (auto &obs : m_config["obs"]) {
         if (obs["type"] == "msg" && message_matches(reader, obs)) {
@@ -332,7 +331,7 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
             m_obsHistory[obs_index].push_front(transform_msg_to_vec(obs["transform"], rawValue));
             m_obsHistory[obs_index].pop_back();
 
-            m_obsHistoryTimestamps[obs_index].push_front(evt.getLogMonoTime());
+            m_obsHistoryTimestamps[obs_index].push_front(m_lastMsgLogMonoTime);
             m_obsHistoryTimestamps[obs_index].pop_back();
 
             processed = true;
@@ -358,14 +357,16 @@ MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
     bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
 
     // Handle the appcontrol messages as a special case, which can override actions
-    if (evt.which() == cereal::Event::APP_CONTROL) {
-        m_lastAppControlMsg.setRoot(reader.as<cereal::Event>());
+    if (reader.has("appControl")) {
+        m_lastAppControlMsg.setRoot(reader);
         processed = true;
     }
 
-    m_lastMsgLogMonoTime = evt.getLogMonoTime();
-
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
+}
+
+MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
+    return this->input(static_cast<capnp::DynamicStruct::Reader>(evt));
 }
 
 void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {

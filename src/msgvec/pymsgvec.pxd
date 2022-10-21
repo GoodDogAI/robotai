@@ -8,9 +8,11 @@ from libcpp cimport bool
 from libc.stdint cimport uint16_t, uint32_t
 
 from capnp.includes.schema_cpp cimport WordArray
-from capnp.includes.capnp_cpp cimport DynamicStruct, DynamicStruct_Builder
+from capnp.includes.capnp_cpp cimport DynamicStruct as C_DynamicStruct, DynamicStruct_Builder
 
 cdef extern from "msgvec.h":
+    cdef cppclass CerealEventReader "cereal::Event::Reader"
+
     cdef cppclass MsgVec:
         MsgVec(const string &jsonConfig, const MessageTimingMode timingMode) except +
         unordered_set[string] get_possible_event_types() except +
@@ -18,7 +20,7 @@ cdef extern from "msgvec.h":
         size_t act_size()
         size_t vision_size()
         
-        #InputResult input(const cereal::Event::Reader &evt) except +
+        InputResult input(const C_DynamicStruct.Reader &evt) except +
         InputResult input(const vector[uchar] &bytes) except +
 
         void input_vision(const float *visionIntermediate, const uint32_t frameId) except +

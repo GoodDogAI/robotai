@@ -13,12 +13,12 @@
           <option name="fileUrl" value="file://$PROJECT_DIR$/src/web/logservice.py" />
         </OpenedFileInfo>
         <OpenedFileInfo>
-          <option name="caretOffset" value="94" />
-          <option name="fileUrl" value="file://$PROJECT_DIR$/src/logutil.py" />
-        </OpenedFileInfo>
-        <OpenedFileInfo>
           <option name="caretOffset" value="0" />
           <option name="fileUrl" value="file://$PROJECT_DIR$/src/train/stable_baselines_train.py" />
+        </OpenedFileInfo>
+        <OpenedFileInfo>
+          <option name="caretOffset" value="94" />
+          <option name="fileUrl" value="file://$PROJECT_DIR$/src/logutil.py" />
         </OpenedFileInfo>
       </list>
     </option>
