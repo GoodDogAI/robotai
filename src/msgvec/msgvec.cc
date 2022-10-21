@@ -551,7 +551,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
         head.setYawAngle(dis(gen));
     }
     else {
-        head.setPitchAngle(std::clamp(100.0f * linearX, -30.0f, 30.0f));
+        head.setPitchAngle(std::clamp(50.0f * linearX, -30.0f, 30.0f));
         head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
     }
     overrides.push_back(capnp::messageToFlatArray(headMsg));
