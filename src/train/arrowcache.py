@@ -194,8 +194,7 @@ class ArrowRLDataset():
         last_reward_was_override = False
         continue_processing_group = True
         cur_packet = {}
-        avg_inp = []
-        
+
 
         for logfile in log_group:
             if not continue_processing_group:
@@ -207,12 +206,7 @@ class ArrowRLDataset():
 
                 # Get the actual events, starting with a keyframe, which we will need
                 for evt in events:
-                    start_evt = time.perf_counter_ns()
                     status = msgvec.input(evt.as_builder())
-                    input_evt = time.perf_counter_ns()
-                    avg_inp.append(input_evt - start_evt)
-
-                    #print(f"Input took {input_evt - start_evt}ns on {evt.which()}")
 
                     if status["act_ready"]:
                         cur_packet["act"] = msgvec.get_act_vector()
@@ -220,9 +214,6 @@ class ArrowRLDataset():
                         if "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
                             raw_data.append(cur_packet)
                             cur_packet = {}
-
-                        act_evt = time.perf_counter_ns()
-                        print(f"Act took {act_evt - input_evt} to process")
 
                     if evt.which() == "modelInference":
                         key = f"{logfile.get_runname()}-{evt.modelInference.frameId}"
@@ -253,11 +244,6 @@ class ArrowRLDataset():
                             cur_packet["done"] = True
 
                         last_reward_was_override = reward_valid
-                        inf_evt = time.perf_counter_ns()
-                        print(f"Inf took {inf_evt - input_evt} to process")
-
-                print(f"Avg input time {sum(avg_inp) / len(avg_inp)}")
-                    
 
 
         # The last packet is always done

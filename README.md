@@ -121,5 +121,11 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 - Bag2log conversion of other message types
 - Add obs/act verification messages
 - Add simplebgc accel/gyro
+- Add possibility of using previous video frames, with unit tests
+- MsgVec allow delay of rewards and punishments
+- MsgVec delta controls instead of absolute positions
 - Add selecting which messages streams to show in the web viewer
 - Allow browsing depth vs vision frames
+- Allow downloading audio frames
+- GPU Replay buffer
+- Downloading videos

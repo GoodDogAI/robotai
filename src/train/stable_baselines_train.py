@@ -34,6 +34,7 @@ if __name__ == "__main__":
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
+                target_entropy=1.0,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
  
     # Setup the logger
@@ -45,7 +46,6 @@ if __name__ == "__main__":
     samples_added = 0
       
     for entry in itertools.islice(cache.generate_samples(), buffer_size):
-        print(entry)
         buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         samples_added += 1
 
@@ -55,6 +55,11 @@ if __name__ == "__main__":
         model.train(gradient_steps=1000, batch_size=512)
         print("Trained 1000 steps")
         logger.dump(step=i)
+
+        # Each step, replace 50% of the replay buffer with new samples
+        for entry in itertools.islice(cache.generate_samples(), buffer_size // 2):
+            buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+            samples_added += 1
 
         if i % 20 == 0:
             model.save("/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip")
