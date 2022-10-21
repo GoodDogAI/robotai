@@ -310,11 +310,14 @@ static float transform_vec_to_msg(const json &transform, float vecValue) {
     }
 }
 
-
 MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
     capnp::FlatArrayMessageReader cmsg(kj::arrayPtr<capnp::word>((capnp::word *)bytes.data(), bytes.size() / sizeof(capnp::word)));
     auto event = cmsg.getRoot<cereal::Event>();
     return this->input(event);
+}
+
+MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
+    return this->input(static_cast<capnp::DynamicStruct::Reader>(evt));
 }
 
 MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
@@ -363,10 +366,6 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     }
 
     return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
-}
-
-MsgVec::InputResult MsgVec::input(const cereal::Event::Reader &evt) {
-    return this->input(static_cast<capnp::DynamicStruct::Reader>(evt));
 }
 
 void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
