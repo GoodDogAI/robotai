@@ -1,9 +1,8 @@
 import io
 import os
 import tempfile
-import time
+import av
 import hashlib
-import re
 import shutil
 import numpy as np
 
@@ -205,7 +204,7 @@ def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
-    with open(os.path.join(HOST_CONFIG.RECORD_DIR, logfile), "rb") as f:
+    with open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
         for i, evt in enumerate(events):
@@ -215,3 +214,30 @@ def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
                     return Response(content=packet, media_type="image/heic")
 
     raise HTTPException(status_code=500, detail="Unable to find thumbnail")
+
+@router.get("/{logfile}/video")
+def get_log_video(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with tempfile.NamedTemporaryFile(suffix=".mkv") as vf, \
+         open(os.path.join(lh.dir, logfile), "rb") as f:
+
+        output = av.open(vf.name, "w")
+        out_stream = output.add_stream("hevc", 15)
+        events = log.Event.read_multiple(f)
+        packet_index = 0
+
+        for i, evt in enumerate(events):
+            if evt.which() == "headEncodeData":
+                packet = av.Packet(evt.headEncodeData.data)
+                packet.stream = out_stream
+                packet.pts = packet_index / 15.0
+                packet.dts = packet_index / 15.0
+                packet_index += 1
+                output.mux(packet)
+
+        output.close()
+
+        vf.seek(0)
+        return Response(content=vf.read(), media_type="video/x-matroska", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  

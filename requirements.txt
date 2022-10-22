@@ -62,3 +62,6 @@ pytorch-lightning
 
 # For working with reinforcement learning
 stable-baselines3
+
+# For muxing/demuxing video streams
+av

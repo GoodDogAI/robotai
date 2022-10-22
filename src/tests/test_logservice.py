@@ -133,7 +133,15 @@ class LogServiceRealDataTests(unittest.TestCase):
 
         img = Image.open(io.BytesIO(resp.content))
         self.assertEqual(img.size, (1280, 720))
+
+    def test_read_video(self):
+        test_log = "alphalog-22c37d10-2022-9-16-21_21.log"
+
+        resp = self.client.get(f"/logs/{test_log}/video/")
+        self.assertEqual(resp.status_code, 200)
         
+        print("Length of video: ", len(resp.content))
+        self.assertGreater(len(resp.content), 150_000_000)
 
 
 if __name__ == '__main__':
