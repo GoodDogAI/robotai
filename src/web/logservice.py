@@ -1,7 +1,7 @@
 import io
 import os
+import subprocess
 import tempfile
-import av
 import hashlib
 import shutil
 import numpy as np
@@ -10,14 +10,13 @@ from typing import List
 
 from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, FileResponse, Response
 
 from PIL import Image, ImageDraw, ImageFont
 from einops import rearrange
 
 from cereal import log
-from src.config import HOST_CONFIG
-from src.config.config import MODEL_CONFIGS
+from src.config import HOST_CONFIG, MODEL_CONFIGS, DEVICE_CONFIG
 from src.train.modelloader import load_vision_model
 from src.utils.draw_bboxes import draw_bboxes_pil
 
@@ -220,24 +219,19 @@ def get_log_video(logfile: str, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
-    with tempfile.NamedTemporaryFile(suffix=".mkv") as vf, \
-         open(os.path.join(lh.dir, logfile), "rb") as f:
 
-        output = av.open(vf.name, "w")
-        out_stream = output.add_stream("hevc", 15)
+    with tempfile.TemporaryDirectory() as td, open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
-        packet_index = 0
 
-        for i, evt in enumerate(events):
-            if evt.which() == "headEncodeData":
-                packet = av.Packet(evt.headEncodeData.data)
-                packet.stream = out_stream
-                packet.pts = packet_index / 15.0
-                packet.dts = packet_index / 15.0
-                packet_index += 1
-                output.mux(packet)
+        # Read raw frame data into a file, creating a so called "annexb" file
+        with open(os.path.join(td, "frames.hevc"), "wb") as vf:
+            for i, evt in enumerate(events):
+                if evt.which() == "headEncodeData":
+                    vf.write(evt.headEncodeData.data)
 
-        output.close()
+        # Convert that to a containerized video file by remuxing with ffmpeg
+        # This is a bit of a hack, but it works
+        subprocess.run(["ffmpeg", "-y", "-r", str(DEVICE_CONFIG.CAMERA_FPS), "-i", os.path.join(td, "frames.hevc"), "-map", "0", "-c", "copy", os.path.join(td, f"{logfile}.mp4")], check=True, stdout=subprocess.PIPE)
 
-        vf.seek(0)
-        return Response(content=vf.read(), media_type="video/x-matroska", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
+        with open(os.path.join(td, f"{logfile}.mp4"), "rb") as vf:
+            return Response(content=vf.read(), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
