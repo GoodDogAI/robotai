@@ -23,7 +23,8 @@ class TestArrowRLCache(unittest.TestCase):
         cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
         last_override = False
-        for entry in itertools.islice(cache.generate_samples(), 10000):
+        # We set shuffle_within_group to False so that we can see each log's samples linearly, and make sure that various flags and overrides are set correctly
+        for entry in itertools.islice(cache.generate_samples(shuffle_within_group=False), 10000):
             if entry["reward_override"]:
                 print(entry["reward_override"], entry["reward"], entry["done"])
 
@@ -32,7 +33,7 @@ class TestArrowRLCache(unittest.TestCase):
                 
             last_override = entry["reward_override"]
 
-        samples = list(itertools.islice(cache.generate_samples(), 100))
+        samples = list(itertools.islice(cache.generate_samples(shuffle_within_group=False), 100))
 
         for index, sample in enumerate(samples[:-1]):
             np.testing.assert_array_almost_equal(sample["next_obs"], samples[index + 1]["obs"])
@@ -156,7 +157,7 @@ class TestArrowRLCache(unittest.TestCase):
 
         last_override = False
         last_done = None
-        for entry in cache.generate_samples():
+        for entry in cache.generate_samples(shuffle_within_group=False):
             if entry["reward_override"]:
                 print(entry["reward_override"], entry["reward"], entry["done"])
 

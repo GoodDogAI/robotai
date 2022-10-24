@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 from cereal import log
 import src.PyNvCodec as nvc
 import src.PytorchNvCodec as pnvc
@@ -184,7 +184,7 @@ class ArrowRLDataset():
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
 
-    def _generate_log_group(self, log_group):
+    def _generate_log_group(self, log_group: List[LogSummary], shuffle_within_group: bool = True):
         msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REPLAY)
 
         assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
@@ -268,14 +268,19 @@ class ArrowRLDataset():
 
             final_data.append(data)
 
+        if shuffle_within_group:
+            random.shuffle(final_data)
+
         # Once you process a whole group, you can yield the results
         yield from final_data        
 
-    def generate_samples(self):
+    def generate_samples(self, shuffle_groups: bool = True, shuffle_within_group: bool = True):
         # Each grouped log is handled separately, but the root-level groups are shuffled
         groups = self.lh.group_logs()
-        random.shuffle(groups)
+
+        if shuffle_groups:
+            random.shuffle(groups)
 
         for group in groups:
-            yield from self._generate_log_group(group)
+            yield from self._generate_log_group(group, shuffle_within_group)
                         
