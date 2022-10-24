@@ -1,4 +1,5 @@
 import os
+import time
 import tempfile
 import numpy as np
 import unittest
@@ -37,6 +38,27 @@ class TestArrowRLCache(unittest.TestCase):
 
         for index, sample in enumerate(samples[:-1]):
             np.testing.assert_array_almost_equal(sample["next_obs"], samples[index + 1]["obs"])
+
+    def test_current_config_timing(self):
+        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+
+        # cache.vision_cache = MagicMock()
+        # cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+        # cache.reward_cache = MagicMock()
+        # cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+        counter = 0
+        for entry in cache.generate_samples():
+            counter += 1
+
+        # Read it twice to make sure the cache is warmed up
+        start = time.perf_counter()
+        counter = 0
+        for entry in cache.generate_samples():
+            counter += 1
+        end = time.perf_counter()
+
+        print(f"Time to generate {counter} samples: {end - start}")
+        print(f"Samples per second: {counter / (end - start)}")
 
     def test_on_reward_override_done(self):
         brain_config = {

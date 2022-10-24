@@ -30,6 +30,7 @@ class HostReplayBuffer(ReplayBuffer):
 
         self.device_cache_ready = False
         assert handle_timeout_termination == False, "Timeouts not supported"
+        assert optimize_memory_usage == False, "Optimize memory usage not supported"
 
     def add(self, obs: np.ndarray, next_obs: np.ndarray, action: np.ndarray, reward: np.ndarray, done: np.ndarray, infos: List[Dict[str, Any]]) -> None:
         self.device_cache_ready = False
@@ -52,12 +53,10 @@ class HostReplayBuffer(ReplayBuffer):
         batch_inds = torch.randint(0, upper_bound, size=(batch_size,), device=self.device)
         env_indices = torch.randint(0, high=self.n_envs, size=(len(batch_inds),), device=self.device)
 
-
-        next_obs = self._normalize_obs(self.device_next_observations[batch_inds, env_indices, :], env)
         data = (
             self._normalize_obs(self.device_observations[batch_inds, env_indices, :], env),
             self.device_actions[batch_inds, env_indices, :],
-            next_obs,
+            self._normalize_obs(self.device_next_observations[batch_inds, env_indices, :], env),
             self.device_dones[batch_inds, env_indices].reshape(-1, 1),
             self._normalize_reward(self.device_rewards[batch_inds, env_indices].reshape(-1, 1), env),
         )

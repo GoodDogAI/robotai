@@ -72,9 +72,12 @@ cdef class PyMsgVec:
         self.c_msgvec.input_vision(&vision_buf[0], frame_id)
 
     def get_obs_vector(self) -> Tuple[PyTimeoutResult, np.ndarray[float]]:
-        cdef vector[float] obs_vector = vector[float](self.c_msgvec.obs_size())
-        timeout_res = self.c_msgvec.get_obs_vector(obs_vector.data())
-        return PyTimeoutResult(timeout_res), np.array(obs_vector, dtype=np.float32)
+        obs_vector = np.zeros(self.c_msgvec.obs_size(), dtype=np.float32)
+        assert self.c_msgvec.obs_size() > 0, "Python interface only supports obs vector sizes greater than zero"
+
+        cdef cnp.float32_t[::1] obs_vector_buf = np.ascontiguousarray(obs_vector, dtype=np.float32)
+        timeout_res = self.c_msgvec.get_obs_vector(&obs_vector_buf[0])
+        return PyTimeoutResult(timeout_res), obs_vector
 
     # Same as get_obs_vector but doesn't return the timeout info
     def get_obs_vector_raw(self) -> np.ndarray[float]:

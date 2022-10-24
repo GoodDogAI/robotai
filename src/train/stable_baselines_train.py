@@ -33,7 +33,7 @@ if __name__ == "__main__":
     cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
       
-    buffer_size = 50_000
+    buffer_size = 100_000
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 

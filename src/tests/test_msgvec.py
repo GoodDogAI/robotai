@@ -614,6 +614,11 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(msgvec.act_size(), 1)
 
+        # Small test case, we don't support querying a zero size obs vector
+        self.assertEqual(msgvec.obs_size(), 0)
+        with self.assertRaises(AssertionError):
+            msgvec.get_obs_vector()
+
         for i in range(1000):
             result = msgvec.get_action_command(np.array([i], dtype=np.float32))
 
