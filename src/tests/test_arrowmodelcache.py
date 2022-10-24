@@ -51,6 +51,11 @@ class TestArrowRLCache(unittest.TestCase):
             counter += 1
 
         # Read it twice to make sure the cache is warmed up
+        # counter = 0
+        # for entry in cache.generate_samples():
+        #     counter += 1
+
+
         start = time.perf_counter()
         counter = 0
         for entry in cache.generate_samples():

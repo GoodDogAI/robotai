@@ -4,6 +4,7 @@ import pyarrow
 import time
 import random
 import functools
+import multiprocessing
 import pandas as pd
 import numpy as np
 
@@ -183,7 +184,7 @@ class ArrowRLDataset():
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
 
-    def _generate_log_group(self, log_group: List[LogSummary], shuffle_within_group: bool = True):
+    def _generate_log_group(self, log_group: List[LogSummary], shuffle_within_group: bool = True): 
         msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REPLAY)
 
         assert self.brain_config["msgvec"]["done"]["mode"] == "on_reward_override"
@@ -281,4 +282,10 @@ class ArrowRLDataset():
 
         for group in groups:
             yield from self._generate_log_group(group, shuffle_within_group)
+
+        # You could enable multiprocessing, but the memory usage is very high unfortunately
+        # pool = multiprocessing.Pool()
+
+        # for grp_result in pool.imap(functools.partial(self._generate_log_group, shuffle_within_group=shuffle_within_group), groups, chunksize=1):
+        #     yield from grp_result
                         
