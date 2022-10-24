@@ -87,6 +87,8 @@ class MsgVec {
 
         // Needs to be a MallocMessageBuilder so that it keeps its own copy of the message
         capnp::MallocMessageBuilder m_lastAppControlMsg;
+        uint64_t m_lastRewardOverrideMonoTime;
+        float m_lastRewardOverride;
 
         // Returns action vector output given the last app control message
         std::vector<kj::Array<capnp::word>> _get_appcontrol_overrides();

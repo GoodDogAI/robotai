@@ -140,7 +140,7 @@ static kj::Maybe<capnp::StructSchema::Field> get_event_which(const std::string &
 }
 
 MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode):
- m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0) {
+ m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0), m_lastRewardOverride(0.0), m_lastRewardOverrideMonoTime(0) {
 
     if (!m_config.contains("obs") || !m_config.contains("act")) {
         throw std::runtime_error("Must have obs and act sections");
@@ -384,6 +384,17 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     // Handle the appcontrol messages as a special case, which can override actions
     if (reader.has("appControl")) {
         m_lastAppControlMsg.setRoot(reader);
+        auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+        if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE) {
+            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9;
+            m_lastRewardOverride = m_config["rew"]["override"]["positive_reward"].get<float>();
+        }
+        else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE) {
+            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9;
+            m_lastRewardOverride = m_config["rew"]["override"]["negative_reward"].get<float>();
+        }
+
         processed = true;
     }
 
@@ -484,14 +495,8 @@ bool MsgVec::get_reward(float *reward) {
         return false;
     }
 
-    if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE &&
-        _get_msgvec_log_mono_time() <= appCtrl.getLogMonoTime() + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9) {
-        *reward = m_config["rew"]["override"]["positive_reward"].get<float>();
-        return true;
-    }
-    else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE &&
-        _get_msgvec_log_mono_time() <= appCtrl.getLogMonoTime() + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9) {
-        *reward = m_config["rew"]["override"]["negative_reward"].get<float>();
+    if (_get_msgvec_log_mono_time() <= m_lastRewardOverrideMonoTime) {
+        *reward = m_lastRewardOverride;
         return true;
     }
 

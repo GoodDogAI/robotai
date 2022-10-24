@@ -18,8 +18,15 @@ class TestArrowRLCache(unittest.TestCase):
     def test_basic(self):
         cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
+        last_override = False
         for entry in itertools.islice(cache.generate_samples(), 10000):
-            print(entry)
+            if entry["reward_override"]:
+                print(entry["reward_override"], entry["reward"], entry["done"])
+
+            if not entry["reward_override"] and last_override:
+                print("------------------")
+                
+            last_override = entry["reward_override"]
 
         samples = list(itertools.islice(cache.generate_samples(), 100))
 

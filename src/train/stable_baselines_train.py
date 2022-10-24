@@ -29,6 +29,7 @@ if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
     cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
+    log_dir = "/home/jake/robotai/_sb3_logs/"
       
     buffer_size = 50_000
 
@@ -37,8 +38,16 @@ if __name__ == "__main__":
                 target_entropy=1.0,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
  
+    run_name = None
+
+    # If run_name is not set, just create the next highest run1, run2, etc.. in the folder
+    if run_name is None:
+        run_name = "run1"
+        while os.path.exists(os.path.join(log_dir, run_name)):
+            run_name = "run" + str(int(run_name[3:]) + 1)
+
     # Setup the logger
-    logger = configure("/home/jake/robotai/_sb3_logs", ["stdout", "tensorboard"])
+    logger = configure(os.path.join(log_dir, run_name), ["stdout", "tensorboard"])
     model.set_logger(logger)
 
     # Fill the replay buffer

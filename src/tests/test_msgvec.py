@@ -1035,7 +1035,7 @@ class TestMsgVec(unittest.TestCase):
         self.assertEqual(result[1].which(), "headCommand")
         self.assertEqual(result[0].odriveCommand.desiredVelocityLeft, -1.0)
         self.assertEqual(result[0].odriveCommand.desiredVelocityRight, 1.0)
-        self.assertEqual(result[1].headCommand.pitchAngle, 15.0)
+        self.assertEqual(result[1].headCommand.pitchAngle, 5.0)
         self.assertEqual(result[1].headCommand.yawAngle, 0.0)
 
         msg = new_message("appControl")
@@ -1049,7 +1049,7 @@ class TestMsgVec(unittest.TestCase):
    
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityLeft, 0.0, places=3)
         self.assertAlmostEqual(result[0].odriveCommand.desiredVelocityRight, 2.0, places=3)
-        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 15.0)
+        self.assertAlmostEqual(result[1].headCommand.pitchAngle, 5.0)
         self.assertAlmostEqual(result[1].headCommand.yawAngle, -30.0)
 
         time.sleep(0.15)
@@ -1363,6 +1363,145 @@ class TestMsgVec(unittest.TestCase):
      
         valid, rew = msgvec.get_reward()
         self.assertFalse(valid)
+
+    def test_appcontrol_override_reward_multimessages(self):
+        # This test covers the case when you are live-controlling the robot, and so appcontrol messages
+        # might be coming in every 100ms. But, occasionally, you may want to override the reward, and that
+        # override may be for 2000ms. We used to have a bug where the override would be applied for only
+        # the last message.
+        config = {"obs": [], "act": [
+            {
+                "type": "msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+            {
+                "type": "msg",
+                "path": "odriveCommand.desiredVelocityRight",
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-3, 3],
+                },
+            },
+        ],  
+        "appcontrol": {
+            "mode": "steering_override_v1",
+            "timeout": 0.125,
+        },
+        "rew": {
+            "override": {
+                "positive_reward": 3.0,
+                "positive_reward_timeout": 2.00,
+
+                "negative_reward": -12.0,
+                "negative_reward_timeout": 3.00,
+            }
+        },}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        # No override, no reward
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "noOverride"
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+        posmsg = new_message("appControl")
+        posmsg.appControl.connectionState = "connected"
+        posmsg.appControl.rewardState = "overridePositive"
+        posmsg.appControl.motionState = "manualControl"
+        msgvec.input(posmsg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = posmsg.logMonoTime + 0.5 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = posmsg.logMonoTime + 1.9 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = posmsg.logMonoTime + 2.01 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
+        negmsg = new_message("appControl")
+        negmsg.appControl.connectionState = "connected"
+        negmsg.appControl.rewardState = "overrideNegative"
+        negmsg.appControl.motionState = "manualControl"
+        msgvec.input(negmsg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = negmsg.logMonoTime + 0.5 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = negmsg.logMonoTime + 1.9 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = negmsg.logMonoTime + 2.01 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertTrue(valid)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.rewardState = "noOverride"
+        msg.appControl.motionState = "manualControl"
+        msg.logMonoTime = negmsg.logMonoTime + 3.01 * 1e9
+        msgvec.input(msg)
+        valid, rew = msgvec.get_reward()
+        self.assertFalse(valid)
+
 
     def test_appcontrol_disconnected(self):
         config = {"obs": [], "act": [

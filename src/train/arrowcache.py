@@ -230,12 +230,14 @@ class ArrowRLDataset():
 
                         if reward_valid:
                             cur_packet["reward"] = reward_value
+                            cur_packet["reward_override"] = True
                         else:
                             reward = self.reward_cache.get(key, None)
                             if reward is None:
                                 continue_processing_group = False
                                 break
                             cur_packet["reward"] = reward
+                            cur_packet["reward_override"] = False
 
                         cur_packet["key"] = key
                         cur_packet["done"] = False
