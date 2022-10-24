@@ -32,13 +32,13 @@ class HostReplayBuffer(ReplayBuffer):
         assert handle_timeout_termination == False, "Timeouts not supported"
 
     def add(self, obs: np.ndarray, next_obs: np.ndarray, action: np.ndarray, reward: np.ndarray, done: np.ndarray, infos: List[Dict[str, Any]]) -> None:
+        self.device_cache_ready = False
         return super().add(obs, next_obs, action, reward, done, infos)
-        self.device_cache_ready = False
-
+        
     def reset(self) -> None:
-        return super().reset()
         self.device_cache_ready = False
-
+        return super().reset()
+        
     def sample(self, batch_size: int, env: Optional[VecNormalize] = None) -> ReplayBufferSamples:
         if not self.device_cache_ready:
             self.device_observations = torch.from_numpy(self.observations).to(self.device)
