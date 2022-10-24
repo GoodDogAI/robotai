@@ -228,6 +228,9 @@ class ArrowRLDataset():
                         timeout, cur_packet["obs"] = msgvec.get_obs_vector()
                         reward_valid, reward_value = msgvec.get_reward()
 
+                        if timeout == PyTimeoutResult.MESSAGES_NOT_READY:
+                            continue
+
                         if reward_valid:
                             cur_packet["reward"] = reward_value
                             cur_packet["reward_override"] = True
