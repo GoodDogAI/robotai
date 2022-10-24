@@ -167,10 +167,9 @@ class TestArrowRLCache(unittest.TestCase):
             last_override = entry["reward_override"]
             last_done = entry["done"]
 
-
-    # Test that you wait for the obs vectors to populate, though this is somewhat helped by waiting for the first inference
-    def test_wait_for_obs(self):
-        brain_config = {
+class ManualTestArrowRLCache(unittest.TestCase):
+    def setUp(self) -> None:
+        self. brain_config = {
             "type": "brain",
 
             "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip",
@@ -247,9 +246,10 @@ class TestArrowRLCache(unittest.TestCase):
                 }
             }
         }
-        
+
+    def test_single_observation(self):
         with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
-            cache = ArrowRLDataset(td, brain_config)
+            cache = ArrowRLDataset(td, self.brain_config)
             cache.vision_cache = MagicMock()
             cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
             cache.reward_cache = MagicMock()
@@ -286,5 +286,46 @@ class TestArrowRLCache(unittest.TestCase):
             self.assertEqual(len(samples), 1)
 
             self.assertTrue(samples[0]["done"])
+            
+
+    # Test that you wait for the obs vectors to populate, though this is somewhat helped by waiting for the first inference
+    def test_wait_for_obs(self):
+        with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
+            cache = ArrowRLDataset(td, self.brain_config)
+            cache.vision_cache = MagicMock()
+            cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+            cache.reward_cache = MagicMock()
+            cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+
+            # Messages get ready
+            msg = new_message("odriveFeedback")
+            msg.write(f)
+
+            # Not sending any headback, so no samples should be generated            
+            # msg = new_message("headFeedback")
+            # msg.write(f)
+            
+            # Inference occurs
+            msg = new_message("modelInference")
+            msg.write(f)
+
+            f.flush()
+            self.assertEqual(list(cache.generate_samples()), [])
+
+            # Action vector gets written out
+            msg = new_message("odriveCommand")
+            msg.write(f)
+            
+            # Still blank because you need two datapoints to make a valid log
+            f.flush()
+            self.assertEqual(list(cache.generate_samples()), [])
+
+            msg = new_message("modelInference")
+            msg.write(f)
+            msg = new_message("odriveCommand")
+            msg.write(f)
+
+            samples = list(cache.generate_samples())
+            self.assertEqual(len(samples), 0)
             
     
