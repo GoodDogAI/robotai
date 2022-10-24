@@ -144,7 +144,6 @@ class ArrowModelCache():
     
     @functools.lru_cache(maxsize=16)
     def get_dataframe(self, run_name: str):
-        print("Loading dataframe", run_name)
         bag_cache_name = self.get_cache_path(run_name)
         source = pyarrow.memory_map(bag_cache_name, "r")
         table = pyarrow.ipc.RecordBatchFileReader(source).read_all()
@@ -201,7 +200,6 @@ class ArrowRLDataset():
                 break
 
             with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
-                print("Processing", logfile.filename)
                 events = log.Event.read_multiple(f)
 
                 # Get the actual events, starting with a keyframe, which we will need

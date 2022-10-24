@@ -7,6 +7,7 @@ import itertools
 import numpy as np
 
 from gym import spaces
+from tqdm import tqdm
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure
@@ -16,6 +17,7 @@ from wandb.integration.sb3 import WandbCallback
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.train.arrowcache import ArrowRLDataset
+from src.train.stable_baselines_buffers import HostReplayBuffer
 
 class MsgVecEnv(gym.Env):
     def __init__(self, msgvec) -> None:
@@ -36,6 +38,7 @@ if __name__ == "__main__":
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 target_entropy=1.0,
+                replay_buffer_class=HostReplayBuffer,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
  
     run_name = None
@@ -54,7 +57,7 @@ if __name__ == "__main__":
     buffer = model.replay_buffer
     samples_added = 0
       
-    for entry in itertools.islice(cache.generate_samples(), buffer_size):
+    for entry in tqdm(itertools.islice(cache.generate_samples(), buffer_size), desc="Replay buffer", total=buffer_size):
         buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         samples_added += 1
 
@@ -66,7 +69,7 @@ if __name__ == "__main__":
         logger.dump(step=i)
 
         # Each step, replace 50% of the replay buffer with new samples
-        for entry in itertools.islice(cache.generate_samples(), buffer_size // 2):
+        for entry in tqdm(itertools.islice(cache.generate_samples(), buffer_size // 2), desc="Refill buffer", total=buffer_size // 2):
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
 
