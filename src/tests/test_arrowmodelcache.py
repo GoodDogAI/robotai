@@ -17,7 +17,7 @@ class TestArrowModelCache(unittest.TestCase):
 class TestArrowRLCache(unittest.TestCase):
     def test_basic(self):
         cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
-        
+
         for entry in itertools.islice(cache.generate_samples(), 10000):
             print(entry)
 
