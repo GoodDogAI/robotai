@@ -2,7 +2,7 @@ import os
 import gym
 import tempfile
 import torch
-import wandb
+import glob
 import itertools
 import numpy as np
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
       
-    buffer_size = 100_000
+    buffer_size = 50_000
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
@@ -45,9 +45,9 @@ if __name__ == "__main__":
 
     # If run_name is not set, just create the next highest run1, run2, etc.. in the folder
     if run_name is None:
-        run_name = "run1"
-        while os.path.exists(os.path.join(log_dir, run_name)):
-            run_name = "run" + str(int(run_name[3:]) + 1)
+        rundirs = glob.glob(os.path.join(log_dir, "run*"))
+        max_run = max([int(os.path.basename(d).replace("run", "")) for d in rundirs])
+        run_name = f"run{max_run + 1}"
 
     # Setup the logger
     logger = configure(os.path.join(log_dir, run_name), ["stdout", "tensorboard"])
@@ -74,5 +74,5 @@ if __name__ == "__main__":
             samples_added += 1
 
         if i % 20 == 0:
-            model.save("/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip")
+            model.save(f"/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-{run_name}.zip")
             print("Model saved")
