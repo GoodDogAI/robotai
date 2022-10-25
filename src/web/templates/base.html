@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+    <meta charset="utf-8"/>
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    <meta
+            name="description"
+            content="Site created to view logs on robot"
+    />
+    <title>RobotAI - {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="/static/main.css">
+    {% endblock %}
+</head>
+<body>
+<noscript>You need to enable JavaScript to run this app.</noscript>
+<h1>Robot AI Log Browser</h1>
+
+<div class="pageContainer">
+{% block page %}
+{% endblock %}
+</div>
+</body>
+</html>

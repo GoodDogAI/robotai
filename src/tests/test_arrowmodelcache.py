@@ -30,7 +30,7 @@ class TestArrowRLCache(unittest.TestCase):
                 print(entry["reward_override"], entry["reward"], entry["done"])
 
             if not entry["reward_override"] and last_override:
-                self.assertTrue
+                self.assertTrue(entry["done"])
                 
             last_override = entry["reward_override"]
 

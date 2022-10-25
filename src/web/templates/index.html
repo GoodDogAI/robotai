@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block page %}
+<ul>
+    {% for group in log_groups %}
+        <li>{{ group[0].filename }}</li>
+    {% endfor %}
+</ul>
+<div class="padding"></div>
+Timeline
+<div class="padding"></div>
+{% endblock %}

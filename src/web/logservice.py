@@ -120,6 +120,37 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
     return JSONResponse(jsonable_encoder(result,
                         custom_encoder={bytes: lambda data_obj: None}))
 
+
+@router.get("/{logfile}/entry/{index}")
+async def get_log(logfile: str, index: int, lh: LogHashes = Depends(get_loghashes)) -> JSONResponse:
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with open(os.path.join(lh.dir, logfile), "rb") as f:
+        events = log.Event.read_multiple(f)
+
+        for i, evt in enumerate(events):
+            if i == index:
+                data = evt.to_dict()
+
+                # Cut out some hard datafields in certain message types that would
+                # otherwise make for huge downloads
+                which = evt.which()
+                if which == "micData":
+                    del data["micData"]["data"]
+                elif which == "modelValidation":
+                    del data["modelValidation"]["data"]
+
+                # Add in some sizing metadata
+                data["_total_size_bytes"] = evt.total_size.word_count * 8
+                result = data
+
+    # Don't try to encode raw data fields in the json,
+    # it will just get interpreted as utf-8 text and you will have a bad time
+    return JSONResponse(jsonable_encoder(result,
+                                         custom_encoder={bytes: lambda data_obj: None}))
+
+
 @router.get("/{logfile}/frame/{frameid}")
 def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
