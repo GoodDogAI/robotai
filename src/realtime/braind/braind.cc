@@ -195,17 +195,27 @@ int main(int argc, char *argv[])
 
   // Make sure the vision engine inputs and outputs are setup as we expect them
   if (vision_engine->get_tensor_dtype("y") != nvinfer1::DataType::kFLOAT) {
-    throw std::runtime_error("Vision model output tensor y is not of type float");
+    throw std::runtime_error("Vision model input tensor y is not of type float");
   }
   if (vision_engine->get_tensor_dtype("uv") != nvinfer1::DataType::kFLOAT) {
-    throw std::runtime_error("Vision model output tensor y is not of type float");
+    throw std::runtime_error("Vision model input tensor y is not of type float");
   }
   if (vision_engine->get_tensor_shape("y") != std::vector{1, 1, CAMERA_HEIGHT, CAMERA_WIDTH}) {
-    throw std::runtime_error("Vision model output tensor y is not of expected size");
+    throw std::runtime_error("Vision model input tensor y is not of expected size");
   }
   if (vision_engine->get_tensor_shape("uv") != std::vector{1, 1, CAMERA_HEIGHT / 2, CAMERA_WIDTH}) {
-    throw std::runtime_error("Vision model output tensor y is not of expected size");
+    throw std::runtime_error("Vision model input tensor y is not of expected size");
   }
+  if (vision_engine->get_tensor_shape("intermediate") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->vision_size())}) {
+    throw std::runtime_error("Vision model output tensor does not match msgvec size");
+  }
+  if (brain_engine->get_tensor_shape("observation") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->obs_size())}) {
+    throw std::runtime_error("Brain model input tensor observation does not match msgvec obs_size");
+  }
+  if (brain_engine->get_tensor_shape("action") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->act_size())}) {
+    throw std::runtime_error("Brain model action tensor size does not match msgvec act_size");
+  }
+
 
   // Connect to the visionipc server
   while (!do_exit) {
