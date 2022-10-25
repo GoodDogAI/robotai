@@ -127,5 +127,4 @@ https://docs.microsoft.com/en-us/windows-hardware/drivers/display/yuv-format-ran
 - Add selecting which messages streams to show in the web viewer
 - Allow browsing depth vs vision frames
 - Allow downloading audio frames
-- GPU Replay buffer
 - Downloading videos

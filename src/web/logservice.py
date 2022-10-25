@@ -100,20 +100,15 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
     with open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
-        for evt in events:
-            data = evt.to_dict()
-            
-            # Cut out some hard datafields in certain message types that would
-            # otherwise make for huge downloads
+        for index, evt in enumerate(events):
             which = evt.which()
-            if which == "micData":
-                del data["micData"]["data"]
-            elif which == "modelValidation":
-                del data["modelValidation"]["data"]
 
             # Add in some sizing metadata
-            data["_total_size_bytes"] = evt.total_size.word_count * 8
-            result.append(data)
+            result.append({
+                "index": index,
+                "which": which,
+                "total_size_bytes": evt.total_size.word_count * 8
+            })
 
     # Don't try to encode raw data fields in the json,
     # it will just get interpreted as utf-8 text and you will have a bad time

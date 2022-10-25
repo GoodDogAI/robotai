@@ -34,6 +34,7 @@
                     console.log(e);
                     console.log(data);
                     //e.target.closest("td.jsondata").innerText = data;
+                    document.querySelectorAll("pre.jsondata").forEach(e => e.innerHTML = null)
                     e.target.closest("tr").querySelector("pre.jsondata").innerHTML = JSON.stringify(data, null, 2);
                 }
 

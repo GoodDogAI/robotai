@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "react-query";
-import {
-    createColumnHelper,
-    flexRender,
-    getCoreRowModel,
-    useReactTable,
-  } from '@tanstack/react-table'
+import { FixedSizeList as List } from 'react-window';
 
 import axios from "axios";
 
@@ -51,33 +46,7 @@ export function LogTimeline(props) {
         setLogIndex(0);
     }, [logName]);
 
-    const columnHelper = createColumnHelper();
-    const columns = [
-        columnHelper.accessor('index', {
-            accessorFn: (row, index) => index,
-        }),
-        columnHelper.accessor('which', {
-            header: () => <span>type</span>,
-            accessorFn: (row, index) => getMessageType(row),
-        }),
-        columnHelper.accessor('size', {
-            header: () => <span>size</span>,
-            accessorFn: (row, index) => formatSize(row["_total_size_bytes"]),
-        }),
-        columnHelper.accessor('json', {
-            accessorFn: (row, index) => JSON.stringify(row, null, 2),
-            cell: info => {
-                if (info.row.index === logIndex) 
-                    return (<pre className="messageData">{info.getValue()}</pre>)
-            }
-        }),
-    ];
 
-    const table = useReactTable({
-        data,
-        columns,
-        getCoreRowModel: getCoreRowModel(),
-    })
 
 
     if (!logName) {
@@ -103,7 +72,14 @@ export function LogTimeline(props) {
         }
     }
 
-  
+    const Row = ({ index, style }) => (
+    <div className="row" style={style}>
+               <div className="cell index">{data[index].index}</div>
+               <div className="cell which">{data[index].which}</div>
+               <div className="cell size">{formatSize(data[index].total_size_bytes)}</div>
+           </div>
+);
+
     return (
         <div className="timeline">
             <div className="frameContainer">
@@ -118,36 +94,16 @@ export function LogTimeline(props) {
             </div>
             <h5>{logName}</h5>
             <div className="logTable">
-            <table>
-                <thead>
-                    {table.getHeaderGroups().map((headerGroup) => (
-                        <tr key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                            <th key={header.id}>
-                            {header.isPlaceholder
-                                ? null
-                                : flexRender(
-                                    header.column.columnDef.header,
-                                    header.getContext()
-                                )}
-                            </th>
-                        ))}
-                        </tr>
-                    ))}
-                </thead>
-                <tbody>
-                    {table.getRowModel().rows.map((row) => {
-                        return (
-                            <tr key={row.id} className={row.index === logIndex ? "selected" : null} onClick={() => setLogIndex(row.index)}>
-                                {row.getVisibleCells().map((cell) => (
-                                    <td key={cell.id}>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                    </td>
-                                ))}
-                            </tr>);
-                    })}
-                </tbody>
-            </table>
+
+                  <List
+    height={500}
+    itemCount={data.length}
+    itemSize={25}
+    width={500}
+  >
+    {Row}
+  </List>
+
             </div>
         </div>
     );
