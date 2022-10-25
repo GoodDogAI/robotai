@@ -54,6 +54,14 @@ onnx
 # we occasionally want to check that the PT and ONNX models are equivalent.
 onnxruntime
 
+# For working with Nvidia graphs on ONNX/TensorRT backends
+--extra-index-url https://pypi.ngc.nvidia.com
+polygraphy
+onnx_graphsurgeon
+
+# For doing and verifying colorspace conversions on video streams
+scikit-image
+
 # HuggingFace datasets, which has great support for caching to local arrow files
 datasets
 
@@ -65,3 +73,4 @@ stable-baselines3
 
 # For muxing/demuxing video streams
 av
+
