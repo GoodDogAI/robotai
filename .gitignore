@@ -2,6 +2,7 @@
 .sconsign.dblite
 
 build/
+cmake-build-debug/
 bin/
 
 _checkpoints
