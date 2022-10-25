@@ -5,7 +5,7 @@ set -e
 
 if command -v conda &> /dev/null
 then
-    source activate robotai
+    conda activate robotai
 fi
 
 # Start the backend server
