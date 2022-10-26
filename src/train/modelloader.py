@@ -431,20 +431,28 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
 # This function allows you to keep one model loaded in memory, and then swap it out for another
 # Useful to speed up performance of showing the reward frames in the web UI
 last_cached_model = None
-last_cached_model_name = None
+
+class ModelCached:
+    def __init__(self, full_name: str, engine: polygraphy.backend.trt.TrtRunner):
+        self.full_name = full_name
+        self.engine = engine
+
+    def __del__(self):
+        if self.engine.is_active:
+            self.engine.deactivate()
+
+
 def cached_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
-    global last_cached_model, last_cached_model_name
-    if last_cached_model_name == full_name:
-        print("Using cached model", full_name)
-        return last_cached_model
+    global last_cached_model
+    if last_cached_model is not None and last_cached_model.full_name == full_name:
+        print("Using cached")
+        return last_cached_model.engine
 
-    if last_cached_model is not None:
-        last_cached_model.deactivate()
-
-    last_cached_model = load_vision_model(full_name)
-    last_cached_model.activate()
-    last_cached_model_name = full_name
-    return last_cached_model
+    del last_cached_model
+    model = load_vision_model(full_name)
+    model.activate()
+    last_cached_model = ModelCached(full_name, model)
+    return last_cached_model.engine
 
 
 @contextmanager

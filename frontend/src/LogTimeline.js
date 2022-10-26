@@ -26,11 +26,6 @@ export function LogTimeline(props) {
 
     const [logIndex, setLogIndex] = useState(0);
 
-    // Reset the frame index back to zero if the logname changes
-    useEffect(() => {
-        setLogIndex(0);
-    }, [logName]);
-
     const { data: logEntryData } = useQuery(["logs", logName, logIndex], () =>
         axios.get(
             `${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/entry/${logIndex}`
@@ -59,8 +54,6 @@ export function LogTimeline(props) {
     if (isLoading) {
         return <div className="timeline">Loading...</div>;
     }
-
-    const frameIds = new Set(data.map(entry => entry.headIndex));
 
     const Row = ({ index, style }) => {
         const rowClass = classNames({
@@ -93,6 +86,14 @@ export function LogTimeline(props) {
         return 25;
     }
 
+    const GetNextLogIndex = (index) => {
+        for (let i = index + 1; i < data.length; i++) {
+            if (data[i].headIndex !== data[index].headIndex) {
+                return i;
+            }
+        }
+    }
+
     return (
         <div className="timeline">
             <div className="frameContainer">
@@ -101,6 +102,9 @@ export function LogTimeline(props) {
                     <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${data[logIndex].headIndex}`} alt={`reward${data[logIndex].headIndex}`} style={{ position: "absolute", top:0, left:0, zIndex: 1 }} />
                 </div>
 
+                Frame {data[logIndex].headIndex}
+
+                <button type="button" onClick={() => setLogIndex(GetNextLogIndex(logIndex))} disabled={logIndex === data.length}>Next</button>
             </div>
             <h5>{logName}</h5>
             <div className="logTable">
