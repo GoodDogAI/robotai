@@ -397,7 +397,7 @@ class TestMsgVec(unittest.TestCase):
         config = {"obs": [
                 { 
                     "type": "msg",
-                    "path": "gyroscope.leftMotor.vel",
+                    "path": "gyroscope.gyro.v.0",
                     "index": -1,
                     "timeout": 0.125,
                     "transform": {
@@ -408,7 +408,15 @@ class TestMsgVec(unittest.TestCase):
             ], "act": []}
 
         msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
-        raise NotImplementedError()
+        self.assertEqual(msgvec.obs_size(), 1)
+
+        msg = new_message("gyroscope")
+        msg.gyroscope.init("gyro")
+        msg.gyroscope.gyro.init("v", [3])
+        msg.gyroscope.gyro.v = [1, 2, 3]
+        self.assertMsgProcessed(msgvec.input(msg))
+
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [1])
 
     def test_vision_vectors1(self):
         config = {"obs": [

@@ -97,7 +97,8 @@
         "locale": "cpp",
         "__string": "cpp",
         "__config": "cpp",
-        "__mutex_base": "cpp"
+        "__mutex_base": "cpp",
+        "version": "cpp"
     },
     "python.testing.unittestArgs": [
         "-v",

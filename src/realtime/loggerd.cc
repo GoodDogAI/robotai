@@ -2,11 +2,11 @@
 #include <cstdlib>
 #include <chrono>
 #include <random>
+#include <version>
 #include <iostream>
 #include <fstream>
 #include <functional>
 #include <unordered_set>
-#include <experimental/filesystem>
 #include <linux/videodev2.h>
 #include <fmt/core.h>
 
@@ -19,9 +19,18 @@
 #include "cereal/visionipc/visionipc.h"
 #include "cereal/visionipc/visionipc_client.h"
 
-ExitHandler do_exit;
+#ifdef __cpp_lib_filesystem
+    #include <filesystem>
+    namespace fs = std::filesystem;
+#elif __cpp_lib_experimental_filesystem
+    #include <experimental/filesystem>
+    namespace fs = std::experimental::filesystem;
+#else
+    #error "no filesystem support"
+#endif
 
-namespace fs = std::experimental::filesystem;
+
+ExitHandler do_exit;
 
 const char *log_name { "alphalog" };
 const fs::path log_path{ LOG_PATH };
