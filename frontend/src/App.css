@@ -37,9 +37,28 @@ th, td {
 }
 
 .logTable {
+  display: table;
   height: 500px;
   overflow-y: auto;
-  
+}
+
+.logTable .row {
+  display: table-row;
+}
+
+.logTable .cell {
+  display: table-cell;
+  padding-left: 1em;
+  padding-right: 1em;
+
+}
+
+.logTable .index {
+  width: 3em;
+}
+
+.logTable .which {
+  width: 100%;
 }
 
 button.link {
