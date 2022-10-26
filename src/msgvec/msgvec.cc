@@ -221,17 +221,25 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
 }
 
 static capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
-    capnp::DynamicStruct::Reader value = root;
+    capnp::DynamicValue::Reader value = root;
 
     while (true) {
         auto dotPos = dottedPath.find('.');
         if (dotPos == std::string::npos) {
-            return value.get(dottedPath);
+            if (value.getType() == capnp::DynamicValue::Type::STRUCT) {
+                return value.as<capnp::DynamicStruct>().get(dottedPath);
+            }
+            else if (value.getType() == capnp::DynamicValue::Type::LIST) {
+                return value.as<capnp::DynamicList>()[std::stoi(dottedPath)];
+            }
+            else {
+                throw std::runtime_error("msgvec: path does not exist");
+            } 
         }
 
         auto field = dottedPath.substr(0, dotPos);
         dottedPath = dottedPath.substr(dotPos + 1);
-        value = value.get(field).as<capnp::DynamicStruct>();
+        value = value.as<capnp::DynamicStruct>().get(field);
     }
 
     return value;
