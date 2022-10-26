@@ -83,13 +83,6 @@ button.link {
   font-weight: bold;
 }
 
-.logTable th {
-  text-align: left;
-  top: 0;
-  position: sticky;
-  background-color: white;
-}
-
 .messageData {
   font-size: smaller;
 }

@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery } from "react-query";
-import { FixedSizeList as List } from 'react-window';
-
+import { VariableSizeList as List } from 'react-window';
+import classNames from 'classnames';
 import axios from "axios";
 
 
@@ -40,6 +40,23 @@ export function LogTimeline(props) {
         setLogIndex(0);
     }, [logName]);
 
+    const { data: logEntryData } = useQuery(["logs", logName, logIndex], () =>
+        axios.get(
+            `${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/entry/${logIndex}`
+        ).then((res) => res.data),
+        {
+            enabled: !!logName,
+        }
+    );
+
+    const listEl = useRef(null);
+
+    useEffect(() => {
+        if (listEl.current) {
+            listEl.current.resetAfterIndex(0);
+        }
+    }, [logIndex, logEntryData]);
+
     if (!logName) {
         return <div className="timeline">Select a log to view</div>;
     }
@@ -63,13 +80,39 @@ export function LogTimeline(props) {
         }
     }
 
-    const Row = ({ index, style }) => (
-        <div className="row" style={style}>
-            <div className="cell index">{data[index].index}</div>
-            <div className="cell which">{data[index].which}</div>
-            <div className="cell size">{formatSize(data[index].total_size_bytes)}</div>
-        </div>
-    );
+    
+
+
+    const Row = ({ index, style }) => {
+        const rowClass = classNames({
+            "row": true,
+            "selected": index === logIndex,
+        });
+
+        let rowData = null;
+
+        if (index === logIndex) {
+            rowData = <pre>{JSON.stringify(logEntryData, null, 2)}</pre>;
+        }
+
+        return (
+            <div className={rowClass} style={style} onClick={() => setLogIndex(index)}>
+                <div className="cell index">{data[index].index}</div>
+                <div className="cell which">{data[index].which}</div>
+                <div className="cell size">{formatSize(data[index].total_size_bytes)}</div>
+                <div>
+                    {rowData}
+                </div>
+            </div>
+        );
+    }
+
+    const GetRowSize = (index) => {
+        if (index === logIndex && logEntryData) {
+            return 20 * JSON.stringify(logEntryData, null, 2).split(/\r\n|\r|\n/).length;
+        }
+        return 25;
+    }
 
     return (
         <div className="timeline">
@@ -91,11 +134,12 @@ export function LogTimeline(props) {
                     <div className="cell size">Size</div>
                 </div>
                 <List
-                    height={500}
+                    ref={listEl}
+                    height={800}
                     itemCount={data.length}
-                    itemSize={25}
-                    width={500}>
-                        
+                    itemSize={GetRowSize}
+                    width={800}>
+
                     {Row}
                 </List>
 
