@@ -69,19 +69,7 @@ export function LogTimeline(props) {
         return <div className="timeline">Loading...</div>;
     }
 
-    const frameIds = [], allFrameIds = [-1];
-    for (const message of data) {
-        if ("headEncodeData" in message) {
-            frameIds.push(message["headEncodeData"]["idx"]["frameId"]);
-            allFrameIds.push(message["headEncodeData"]["idx"]["frameId"]);
-        }
-        else {
-            allFrameIds.push(allFrameIds[allFrameIds.length - 1]);
-        }
-    }
-
-    
-
+    const frameIds = new Set(data.map(entry => entry.headIndex));
 
     const Row = ({ index, style }) => {
         const rowClass = classNames({
@@ -118,13 +106,13 @@ export function LogTimeline(props) {
         <div className="timeline">
             <div className="frameContainer">
                 <div style={{ position: "relative" }}>
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${allFrameIds[logIndex]}`} alt={`frame${allFrameIds[logIndex]}`} style={{ position: "absolute", zIndex: 0 }} />
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${allFrameIds[logIndex]}`} alt={`reward${allFrameIds[logIndex]}`} style={{ position: "relative", zIndex: 1 }} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${data[logIndex].headIndex}`} alt={`frame${data[logIndex].headIndex}`} style={{ position: "absolute", zIndex: 0 }} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${data[logIndex].headIndex}`} alt={`reward${data[logIndex].headIndex}`} style={{ position: "relative", zIndex: 1 }} />
                 </div>
-                <div>
+                {/* <div>
                     <span>Frame {allFrameIds[logIndex]} / {frameIds.length} (ID{allFrameIds[logIndex]})</span>
                     <FrameSlider allFrameIds={allFrameIds} index={logIndex} onChangeIndex={setLogIndex} />
-                </div>
+                </div> */}
             </div>
             <h5>{logName}</h5>
             <div className="logTable">

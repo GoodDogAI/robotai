@@ -99,14 +99,19 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
 
     with open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
+        headIndex = -1
 
         for index, evt in enumerate(events):
             which = evt.which()
+
+            if which == "headEncodeData":
+                headIndex = evt.headEncodeData.idx.frameId
 
             # Add in some sizing metadata
             result.append({
                 "index": index,
                 "which": which,
+                "headIndex": headIndex,
                 "total_size_bytes": evt.total_size.word_count * 8
             })
 
