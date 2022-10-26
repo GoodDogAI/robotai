@@ -393,6 +393,23 @@ class TestMsgVec(unittest.TestCase):
 
             self.assertEqual(msgvec.get_obs_vector_raw().tolist(), expect)
 
+    def test_obs_arrays(self):
+        config = {"obs": [
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.leftMotor.vel",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+            ], "act": []}
+
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        raise NotImplementedError()
+
     def test_vision_vectors1(self):
         config = {"obs": [
                 { 

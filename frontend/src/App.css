@@ -46,6 +46,13 @@ th, td {
   display: table-row;
 }
 
+.logTable .header {
+  display: block;
+  width: 500px;
+
+  font-weight: bold;
+}
+
 .logTable .cell {
   display: table-cell;
   padding-left: 1em;
@@ -54,11 +61,15 @@ th, td {
 }
 
 .logTable .index {
-  width: 3em;
+  width: 50px;
 }
 
 .logTable .which {
-  width: 100%;
+  width: 250px;
+}
+
+.logTable .size {
+  width: 100px;
 }
 
 button.link {

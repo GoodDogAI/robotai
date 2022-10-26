@@ -38,6 +38,7 @@ if __name__ == "__main__":
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 target_entropy=1.0,
+                learning_rate=1e-4,
                 replay_buffer_class=HostReplayBuffer,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
  
