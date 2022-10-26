@@ -23,18 +23,6 @@
   width: 100%;
 }
 
-table {
-  border-collapse: collapse;
-}
-tr {
-  border-bottom: 1px solid #ccc;
-  cursor: pointer;
-  overflow-y: hidden;
-}
-th, td {
-  text-align: left;
-  padding: 4px;
-}
 
 .logTable {
   display: table;
@@ -44,6 +32,7 @@ th, td {
 
 .logTable .row {
   display: table-row;
+  cursor: pointer;
 }
 
 .logTable .header {

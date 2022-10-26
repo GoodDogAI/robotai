@@ -217,12 +217,108 @@ MODEL_CONFIGS = dotdict({
 
                 { 
                     "type": "msg",
+                    "path": "headFeedback.pitchMotorPower",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
                     "path": "headFeedback.yawAngle",
                     "index": -3,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
                         "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.yawMotorPower",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.0",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.1",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.2",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.0",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-1, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.1",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-1, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.2",
+                    "index": -30,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-1, 1],
                         "vec_range": [-1, 1],
                     },
                 },
