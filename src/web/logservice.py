@@ -1,6 +1,7 @@
 import io
 import os
 import subprocess
+import time
 import tempfile
 import hashlib
 import shutil
@@ -17,7 +18,7 @@ from einops import rearrange
 
 from cereal import log
 from src.config import HOST_CONFIG, MODEL_CONFIGS, DEVICE_CONFIG
-from src.train.modelloader import load_vision_model
+from src.train.modelloader import cached_vision_model, model_fullname
 from src.utils.draw_bboxes import draw_bboxes_pil
 
 from src.web.dependencies import get_loghashes
@@ -193,7 +194,7 @@ def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghas
 def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
-
+    start = time.perf_counter()
     try:
         packets = get_image_packets(os.path.join(lh.dir, logfile), frameid)
     except KeyError:
@@ -202,16 +203,14 @@ def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_log
     y, uv = decode_last_frame(packets, pixel_format=nvc.PixelFormat.NV12)
     y = rearrange(y.astype(np.float32), "h w -> 1 1 h w")
     uv = rearrange(uv.astype(np.float32), "h w -> 1 1 h w")
-    
+
     # Load the default reward model
-    from src.train.modelloader import model_fullname, update_model_config_caches
-    update_model_config_caches()
     reward_config = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG]
     fullname = model_fullname(reward_config)
 
-    with load_vision_model(fullname) as model:
-        trt_outputs = model.infer({"y": y, "uv": uv})
-
+    model = cached_vision_model(fullname)
+    trt_outputs = model.infer({"y": y, "uv": uv})
+  
     # Draw the bounding boxes on a transparent PNG the same size as the main image
     img = Image.new("RGBA", (y.shape[3], y.shape[2]), (0, 0, 0, 0))
     draw_bboxes_pil(img, trt_outputs["bboxes"], reward_config)

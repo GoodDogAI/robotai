@@ -404,9 +404,7 @@ def get_vision_model_size(full_name: str) -> int:
     raise KeyError("Unable to find output layer/size")
 
 
-
 # Loads a pre-cached, pre generated vision / reward model
-@contextmanager
 def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
     trt_path = os.path.join(HOST_CONFIG.CACHE_DIR, "models", f"{full_name}.engine")
 
@@ -427,13 +425,27 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
         build_engine = EngineFromBytes(f.read())
 
     runner = TrtRunner(build_engine)
+    return runner
 
-    try:
-        runner.activate()
 
-        yield runner
-    finally:
-        runner.deactivate()
+# This function allows you to keep one model loaded in memory, and then swap it out for another
+# Useful to speed up performance of showing the reward frames in the web UI
+last_cached_model = None
+last_cached_model_name = None
+def cached_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
+    global last_cached_model, last_cached_model_name
+    if last_cached_model_name == full_name:
+        print("Using cached model", full_name)
+        return last_cached_model
+
+    if last_cached_model is not None:
+        last_cached_model.deactivate()
+
+    last_cached_model = load_vision_model(full_name)
+    last_cached_model.activate()
+    last_cached_model_name = full_name
+    return last_cached_model
+
 
 @contextmanager
 def load_all_models_in_log(input: BinaryIO) -> Dict[str, polygraphy.backend.trt.TrtRunner]:
