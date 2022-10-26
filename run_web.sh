@@ -4,7 +4,7 @@
 set -e
 
 # Start the backend server
-conda run -n robotai --live-stream uvicorn src.web.main:app --host 0.0.0.0 --timeout-keep-alive 60 --reload &
+conda run -n robotai --no-capture-output --live-stream uvicorn src.web.main:app --host 0.0.0.0 --timeout-keep-alive 60 --reload &
 
 # Start tensorboard
 tensorboard --logdir=./_sb3_logs --bind_all &
