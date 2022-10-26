@@ -12,15 +12,6 @@ function formatSize(bytes) {
         return `${(bytes / 1024).toFixed(1)}kB`;
 }
 
-function FrameSlider(props) {
-    const { allFrameIds, index, onChangeIndex } = props;
-
-    return (
-        <input className="frameSlider" type="range" min="0" max={allFrameIds.length} value={index} onChange={(evt) => onChangeIndex(evt.target.value)} />
-    );
-}
-
-
 export function LogTimeline(props) {
     const { logName } = props;
 
@@ -105,14 +96,11 @@ export function LogTimeline(props) {
     return (
         <div className="timeline">
             <div className="frameContainer">
-                <div style={{ position: "relative" }}>
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${data[logIndex].headIndex}`} alt={`frame${data[logIndex].headIndex}`} style={{ position: "absolute", zIndex: 0 }} />
-                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${data[logIndex].headIndex}`} alt={`reward${data[logIndex].headIndex}`} style={{ position: "relative", zIndex: 1 }} />
+                <div style={{ position: "relative", top: 0, left: 0 }}>
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame/${data[logIndex].headIndex}`} alt={`frame${data[logIndex].headIndex}`} style={{ position: "relative", top:0, left:0, zIndex: 0 }} />
+                    <img width="100%" src={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/frame_reward/${data[logIndex].headIndex}`} alt={`reward${data[logIndex].headIndex}`} style={{ position: "absolute", top:0, left:0, zIndex: 1 }} />
                 </div>
-                {/* <div>
-                    <span>Frame {allFrameIds[logIndex]} / {frameIds.length} (ID{allFrameIds[logIndex]})</span>
-                    <FrameSlider allFrameIds={allFrameIds} index={logIndex} onChangeIndex={setLogIndex} />
-                </div> */}
+
             </div>
             <h5>{logName}</h5>
             <div className="logTable">
