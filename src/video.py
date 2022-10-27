@@ -122,7 +122,11 @@ def decode_last_frame(packets: List[bytes], pixel_format: nvc.PixelFormat=nvc.Pi
 
     
     while True:
-        surface = nv_dec.FlushSingleSurface()
+        try:
+            surface = nv_dec.FlushSingleSurface()
+        except nvc.HwResetException:
+            print("HwResetException")
+            continue
 
         if surface.Empty():
             break

@@ -2,6 +2,7 @@ import io
 import os
 import subprocess
 import time
+import threading
 import tempfile
 import hashlib
 import shutil
@@ -190,6 +191,8 @@ def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghas
     return response
 
 
+
+
 @router.get("/{logfile}/frame_reward/{frameid}")
 def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
@@ -208,8 +211,8 @@ def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_log
     reward_config = MODEL_CONFIGS[HOST_CONFIG.DEFAULT_REWARD_CONFIG]
     fullname = model_fullname(reward_config)
 
-    model = cached_vision_model(fullname)
-    trt_outputs = model.infer({"y": y, "uv": uv})
+    with cached_vision_model(fullname) as model:
+        trt_outputs = model.infer({"y": y, "uv": uv})
   
     # Draw the bounding boxes on a transparent PNG the same size as the main image
     img = Image.new("RGBA", (y.shape[3], y.shape[2]), (0, 0, 0, 0))

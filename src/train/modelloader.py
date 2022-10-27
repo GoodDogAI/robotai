@@ -2,6 +2,7 @@ import torch
 import onnx
 import onnxruntime
 import os
+import threading
 import atexit
 import time
 import importlib
@@ -432,17 +433,23 @@ def load_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
 # Useful to speed up performance of showing the reward frames in the web UI
 last_cached_model = None
 last_cached_model_name = None
+last_cached_model_lock = threading.Lock()
 
+@contextmanager
 def cached_vision_model(full_name: str) -> polygraphy.backend.trt.TrtRunner:
     global last_cached_model, last_cached_model_name
+    last_cached_model_lock.acquire()
+    
     if last_cached_model is not None and last_cached_model_name == full_name:
-        return last_cached_model
+        yield last_cached_model
+    else:
+        last_cached_model_name = full_name
+        last_cached_model = load_vision_model(full_name)
+        last_cached_model.activate()
 
-    last_cached_model_name = full_name
-    last_cached_model = load_vision_model(full_name)
-    last_cached_model.activate()
+        yield last_cached_model
 
-    return last_cached_model
+    last_cached_model_lock.release()
 
 def _cleanup_cached_vision_model():
     global last_cached_model
