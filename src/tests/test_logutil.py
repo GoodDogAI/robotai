@@ -11,7 +11,7 @@ class LogHashesTest(unittest.TestCase):
     def test_empty_dir(self):
         with tempfile.TemporaryDirectory() as td:
             logutil = LogHashes(td)
-            self.assertEqual(logutil.files, {})
+            self.assertEqual(logutil.values(), [])
 
     def test_basic_log(self):
         with tempfile.TemporaryDirectory() as td:
@@ -20,14 +20,14 @@ class LogHashesTest(unittest.TestCase):
 
             logutil = LogHashes(td)
             logutil2 = LogHashes(td)
-            self.assertEqual(logutil.files, logutil2.files)
-
+            self.assertEqual([x.filename for x in logutil.values()], [x.filename for x in logutil2.values()])
+            
             # File of different extension is not hashed
             with open(os.path.join(td, "test.random"), "wb") as f:
                 f.write(b"Test")
 
             logutil.update()
-            self.assertEqual(logutil.files, logutil2.files)
+            self.assertEqual([x.filename for x in logutil.values()], [x.filename for x in logutil2.values()])
 
             # Annoying hack, because it uses modification time as a speedup
             time.sleep(0.01)
@@ -37,14 +37,14 @@ class LogHashesTest(unittest.TestCase):
                 f.write(b"GoodbyeWorld")
 
             logutil.update()
-            self.assertNotEqual(logutil.files, logutil2.files)
-            self.assertEqual(logutil.files["test.log"].orig_sha256, logutil2.files["test.log"].orig_sha256)
-            self.assertNotEqual(logutil.files["test.log"].orig_sha256, logutil.files["test.log"].sha256)
+            self.assertEqual([(x.filename, x.sha256, x.orig_sha256) for x in logutil.values()],
+                            [(x.filename, x.sha256, x.orig_sha256) for x in logutil2.values()])
+            
 
-            # Delete a file and make sure it's removed from the loghashes
+            # Delete a file and it will stay in the database
             os.unlink(os.path.join(td, "test.log"))
             logutil.update()
-            self.assertEqual(len(logutil.files), 0)
+            self.assertEqual(len(logutil.values()), 1)
 
     def test_validate_log(self):
         with tempfile.TemporaryDirectory() as td:

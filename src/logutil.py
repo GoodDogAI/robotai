@@ -1,20 +1,20 @@
 import os
 import re
 import hashlib
-import json
 import logging
+
+from sqlalchemy import Column, Integer, String, create_engine, select
+from sqlalchemy.orm import declarative_base, Session
 
 from typing import List, Dict, BinaryIO, Tuple
 from functools import total_ordering
 from capnp.lib import capnp
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, parse_file_as
 from cereal import log
 from typing import Optional
 
 
 logger = logging.getLogger(__name__)
-DATA_FILE = "_hashes.json"
+Base = declarative_base()
 
 LOGNAME_RE = re.compile(r"(?P<logname>[a-z]+)-(?P<runname>[a-f0-9]+)-(?P<year>\d{4})-(?P<month>\d{1,2})-(?P<day>\d{1,2})-(?P<hour>\d{1,2})_(?P<minute>\d{1,2}).log")
 
@@ -48,14 +48,13 @@ def get_runname(filename: str) -> str:
 
 
 @total_ordering
-class LogSummary(BaseModel):
-    filename: str
-    orig_sha256: Optional[str]
-    sha256: str
-    last_modified: int
+class LogSummary(Base):
+    __tablename__ = "logs"
 
-    def __init__(self, **data):
-        super().__init__(**data)
+    filename = Column(String, primary_key=True)
+    sha256 = Column(String)
+    last_modified = Column(Integer)
+    orig_sha256 = Column(String, nullable=True)
 
     def __le__(self, other):
         return self.filename < other.filename
@@ -63,67 +62,61 @@ class LogSummary(BaseModel):
     def get_runname(self):
         return get_runname(self.filename)
 
+    def __repr__(self) -> str:
+        return f"LogSummary(filename={self.filename}, sha256={self.sha256}, last_modified={self.last_modified}, orig_sha256={self.orig_sha256})"
+
 
 # Allows for quick and cached access to the SHA256 hash of a bunch of log files
 class LogHashes:
     dir: str
     extension: str = ".log"
-    files: Dict[str, LogSummary] = {}
 
     def __init__(self, dir):
         self.dir = dir
+        self.engine = create_engine(f"sqlite:///{os.path.join(dir, '_hashes.sqlite')}", echo=False, future=True)
+        Base.metadata.create_all(self.engine)
         self.update()
 
     def update(self, original_hashes: Dict[str, str] = {}):
-        path = os.path.join(self.dir, DATA_FILE)
-        if os.path.exists(path):
-            self.existing_files = parse_file_as(Dict[str, LogSummary], path)
-        else:
-            self.existing_files = {}
+        with Session(self.engine) as session:
+            for file in os.listdir(self.dir):
+                if not file.endswith(self.extension):
+                    continue
+                filepath = os.path.join(self.dir, file)
+                mtime = round(os.path.getmtime(filepath) * 1e9)
 
-        self.files = {}
+                existing = session.execute(select(LogSummary).where(LogSummary.filename == file)).scalar_one_or_none()
+                if existing is not None and existing.last_modified == mtime:
+                    continue
 
-        for file in os.listdir(self.dir):
-            if not file.endswith(self.extension):
-                continue
-            filepath = os.path.join(self.dir, file)
-            mtime = round(os.path.getmtime(filepath) * 1e9)
+                logger.warning(f"Hashing {filepath}")
+        
+                new_sha = sha256(filepath)
 
-            if file in self.existing_files and self.existing_files[file].last_modified == mtime:
-                self.files[file] = self.existing_files[file]
-                continue
+                if file in original_hashes:
+                    orig_sha = original_hashes[file]
+                elif existing is not None:
+                    orig_sha = existing.orig_sha256
+                else:
+                    orig_sha = new_sha
 
-            logger.warning(f"Hashing {filepath}")
-    
-            new_sha = sha256(filepath)
-
-            if file in original_hashes:
-                orig_sha = original_hashes[file]
-            elif file in self.existing_files:
-                orig_sha = self.existing_files[file].orig_sha256
-            else:
-                orig_sha = new_sha
-
-            self.files[file] = LogSummary(filename=file, sha256=new_sha, orig_sha256=orig_sha, last_modified=mtime)
-
-        with open(path + "_temp", "w") as f:
-            json.dump(jsonable_encoder(self.files), f)
-
-        if os.path.exists(path):
-            os.remove(path)
-        os.rename(path + "_temp", path)
+                session.merge(LogSummary(filename=file, sha256=new_sha, orig_sha256=orig_sha, last_modified=mtime))
+                session.commit()
 
     def values(self) -> List[LogSummary]:
-        return list(self.files.values())
+        with Session(self.engine) as session:
+            return session.execute(select(LogSummary)).scalars().all()
 
     def hash_exists(self, hash:str) -> bool:
-        return hash in {f.sha256 for f in self.files.values()} | {f.orig_sha256 for f in self.files.values()}
+        with Session(self.engine) as session:
+            return session.execute(select(LogSummary).where((LogSummary.sha256 == hash) | (LogSummary.orig_sha256 == hash))).scalar_one_or_none() is not None
 
     def filename_exists(self, filename:str) -> bool:
-        return filename in self.files
+        with Session(self.engine) as session:
+            return session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none() is not None
 
     def __str__(self):
-        return str(self.files)
+        return f"LogHashes(dir={self.dir})"
 
     def _sort_by_time(self, log: LogSummary) -> Tuple:
         m = LOGNAME_RE.match(log.filename)

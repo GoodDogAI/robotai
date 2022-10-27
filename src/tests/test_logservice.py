@@ -67,20 +67,15 @@ class LogServiceTest(unittest.TestCase):
                 f.write(b"Modified Log!")
 
             self.lh.update()
-            self.assertNotEqual(self.lh.files[os.path.basename(tf.name)].sha256, self.lh.files[os.path.basename(tf.name)].orig_sha256)
+            
+            self.assertEqual(len(self.lh.values()), 1)
+            self.assertNotEqual(self.lh.values()[0].sha256, self.lh.values()[0].orig_sha256)
 
             # Posting the same log again should still error out
             tf.seek(0)
             resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, tf.sha256)})
             self.assertEqual(resp.status_code, 500)
 
-
-    def test_post_validated_log(self):
-        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
-
-        with open(test_path, "rb") as tf:
-            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
-            self.assertEqual(resp.status_code, 200)
 
     def test_post_invalid_hash(self):
         with artificial_logfile() as tf:
@@ -107,6 +102,20 @@ class LogServiceTest(unittest.TestCase):
 
             self.assertEqual(len(resp.json()), 1)
             print(resp.json())
+    
+    def test_post_validated_log(self):
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-41a516ae-2022-9-19-2_20.log")
+
+        with open(test_path, "rb") as tf:
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
+            self.assertEqual(resp.status_code, 200)
+
+    def test_post_validated_log2(self):
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-478ab32e-2022-10-27-02_37.log")
+
+        with open(test_path, "rb") as tf:
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
+            self.assertEqual(resp.status_code, 200)
 
 class LogServiceRealDataTests(unittest.TestCase):
     def setUp(self) -> None:

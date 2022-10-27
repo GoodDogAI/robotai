@@ -7,6 +7,9 @@ scons
 # For implementing the backend
 fastapi
 
+# For keeping track of loghashes in a small database
+sqlalchemy
+
 # For serving the backend
 uvicorn
 

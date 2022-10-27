@@ -122,7 +122,7 @@ export function LogTimeline(props) {
                 <button type="button" onClick={() => setLogIndex(GetNextLogIndex(logIndex))} disabled={logIndex === data.length}>Next</button>
                 <button type="button" onClick={() => setLogIndex(Array(30).fill(0).reduce((index, _)  => GetNextLogIndex(index), logIndex))} disabled={logIndex === data.length}>+30</button>
             </div>
-            <h5>{logName}</h5>
+            <h5><a href={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/video/`}>{logName}</a></h5>
             <div className="logTable">
                 <div className="row header">
                     <div className="cell index">Index</div>
