@@ -408,6 +408,8 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    depth_sens.set_option(RS2_OPTION_LASER_POWER, 0.f); // Disable laser
+
     depth_sens.open(depth_stream_profile);
     depth_sens.start(depth_queue);
 

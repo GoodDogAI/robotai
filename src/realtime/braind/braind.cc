@@ -49,6 +49,8 @@ std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
     auto tensor = npy::load<float, npy::tensor>(npy_path.string());
     fmt::print("Loaded input tensor {} with shape {}\n", input_name, tensor.shape());
 
+    // TODO Check shapes against deserialized engine
+
     std::copy(tensor.begin(), tensor.end(), static_cast<float *>(engine->get_host_buffer(input_name)));
   }
 
@@ -64,6 +66,8 @@ std::unique_ptr<TrtEngine> prepare_engine(const std::string &model_full_name)
     const fs::path npy_path {model_path / fmt::format("{}-output-{}.npy", model_full_name, output_name)};
     auto ref_tensor = npy::load<float, npy::tensor>(npy_path.string());
     fmt::print("Loaded output tensor {} with shape {}\n", output_name, ref_tensor.shape());
+
+    // TODO Check shapes
 
     auto output_tensor = npy::tensor<float>(ref_tensor.shape());
     output_tensor.copy_from(static_cast<float *>(engine->get_host_buffer(output_name)), output_tensor.size());
@@ -206,13 +210,13 @@ int main(int argc, char *argv[])
   if (vision_engine->get_tensor_shape("uv") != std::vector{1, 1, CAMERA_HEIGHT / 2, CAMERA_WIDTH}) {
     throw std::runtime_error("Vision model input tensor y is not of expected size");
   }
-  if (vision_engine->get_tensor_shape("intermediate") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->vision_size())}) {
+  if (vision_engine->get_tensor_shape("intermediate") != std::vector{1, static_cast<int32_t>(msgvec_guard.lockExclusive()->vision_size())}) {
     throw std::runtime_error("Vision model output tensor does not match msgvec size");
   }
-  if (brain_engine->get_tensor_shape("observation") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->obs_size())}) {
+  if (brain_engine->get_tensor_shape("observation") != std::vector{1, static_cast<int32_t>(msgvec_guard.lockExclusive()->obs_size())}) {
     throw std::runtime_error("Brain model input tensor observation does not match msgvec obs_size");
   }
-  if (brain_engine->get_tensor_shape("action") != std::vector{static_cast<int32_t>(msgvec_guard.lockExclusive()->act_size())}) {
+  if (brain_engine->get_tensor_shape("action") != std::vector{1, static_cast<int32_t>(msgvec_guard.lockExclusive()->act_size())}) {
     throw std::runtime_error("Brain model action tensor size does not match msgvec act_size");
   }
 
