@@ -92,7 +92,20 @@ export function LogTimeline(props) {
                 return i;
             }
         }
+
+        return data.length - 1;
     }
+
+    const GetPrevLogIndex = (index) => {
+        for (let i = index - 1; i >= 0; i--) {
+            if (data[i].headIndex !== data[index].headIndex) {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
 
     return (
         <div className="timeline">
@@ -104,7 +117,10 @@ export function LogTimeline(props) {
 
                 Frame {data[logIndex].headIndex}
 
+                <button type="button" onClick={() => setLogIndex(Array(30).fill(0).reduce((index, _)  => GetPrevLogIndex(index), logIndex))} disabled={logIndex === 0}>-30</button>
+                <button type="button" onClick={() => setLogIndex(GetPrevLogIndex(logIndex))} disabled={logIndex === 0}>Prev</button>
                 <button type="button" onClick={() => setLogIndex(GetNextLogIndex(logIndex))} disabled={logIndex === data.length}>Next</button>
+                <button type="button" onClick={() => setLogIndex(Array(30).fill(0).reduce((index, _)  => GetNextLogIndex(index), logIndex))} disabled={logIndex === data.length}>+30</button>
             </div>
             <h5>{logName}</h5>
             <div className="logTable">

@@ -19,10 +19,9 @@
   flex: 1;
 }
 
-.frameSlider {
-  width: 100%;
+.frameContainer button {
+  margin-left: 1em;
 }
-
 
 .logTable {
   display: table;
@@ -60,6 +59,7 @@
 .logTable .size {
   width: 100px;
 }
+
 
 button.link {
   background: none;
