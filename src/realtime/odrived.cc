@@ -35,7 +35,7 @@ static void send_raw_command(Serial &port, const std::string& command) {
 }
 
 static float send_float_command(Serial &port, const std::string& command) {
-    const auto float_re = std::regex("([0-9\\.\\-]+)\r\n");
+    const auto float_re = std::regex("([0-9\\.\\-]+|nan)\r\n");
     port.write_str(command);
 
     auto response = port.read_regex(float_re);
