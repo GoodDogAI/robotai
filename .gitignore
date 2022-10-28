@@ -13,6 +13,7 @@ MNIST/
 lightning_logs/
 *.onnx
 *.arrow
+serial-*.log
 
 cereal/tmp/
 
