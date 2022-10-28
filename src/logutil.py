@@ -2,9 +2,11 @@ import os
 import re
 import hashlib
 import logging
+from numpy import isin
 
-from sqlalchemy import Column, Integer, String, JSON, create_engine, select
+from sqlalchemy import Column, Integer, String, JSON, create_engine, select, delete
 from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from typing import List, Dict, BinaryIO, Tuple
 from functools import total_ordering
@@ -75,15 +77,19 @@ class LogHashes:
 
     def __init__(self, dir):
         self.dir = dir
-        self.engine = create_engine(f"sqlite:///{os.path.join(dir, '_hashes.sqlite')}", echo=False, future=True)
+        self.engine = create_engine(f"sqlite:///{os.path.join(dir, '_hashes.sqlite')}", echo=True, future=True)
         Base.metadata.create_all(self.engine)
         self.update()
 
     def update(self, original_hashes: Dict[str, str] = {}):
         with Session(self.engine) as session:
+            found_files = set()
+
             for file in os.listdir(self.dir):
                 if not file.endswith(self.extension):
                     continue
+
+                found_files.add(file)
                 filepath = os.path.join(self.dir, file)
                 mtime = round(os.path.getmtime(filepath) * 1e9)
 
@@ -100,10 +106,15 @@ class LogHashes:
                 elif existing is not None:
                     orig_sha = existing.orig_sha256
                 else:
-                    orig_sha = new_sha
+                    orig_sha = new_sha 
 
                 session.merge(LogSummary(filename=file, sha256=new_sha, orig_sha256=orig_sha, last_modified=mtime))
                 session.commit()
+
+            # Remove any files that are no longer in the directory
+            session.execute(delete(LogSummary).where(LogSummary.filename.not_in(found_files)))
+            session.commit()
+
 
     def values(self) -> List[LogSummary]:
         with Session(self.engine) as session:
@@ -117,11 +128,14 @@ class LogHashes:
         with Session(self.engine) as session:
             return session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none() is not None
 
-    def update_metadata(self, filename: str, metadata: Dict[str, str]):
+    def update_metadata(self, filename: str, **kwargs):
         with Session(self.engine) as session:
             existing = session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none()
             if existing is not None:
-                existing.meta = metadata
+                if not isinstance(existing.meta, dict):
+                    existing.meta = {}
+                existing.meta.update(kwargs)
+                flag_modified(existing, "meta")
                 session.commit()
             else:
                 raise KeyError(f"Log {filename} not found")
