@@ -103,8 +103,8 @@ class NativeProcess(ManagerProcess):
         setnice = psutil.Process(self.p.pid)
         setnice.nice(self.nice)
 
-        if self.nice < 0:
-            os.sched_setscheduler(self.p.pid, os.SCHED_FIFO, os.sched_param(53))  # pylint: disable=no-member
+        # if self.nice < 0:
+        #     os.sched_setscheduler(self.p.pid, os.SCHED_FIFO, os.sched_param(53))  # pylint: disable=no-member
 
         if len(self.affinity) > 0:
             os.sched_setaffinity(self.p.pid, self.affinity)
