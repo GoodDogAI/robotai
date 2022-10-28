@@ -54,6 +54,26 @@ class LogHashesTest(unittest.TestCase):
             with open(os.path.join(td, "test.log"), "rb") as f:
                 self.assertFalse(quick_validate_log(f))
 
+    def test_metadata(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "test.log"), "wb") as f:
+                f.write(b"HelloWorld")
+
+            lh = LogHashes(td)
+            self.assertEqual(lh.values()[0].meta, {})
+
+            lh.update_metadata("test.log", {"test": "test"})
+            self.assertEqual(lh.values()[0].meta, {"test": "test"})
+
+            lh.update()
+            self.assertEqual(lh.values()[0].meta, {"test": "test"})
+
+            with open(os.path.join(td, "test.log"), "wb") as f:
+                f.write(b"GoodbyeWorld")
+
+            lh.update()
+            self.assertEqual(lh.values()[0].meta, {"test": "test"})
+
     def test_artificial_logfile(self):
         with artificial_logfile() as f:
             self.assertTrue(quick_validate_log(f))
