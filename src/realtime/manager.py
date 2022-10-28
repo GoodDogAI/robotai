@@ -89,9 +89,10 @@ class PythonProcess(ManagerProcess):
 class NativeProcess(ManagerProcess):
     nice: int = 0
 
-    def __init__(self, name: str,  args: List[str] = [], delay: float=0.0, nice: int=0):
+    def __init__(self, name: str,  args: List[str] = [], delay: float=0.0, nice: int=0, affinity: List[int]=[]):
         super().__init__(name, args, delay)
         self.nice = nice
+        self.affinity = affinity
 
     async def start(self):
         await asyncio.sleep(self.delay)
@@ -101,6 +102,12 @@ class NativeProcess(ManagerProcess):
 
         setnice = psutil.Process(self.p.pid)
         setnice.nice(self.nice)
+
+        if self.nice < 0:
+            os.sched_setscheduler(self.p.pid, os.SCHED_FIFO, os.sched_param(53))  # pylint: disable=no-member
+
+        if len(self.affinity) > 0:
+            os.sched_setaffinity(self.p.pid, self.affinity)
 
         self.running = True
 
@@ -115,7 +122,7 @@ class NativeProcess(ManagerProcess):
 
 def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
     return [
-        NativeProcess("camerad", nice=-2, delay=5.0), 
+        NativeProcess("camerad", nice=-10, delay=5.0), 
         NativeProcess("encoderd", ["head_color", "--maxqp", str(DEVICE_CONFIG.ENCODER_HEAD_COLOR_QP)]),
         NativeProcess("encoderd", ["head_depth", "--maxbitrate", str(DEVICE_CONFIG.ENCODER_HEAD_DEPTH_MAXBITRATE)]),
         NativeProcess("loggerd"),

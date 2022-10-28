@@ -603,3 +603,21 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
     
     return ret;
 }
+
+void MsgVec::_debug_print_timing() {
+   size_t obs_index = 0;
+
+   auto cur_time = _get_msgvec_log_mono_time();
+
+    for (auto &obs: m_config["obs"]) {
+        if (obs["type"] == "msg") {
+            std::cout << "obs " << obs_index << " " << obs["path"] << std::endl;
+
+            for (auto timestamp : m_obsHistoryTimestamps[obs_index]) {
+                std::cout << "  " << std::fixed << std::setprecision(3) << (timestamp - cur_time) / 1e9 << std::endl;
+            }
+        }
+
+        obs_index++;
+    }  
+}
