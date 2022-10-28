@@ -468,6 +468,8 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         } else if (obs["type"] == "vision") {
             const auto [queue_size, indices] = get_queue_obs_len(obs);
 
+            //TODO Keep track of timing on vision inputs as well
+
             for (size_t i = 0; i < indices.size(); i++) {
                 auto history_index = std::abs(indices[i]) - 1;
                 std::copy(m_visionHistory[history_index].begin(), m_visionHistory[history_index].end(), &obsVector[curpos]);
@@ -614,7 +616,7 @@ void MsgVec::_debug_print_timing() {
             std::cout << "obs " << obs_index << " " << obs["path"] << std::endl;
 
             for (auto timestamp : m_obsHistoryTimestamps[obs_index]) {
-                std::cout << "  " << std::fixed << std::setprecision(3) << (timestamp - cur_time) / 1e9 << std::endl;
+                std::cout << "  " << std::fixed << std::setprecision(3) << static_cast<int64_t>(timestamp - cur_time) / 1e9 << std::endl;
             }
         }
 
