@@ -70,6 +70,9 @@ class MsgVec {
         // Given an action vector output from the RL model, returns the list of messages to send
         std::vector<kj::Array<capnp::word>> get_action_command(const float *actVector);
 
+        // Prints debug timing information
+        void _debug_print_timing();
+
     private:
         json m_config;
         MessageTimingMode m_timingMode;

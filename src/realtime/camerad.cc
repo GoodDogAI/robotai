@@ -27,6 +27,7 @@ ExitHandler do_exit;
 void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens, rs2::frame_queue &queue) {
     uint32_t frame_id{ 0 };
     rs2_metadata_type last_start_of_frame {};
+    auto last_frame_mismatch = std::chrono::steady_clock::now();
     constexpr rs2_metadata_type expected_frame_time = 1'000'000 / CAMERA_FPS; // usec
 
     while (!do_exit)
@@ -37,8 +38,23 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
         {
             fmt::print(stderr, "Frame number mismatch\n");
             fmt::print(stderr, "Got {} expected {}\n", color_frame.get_frame_number(), frame_id + 1);
-            do_exit = true;
-            break;
+               
+            if (std::abs(static_cast<int64_t>(color_frame.get_frame_number()) - (frame_id + 1)) > 1)
+            {
+                fmt::print(stderr, "Too large frame mismatch, exiting\n");
+                do_exit = true;
+                break;
+            }
+
+            if (std::chrono::steady_clock::now() - last_frame_mismatch < std::chrono::milliseconds(500))
+            {
+                fmt::print(stderr, "Too many frame mismatches, exiting\n");
+                do_exit = true;
+                break;
+            }
+
+            last_frame_mismatch = std::chrono::steady_clock::now();
+            frame_id = color_frame.get_frame_number();
         }
         else
         {
@@ -62,7 +78,8 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
         // }
 
         // Check for any weird camera jitter, and if so, we would like to terminate for now, after some initialization period
-        if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 0.05) {
+        // Allows for up to 2.05x frame jitter
+        if (frame_id > CAMERA_FPS && std::abs((start_of_frame - last_start_of_frame) - expected_frame_time) > expected_frame_time * 1.05) {
             fmt::print(stderr, "Got unexpected frame jitter of {} vs expected {} usec\n", start_of_frame - last_start_of_frame, expected_frame_time);
             throw std::runtime_error("Unexpectedly high jitter");
         }

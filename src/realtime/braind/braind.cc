@@ -306,9 +306,11 @@ int main(int argc, char *argv[])
     auto timeout_res = msgvec->get_obs_vector(static_cast<float*>(brain_engine->get_host_buffer("observation")));
 
     if (timeout_res == MsgVec::TimeoutResult::MESSAGES_NOT_READY) {
+      msgvec->_debug_print_timing();
       throw std::runtime_error("msgvec completely lost ready state");
     }
     else if (timeout_res == MsgVec::TimeoutResult::MESSAGES_PARTIALLY_READY && msgvec_obs_result == MsgVec::TimeoutResult::MESSAGES_ALL_READY) {
+      msgvec->_debug_print_timing();
       throw std::runtime_error("msgvec partially lost ready state");
     }
     msgvec_obs_result = timeout_res;

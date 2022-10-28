@@ -325,7 +325,8 @@ int main(int argc, char **argv)
         if (realtime_data->system_error)
         {
           uint16_t err = realtime_data->system_error;
-          fmt::print(stderr, "BGC Error {:02x}\n", err);
+          uint8_t suberr = realtime_data->system_sub_error;
+          fmt::print(stderr, "BGC Error {:02x}   Sub error {:02x}\n", err, suberr);
           fmt::print(stderr, "Shutting down BGC\n");
           return EXIT_FAILURE;
         }
