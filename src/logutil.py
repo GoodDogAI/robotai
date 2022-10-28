@@ -3,7 +3,7 @@ import re
 import hashlib
 import logging
 
-from sqlalchemy import Column, Integer, String, create_engine, select
+from sqlalchemy import Column, Integer, String, JSON, create_engine, select
 from sqlalchemy.orm import declarative_base, Session
 
 from typing import List, Dict, BinaryIO, Tuple
@@ -55,6 +55,8 @@ class LogSummary(Base):
     sha256 = Column(String)
     last_modified = Column(Integer)
     orig_sha256 = Column(String, nullable=True)
+
+    meta = Column(JSON, default={})
 
     def __le__(self, other):
         return self.filename < other.filename
@@ -114,6 +116,15 @@ class LogHashes:
     def filename_exists(self, filename:str) -> bool:
         with Session(self.engine) as session:
             return session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none() is not None
+
+    def update_metadata(self, filename: str, metadata: Dict[str, str]):
+        with Session(self.engine) as session:
+            existing = session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none()
+            if existing is not None:
+                existing.meta = metadata
+                session.commit()
+            else:
+                raise KeyError(f"Log {filename} not found")
 
     def __str__(self):
         return f"LogHashes(dir={self.dir})"
