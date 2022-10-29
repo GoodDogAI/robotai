@@ -1,4 +1,5 @@
 import os
+import argparse
 import psutil
 import asyncio
 import importlib
@@ -197,9 +198,17 @@ async def uploader_main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--repeat", action="store_true", help="repeat the brain_main loop indefinitely")
+    opt = parser.parse_args()
+
     loop = asyncio.get_event_loop()   
 
-    loop.run_until_complete(brain_main())
+    while True:
+        loop.run_until_complete(brain_main())
+
+        if not opt.repeat:
+            break
 
     try:
         loop.run_until_complete(uploader_main())
