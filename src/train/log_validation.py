@@ -17,13 +17,28 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 
 ValidationStatus = "log.ModelValidation.ValidationStatus"
 
-def get_log_validation_status(stats: List[ValidationStatus]) -> ValidationStatus:
+def aggregate_log_validation_status(stats: List[ValidationStatus]) -> str:
     if log.ModelValidation.ValidationStatus.validatedFailed in stats:
-        return log.ModelValidation.ValidationStatus.validatedFailed
+        return "validatedFailed"
     elif log.ModelValidation.ValidationStatus.validatedPassed in stats:
-        return log.ModelValidation.ValidationStatus.validatedPassed
+        return "validatedPassed"
     else:
-        return log.ModelValidation.ValidationStatus.validatedSkipped
+        return "validatedSkipped"
+
+
+def get_log_validation_status(log_file: str) -> str:
+    try:
+        with open(log_file, "rb") as f:
+            events = log.Event.read_multiple(f)
+            validation_stats: List[ValidationStatus] = []
+
+            for evt in events:
+                if evt.which() == "modelValidation":
+                    validation_stats.append(evt.modelValidation.serverValidated)
+
+            return aggregate_log_validation_status(validation_stats)
+    except FileNotFoundError:
+        return "validatedSkipped"
 
 
 # Fully checks the log file, including validating any modelValidation type events
@@ -109,6 +124,6 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                 # Write the log entry to the output file
                 evt.write(output)
 
-            return get_log_validation_status(validation_stats)
+            return aggregate_log_validation_status(validation_stats)
         except capnp.KjException as ex:
             return log.ModelValidation.ValidationStatus.validatedFailed

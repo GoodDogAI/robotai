@@ -2,7 +2,6 @@ import io
 import os
 import subprocess
 import time
-import threading
 import tempfile
 import hashlib
 import shutil
@@ -24,6 +23,7 @@ from src.utils.draw_bboxes import draw_bboxes_pil
 
 from src.web.dependencies import get_loghashes
 from src.logutil import LogHashes, LogSummary, quick_validate_log
+
 from src.video import get_image_packets, decode_last_frame
 from src.train import log_validation
 import src.PyNvCodec as nvc
@@ -42,7 +42,16 @@ async def asha256(fp: UploadFile) -> str:
 
 @router.get("/")
 async def list_logs(lh: LogHashes = Depends(get_loghashes)) -> List[List[LogSummary]]:
-    return lh.group_logs()
+    all_logs = lh.group_logs()
+
+    # Update the validation metadata
+    for log_group in all_logs:
+        for log in log_group:
+            if "validation" not in log.meta:
+                lh.update_metadata(log.filename, validation=log_validation.get_log_validation_status(os.path.join(lh.dir, log.filename)))
+
+    return all_logs
+
 
 @router.get("/exists/{sha256}")
 async def log_exists(sha256: str, lh: LogHashes = Depends(get_loghashes)):
@@ -189,8 +198,6 @@ def get_log_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_loghas
     response = Response(content=img_data.getvalue(), media_type="image/jpeg")
 
     return response
-
-
 
 
 @router.get("/{logfile}/frame_reward/{frameid}")
