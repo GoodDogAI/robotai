@@ -79,7 +79,7 @@ def full_validate_log(input: BinaryIO, output: BinaryIO) -> ValidationStatus:
                         print(f"intermediate cosine similarity: {cos_sim}")
                         evt.modelValidation.serverSimilarity = float(cos_sim)
 
-                        if cos_sim > .99:
+                        if cos_sim > .985:
                             evt.modelValidation.serverValidated = log.ModelValidation.ValidationStatus.validatedPassed
                         else:
                             evt.modelValidation.serverValidated = log.ModelValidation.ValidationStatus.validatedFailed

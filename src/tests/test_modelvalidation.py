@@ -56,14 +56,14 @@ class TestModelValidation(unittest.TestCase):
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-22c37d10-2022-9-16-21_21.log")
 
         with open(test_path, "rb") as f, tempfile.NamedTemporaryFile("w+b") as tf:
-            self.assertEqual(full_validate_log(f, tf), log.ModelValidation.ValidationStatus.validatedPassed)
+            self.assertEqual(full_validate_log(f, tf), "validatedPassed")
             
             tf.seek(0)
             events = log.Event.read_multiple(tf)
 
             for evt in events:
                 if evt.which() == "modelValidation" and evt.modelValidation.frameId < 900: #900 is last frame which is not validated
-                    self.assertEqual(evt.modelValidation.serverValidated, log.ModelValidation.ValidationStatus.validatedPassed)
+                    self.assertEqual(evt.modelValidation.serverValidated, "validatedPassed")
                     self.assertGreater(evt.modelValidation.serverSimilarity, 0.99)
         
 
@@ -88,9 +88,9 @@ class TestModelValidation(unittest.TestCase):
             tf.flush()
             tf.seek(0)
 
-            self.assertEqual(full_validate_log(tf, tf2), log.ModelValidation.ValidationStatus.validatedFailed)
+            self.assertEqual(full_validate_log(tf, tf2), "validatedFailed")
 
             for evt in events:
                 if evt.which() == "modelValidation" and evt.modelValidation.modelType == log.ModelValidation.ModelType.visionIntermediate:
-                    self.assertEqual(evt.modelValidation.serverValidated, log.ModelValidation.ValidationStatus.valoidatedFailed)
+                    self.assertEqual(evt.modelValidation.serverValidated, "validatedFailed")
                     self.assertLess(evt.modelValidation.serverSimilarity, 0.90)
