@@ -22,6 +22,9 @@
 #define CAMERA_BUFFER_COUNT 30
 #define SENSOR_TYPE_REALSENSE_D455 0x01
 
+// Allow waiting longer for initial camera frames
+#define WAIT_FOR_FRAME_TIMEOUT_MS 10'000
+
 ExitHandler do_exit;
 
 void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color_sensor &color_sens, rs2::frame_queue &queue) {
@@ -32,7 +35,7 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
 
     while (!do_exit)
     {
-        rs2::video_frame color_frame = queue.wait_for_frame();
+        rs2::video_frame color_frame = queue.wait_for_frame(WAIT_FOR_FRAME_TIMEOUT_MS);
 
         if (color_frame.get_frame_number() != frame_id + 1 && frame_id != 0)
         {
@@ -150,7 +153,7 @@ void color_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::color
 void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2::frame_queue &queue) {
     while (!do_exit)
     {
-        rs2::motion_frame motion_frame = queue.wait_for_frame();
+        rs2::motion_frame motion_frame = queue.wait_for_frame(WAIT_FOR_FRAME_TIMEOUT_MS);
         auto vec = motion_frame.get_motion_data();
 
         MessageBuilder msg;
@@ -216,7 +219,7 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
     // For some reason, the frame id's on the depth sensor always restart a short time after starting the queue
     // So, this workaround drains those frames off before starting to read the real frame id's
     while (!do_exit) {
-        rs2::depth_frame depth_frame = queue.wait_for_frame();
+        rs2::depth_frame depth_frame = queue.wait_for_frame(WAIT_FOR_FRAME_TIMEOUT_MS);
 
         std::cout << "Draining Depth frame id " << frame_id << std::endl;
      
