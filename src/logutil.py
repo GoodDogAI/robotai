@@ -77,7 +77,7 @@ class LogHashes:
 
     def __init__(self, dir):
         self.dir = dir
-        self.engine = create_engine(f"sqlite:///{os.path.join(dir, '_hashes.sqlite')}", echo=True, future=True)
+        self.engine = create_engine(f"sqlite:///{os.path.join(dir, '_hashes.sqlite')}", echo=False, future=True)
         Base.metadata.create_all(self.engine)
         self.update()
 

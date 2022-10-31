@@ -38,6 +38,13 @@ function cleanLogName(filename) {
   return "..." + filename.substring(filename.indexOf("-", filename.indexOf("-") + 1) + 1).replace(".log", "");
 }
 
+function LogIcon(props) {
+  const { validation } = props;
+  if (validation === "validatedPassed") return "✅";
+  if (validation === "validatedFailed") return "❌";
+  return "⚪";
+}
+
 function LogListEntry(props) {
   const { logs, index, isOpen, selectedLog, onOpen, onLogSelected } = props;
 
@@ -62,6 +69,7 @@ function LogListEntry(props) {
                 <button className={"link"} onClick={() => onLogSelected(log.filename)}>
                   {selectedLog === log.filename ? (<strong>{cleanLogName(log.filename)}</strong>) : <span>{cleanLogName(log.filename)}</span> }
                 </button>
+                <LogIcon validation={log.meta.validation}/>
               </li>
             )}
           </ul>
