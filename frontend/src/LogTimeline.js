@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useQuery } from "react-query";
 import { VariableSizeList as List } from 'react-window';
 import classNames from 'classnames';
@@ -10,6 +10,48 @@ function formatSize(bytes) {
         return `${bytes}B`;
     else
         return `${(bytes / 1024).toFixed(1)}kB`;
+}
+
+function LogFilter(props) {
+    const { data, filteredOut, onFilterChanged } = props;
+
+    const [lastShiftState, setLastShiftState] = useState(false);
+
+    const logTypes = new Set(data.map((log) => log.which));
+
+    const OnChange = useCallback((event) => {
+        let newFilter = new Set(filteredOut);
+
+        // If shift-clicking, either add or delete all logs of that type
+        if (event.nativeEvent.shiftKey) {
+            if (lastShiftState) {
+                newFilter = new Set(logTypes);
+                newFilter.delete(event.target.value);
+            }
+            else {
+                newFilter = new Set();
+                newFilter.add(event.target.value);
+            }
+            setLastShiftState(!lastShiftState);
+        }
+        else {
+            if (event.target.checked) {
+                newFilter.delete(event.target.value);
+            } else {
+                newFilter.add(event.target.value);
+            }
+        }
+
+        onFilterChanged(newFilter);
+
+    }, [filteredOut, lastShiftState, setLastShiftState, onFilterChanged]);
+
+    return [...logTypes].map(type => (
+        <span key={type}>
+            <input type="checkbox" checked={!filteredOut.has(type)} value={type} onChange={OnChange} />
+            {type}
+        </span>            
+    ));
 }
 
 export function LogTimeline(props) {
@@ -25,6 +67,7 @@ export function LogTimeline(props) {
     );
 
     const [logIndex, setLogIndex] = useState(0);
+    const [filteredOut, setFilteredOut] = useState(new Set());
 
     const { data: logEntryData } = useQuery(["logs", logName, logIndex], () =>
         axios.get(
@@ -41,7 +84,7 @@ export function LogTimeline(props) {
         if (listEl.current) {
             listEl.current.resetAfterIndex(0);
         }
-    }, [logIndex, logEntryData]);
+    }, [logIndex, logEntryData, filteredOut]);
 
     if (!logName) {
         return <div className="timeline">Select a log to view</div>;
@@ -55,23 +98,25 @@ export function LogTimeline(props) {
         return <div className="timeline">Loading...</div>;
     }
 
+    const filteredData = data.filter((log) => !filteredOut.has(log.which));
+
     const Row = ({ index, style }) => {
         const rowClass = classNames({
             "row": true,
-            "selected": index === logIndex,
+            "selected": filteredData[index].index === logIndex,
         });
 
         let rowData = null;
 
-        if (index === logIndex) {
+        if (filteredData[index].index === logIndex) {
             rowData = <pre>{JSON.stringify(logEntryData, null, 2)}</pre>;
         }
 
         return (
-            <div className={rowClass} style={style} onClick={() => setLogIndex(index)}>
-                <div className="cell index">{data[index].index}</div>
-                <div className="cell which">{data[index].which}</div>
-                <div className="cell size">{formatSize(data[index].total_size_bytes)}</div>
+            <div className={rowClass} style={style} onClick={() => setLogIndex(filteredData[index].index)}>
+                <div className="cell index">{filteredData[index].index}</div>
+                <div className="cell which">{filteredData[index].which}</div>
+                <div className="cell size">{formatSize(filteredData[index].total_size_bytes)}</div>
                 <div>
                     {rowData}
                 </div>
@@ -80,7 +125,7 @@ export function LogTimeline(props) {
     }
 
     const GetRowSize = (index) => {
-        if (index === logIndex && logEntryData) {
+        if (filteredData[index].index === logIndex && logEntryData) {
             return 20 * JSON.stringify(logEntryData, null, 2).split(/\r\n|\r|\n/).length;
         }
         return 25;
@@ -105,6 +150,7 @@ export function LogTimeline(props) {
 
         return 0;
     }
+    console.log("num filtered rows", data.filter((_, index) => !filteredOut.has(data[index].which)).length);
 
 
     return (
@@ -123,6 +169,9 @@ export function LogTimeline(props) {
                 <button type="button" onClick={() => setLogIndex(Array(30).fill(0).reduce((index, _)  => GetNextLogIndex(index), logIndex))} disabled={logIndex === data.length}>+30</button>
             </div>
             <h5><a href={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/video/`}>{logName}</a></h5>
+            <div className="logFilter">
+                <LogFilter data={data} filteredOut={filteredOut} onFilterChanged={setFilteredOut}/>
+            </div>
             <div className="logTable">
                 <div className="row header">
                     <div className="cell index">Index</div>
@@ -132,7 +181,7 @@ export function LogTimeline(props) {
                 <List
                     ref={listEl}
                     height={800}
-                    itemCount={data.length}
+                    itemCount={filteredData     .length}
                     itemSize={GetRowSize}
                     width={800}>
 

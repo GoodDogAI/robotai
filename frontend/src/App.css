@@ -19,6 +19,10 @@
   flex: 1;
 }
 
+.logFilter {
+  margin-bottom: 1em;
+}
+
 .frameContainer button {
   margin-left: 1em;
 }
