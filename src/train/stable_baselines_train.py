@@ -16,7 +16,7 @@ from wandb.integration.sb3 import WandbCallback
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
-from src.train.arrowcache import ArrowRLDataset
+from src.train.rldataset import MsgVecDataset
 from src.train.stable_baselines_buffers import HostReplayBuffer
 
 class MsgVecEnv(gym.Env):
@@ -30,7 +30,7 @@ class MsgVecEnv(gym.Env):
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
-    cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
+    cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
       
     buffer_size = 50_000
