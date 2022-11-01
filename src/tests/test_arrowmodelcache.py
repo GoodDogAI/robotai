@@ -9,7 +9,8 @@ from unittest.mock import MagicMock
 
 from src.messaging import new_message
 from src.train.modelloader import model_fullname
-from src.train.arrowcache import ArrowModelCache, ArrowRLDataset
+from src.train.arrowcache import ArrowModelCache
+from src.train.rldataset import MsgVecDataset
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 class TestArrowModelCache(unittest.TestCase):
@@ -21,7 +22,7 @@ class TestArrowModelCache(unittest.TestCase):
 
 class TestArrowRLCache(unittest.TestCase):
     def test_current_config(self):
-        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
         last_override = False
         # We set shuffle_within_group to False so that we can see each log's samples linearly, and make sure that various flags and overrides are set correctly
@@ -40,7 +41,7 @@ class TestArrowRLCache(unittest.TestCase):
             np.testing.assert_array_almost_equal(sample["next_obs"], samples[index + 1]["obs"])
 
     def test_current_config_timing(self):
-        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
         # cache.vision_cache = MagicMock()
         # cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
@@ -179,7 +180,7 @@ class TestArrowRLCache(unittest.TestCase):
         }
         }
     
-        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), brain_config)
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), brain_config)
 
 
         last_override = False
@@ -277,7 +278,7 @@ class ManualTestArrowRLCache(unittest.TestCase):
 
     def test_single_observation(self):
         with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
-            cache = ArrowRLDataset(td, self.brain_config)
+            cache = MsgVecDataset(td, self.brain_config)
             cache.vision_cache = MagicMock()
             cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
             cache.reward_cache = MagicMock()
@@ -319,7 +320,7 @@ class ManualTestArrowRLCache(unittest.TestCase):
     # Test that you wait for the obs vectors to populate, though this is somewhat helped by waiting for the first inference
     def test_wait_for_obs(self):
         with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
-            cache = ArrowRLDataset(td, self.brain_config)
+            cache = MsgVecDataset(td, self.brain_config)
             cache.vision_cache = MagicMock()
             cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
             cache.reward_cache = MagicMock()

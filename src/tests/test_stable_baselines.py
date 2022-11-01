@@ -4,12 +4,13 @@ import torch
 
 from src.messaging import new_message
 from src.train.modelloader import model_fullname, create_pt_model
-from src.train.arrowcache import ArrowModelCache, ArrowRLDataset
+from src.train.arrowcache import ArrowModelCache
+from src.train.rldataset import MsgVecDataset
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 class StableBaselinesRLTests(unittest.TestCase):
     def test_pytorch_params(self):
-        cache = ArrowRLDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
         datapoint = next(cache.generate_samples())
         obs = torch.from_numpy(datapoint["obs"]).to("cuda")

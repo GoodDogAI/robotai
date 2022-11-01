@@ -128,6 +128,10 @@ class LogHashes:
         with Session(self.engine) as session:
             return session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none() is not None
 
+    def get_logsummary(self, filename: str) -> Optional[LogSummary]:
+        with Session(self.engine) as session:
+            return session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none()
+
     def update_metadata(self, filename: str, **kwargs):
         with Session(self.engine) as session:
             existing = session.execute(select(LogSummary).where(LogSummary.filename == filename)).scalar_one_or_none()

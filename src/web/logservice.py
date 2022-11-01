@@ -19,6 +19,7 @@ from einops import rearrange
 from cereal import log
 from src.config import HOST_CONFIG, MODEL_CONFIGS, DEVICE_CONFIG
 from src.train.modelloader import cached_vision_model, model_fullname
+from src.train.rldataset import MsgVecDataset
 from src.utils.draw_bboxes import draw_bboxes_pil
 
 from src.web.dependencies import get_loghashes
@@ -263,3 +264,37 @@ def get_log_video(logfile: str, camera: Literal["color", "depth"]="color", lh: L
         with open(os.path.join(td, f"{logfile}.mp4"), "rb") as vf:
             return Response(content=vf.read(), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
 
+@router.get("/{logfile}/msgvec/{model_name}/{frameid}")
+def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    if model_name not in MODEL_CONFIGS:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    model_config = MODEL_CONFIGS[model_name]
+    fullname = model_fullname(model_config)
+
+    start = time.perf_counter()
+    dataset = MsgVecDataset(lh.dir, model_config)
+    print(f"Loading dataset took {time.perf_counter() - start:.2f}s")
+
+    # Get the loggroup which contains the current log file
+    loggroup = None
+    for lg in lh.group_logs():
+        if logfile in [lf.filename for lf in lg]:
+            loggroup = lg
+            break
+
+    if loggroup is None:
+        raise HTTPException(status_code=404, detail="Log not found in group")
+
+    target_key = f"{lh.get_logsummary(logfile).get_runname()}-{frameid}"
+
+    # Run msgvec up to the desired frame
+    for packet in dataset.generate_log_group(loggroup, shuffle_within_group=False):
+        print(packet["key"])
+        if packet["key"] == target_key:
+            return JSONResponse(packet)
+
+    raise HTTPException(status_code=404, detail="Frame not found")

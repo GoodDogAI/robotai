@@ -41,10 +41,10 @@ class LogHashesTest(unittest.TestCase):
                             [(x.filename, x.sha256, x.orig_sha256) for x in logutil2.values()])
             
 
-            # Delete a file and it will stay in the database
+            # Delete a file and it will get removed
             os.unlink(os.path.join(td, "test.log"))
             logutil.update()
-            self.assertEqual(len(logutil.values()), 1)
+            self.assertEqual(len(logutil.values()), 0)
 
     def test_validate_log(self):
         with tempfile.TemporaryDirectory() as td:
@@ -62,7 +62,7 @@ class LogHashesTest(unittest.TestCase):
             lh = LogHashes(td)
             self.assertEqual(lh.values()[0].meta, {})
 
-            lh.update_metadata("test.log", {"test": "test"})
+            lh.update_metadata("test.log", test="test")
             self.assertEqual(lh.values()[0].meta, {"test": "test"})
 
             lh.update()
@@ -73,6 +73,13 @@ class LogHashesTest(unittest.TestCase):
 
             lh.update()
             self.assertEqual(lh.values()[0].meta, {"test": "test"})
+
+            lh.update_metadata("test.log", test="test2")
+            self.assertEqual(lh.values()[0].meta, {"test": "test2"})
+
+            lh.update_metadata("test.log", validation="passed")
+            self.assertEqual(lh.values()[0].meta, {"test": "test2", "validation": "passed"})
+
 
     def test_artificial_logfile(self):
         with artificial_logfile() as f:
