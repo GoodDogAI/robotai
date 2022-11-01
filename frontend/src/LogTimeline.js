@@ -15,7 +15,7 @@ function formatSize(bytes) {
 function LogFilter(props) {
     const { data, filteredOut, onFilterChanged } = props;
 
-    const [lastShiftState, setLastShiftState] = useState(false);
+    const [lastShiftState, setLastShiftState] = useState(true);
 
     const logTypes = new Set(data.map((log) => log.which));
 

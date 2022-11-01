@@ -7,7 +7,7 @@ import hashlib
 import shutil
 import numpy as np
 
-from typing import List
+from typing import List, Literal
 
 from fastapi import APIRouter, Depends, Form, UploadFile, HTTPException
 from fastapi.encoders import jsonable_encoder
@@ -133,7 +133,7 @@ async def get_log(logfile: str, lh: LogHashes = Depends(get_loghashes)) -> JSONR
 
 
 @router.get("/{logfile}/entry/{index}")
-async def get_log(logfile: str, index: int, lh: LogHashes = Depends(get_loghashes)) -> JSONResponse:
+async def get_log_entry(logfile: str, index: int, lh: LogHashes = Depends(get_loghashes)) -> JSONResponse:
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
@@ -238,27 +238,12 @@ def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_log
     return response
 
 
-@router.get("/{logfile}/thumbnail")
-def get_log_thumbnail(logfile: str, lh: LogHashes = Depends(get_loghashes)):
-    if not lh.filename_exists(logfile):
-        raise HTTPException(status_code=404, detail="Log not found")
-
-    with open(os.path.join(lh.dir, logfile), "rb") as f:
-        events = log.Event.read_multiple(f)
-
-        for i, evt in enumerate(events):
-            if evt.which() == "headEncodeData":
-                if evt.headEncodeData.idx.flags & 0x8:
-                    packet = evt.headEncodeData.data
-                    return Response(content=packet, media_type="image/heic")
-
-    raise HTTPException(status_code=500, detail="Unable to find thumbnail")
-
 @router.get("/{logfile}/video")
-def get_log_video(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+def get_log_video(logfile: str, camera: Literal["color", "depth"]="color", lh: LogHashes = Depends(get_loghashes)):
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
+    assert camera in ["color", "depth"], "Invalid camera setting"
 
     with tempfile.TemporaryDirectory() as td, open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
@@ -266,8 +251,10 @@ def get_log_video(logfile: str, lh: LogHashes = Depends(get_loghashes)):
         # Read raw frame data into a file, creating a so called "annexb" file
         with open(os.path.join(td, "frames.hevc"), "wb") as vf:
             for i, evt in enumerate(events):
-                if evt.which() == "headEncodeData":
+                if evt.which() == "headEncodeData" and camera == "color":
                     vf.write(evt.headEncodeData.data)
+                elif evt.which() == "depthEncodeData" and camera == "depth":
+                    vf.write(evt.depthEncodeData.data)
 
         # Convert that to a containerized video file by remuxing with ffmpeg
         # This is a bit of a hack, but it works
@@ -275,3 +262,4 @@ def get_log_video(logfile: str, lh: LogHashes = Depends(get_loghashes)):
 
         with open(os.path.join(td, f"{logfile}.mp4"), "rb") as vf:
             return Response(content=vf.read(), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
+
