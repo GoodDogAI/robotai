@@ -295,6 +295,12 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
     for packet in dataset.generate_log_group(loggroup, shuffle_within_group=False):
         print(packet["key"])
         if packet["key"] == target_key:
-            return JSONResponse(packet)
+            return JSONResponse({
+                "key": packet["key"],
+                "obs": packet["obs"].tolist(),
+                "act": packet["act"].tolist(),
+                "reward": packet["reward"],
+                "done": packet["done"],
+            })
 
     raise HTTPException(status_code=404, detail="Frame not found")

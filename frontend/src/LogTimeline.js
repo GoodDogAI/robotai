@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useQuery } from "react-query";
 import { VariableSizeList as List } from 'react-window';
 import classNames from 'classnames';
@@ -17,7 +17,7 @@ function LogFilter(props) {
 
     const [lastShiftState, setLastShiftState] = useState(true);
 
-    const logTypes = new Set(data.map((log) => log.which));
+    const logTypes = useMemo(() => new Set(data.map((log) => log.which)), [data]);
 
     const OnChange = useCallback((event) => {
         let newFilter = new Set(filteredOut);
@@ -44,7 +44,7 @@ function LogFilter(props) {
 
         onFilterChanged(newFilter);
 
-    }, [filteredOut, lastShiftState, setLastShiftState, onFilterChanged]);
+    }, [filteredOut, lastShiftState, setLastShiftState, onFilterChanged, logTypes]);
 
     return [...logTypes].map(type => (
         <span key={type}>
@@ -181,7 +181,7 @@ export function LogTimeline(props) {
                 <List
                     ref={listEl}
                     height={800}
-                    itemCount={filteredData     .length}
+                    itemCount={filteredData.length}
                     itemSize={GetRowSize}
                     width={800}>
 
