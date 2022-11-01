@@ -1,6 +1,7 @@
-
-
-import torch
+import tempfile
+import os
+import time
+import copy
 import tensorrt as trt
 import unittest
 
@@ -219,3 +220,51 @@ class TestModelLoaderTRT(unittest.TestCase):
     def test_stable_baselines_actor(self):
         onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
+
+    def test_model_fullname(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "test.pt"), "wb") as f:
+                f.write(b"test")
+
+            config = {
+                "type": "vision",
+                "load_fn": "src.models.yolov7.load.load_yolov7",
+                "input_format": "rgb",
+                "checkpoint": os.path.join(td, "test.pt"),
+
+                # Input dimensions must be divisible by the stride
+                # In current situations, the image will be cropped to the nearest multiple of the stride
+                "dimension_stride": 32,
+
+                "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
+                "intermediate_slice": 53,
+            }
+
+            f1 = model_fullname(config)
+            f2 = model_fullname(config)
+            self.assertEqual(f1, f2)
+
+            new_config = copy.deepcopy(config)
+            f3 = model_fullname(new_config)
+            self.assertEqual(f1, f3)
+
+            new_config["intermediate_slice"] = 54
+            f4 = model_fullname(new_config)
+            self.assertNotEqual(f1, f4)
+
+            # Need to sleep because file mtime is used to determine if the model needs to be rehashed
+            time.sleep(0.01)
+            with open(os.path.join(td, "test.pt"), "wb") as f:
+                f.write(b"omgwerwer")
+
+            f5 = model_fullname(config)
+            self.assertNotEqual(f1, f5)
+
+            # Need to sleep because file mtime is used to determine if the model needs to be rehashed
+            time.sleep(0.01)
+            with open(os.path.join(td, "test.pt"), "wb") as f:
+                f.write(b"test")
+
+            f6 = model_fullname(config)
+            self.assertEqual(f1, f6)
+    

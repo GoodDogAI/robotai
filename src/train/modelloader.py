@@ -5,6 +5,7 @@ import os
 import threading
 import atexit
 import time
+import xattr
 import importlib
 import json
 import hashlib
@@ -98,14 +99,33 @@ def _flatten_deep(x: Union[List, Tuple]) -> Iterable:
     else:
         yield x
 
+
+def _get_cached_checkpoint_hash(checkpoint_path: str) -> bytes:
+    last_modified = round(os.path.getmtime(checkpoint_path) * 1e9)
+
+    try:    
+        if last_modified == int.from_bytes(xattr.getxattr(checkpoint_path, "user.checkpoint_hash_last_modified"), byteorder="little"):
+            return xattr.getxattr(checkpoint_path, "user.checkpoint_hash")
+        else:
+            raise KeyError()
+    except (OSError, KeyError):
+        sha256_hash = hashlib.sha256()
+        with open(checkpoint_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(65536), b""):
+                sha256_hash.update(byte_block)
+
+        xattr.setxattr(checkpoint_path, "user.checkpoint_hash", sha256_hash.digest())
+        xattr.setxattr(checkpoint_path, "user.checkpoint_hash_last_modified", last_modified.to_bytes(8, "little"))
+
+        return sha256_hash.digest()
+
+
 # Returns a unique path that includes a hash of the model config and checkpoint
 def model_fullname(config: Dict[str, Any]) -> str:
     assert config is not None, "Unable to find config"
     sha256_hash = hashlib.sha256()
 
-    with open(config["checkpoint"], "rb") as f:
-        for byte_block in iter(lambda: f.read(65536), b""):
-            sha256_hash.update(byte_block)
+    sha256_hash.update(_get_cached_checkpoint_hash(config["checkpoint"]))
 
     # Also include the hash of the config itself
     sha256_hash.update(repr(config).encode("utf-8"))
@@ -116,7 +136,7 @@ def model_fullname(config: Dict[str, Any]) -> str:
             sha256_hash.update(model_fullname(MODEL_CONFIGS[modelname]).encode("utf-8"))
             
     model_sha = sha256_hash.hexdigest()[:16]
-    fullname = os.path.basename(config["checkpoint"]).replace(".pt", "") + "-" + model_sha + ""
+    fullname = os.path.basename(config["checkpoint"]).replace(".pt", "").replace(".zip", "") + "-" + model_sha + ""
     return fullname
 
 

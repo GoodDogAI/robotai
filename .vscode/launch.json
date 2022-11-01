@@ -47,6 +47,15 @@
             "justMyCode": true
         },
         {
+            "name": "Python: Profile bag loading",
+            "type": "python",
+            "request": "launch",
+            "module": "cProfile",
+            "args": [
+                "-o", "/tmp/tmp.prof", "-m", "unittest", "src.tests.test_arrowmodelcache.TestArrowRLCache.test_current_config_init"
+            ]
+        },
+        {
             "type": "cppdbg",
             "request": "launch",
             "name": "Launch braind",
