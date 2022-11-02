@@ -138,6 +138,8 @@ async def get_log_entry(logfile: str, index: int, lh: LogHashes = Depends(get_lo
     if not lh.filename_exists(logfile):
         raise HTTPException(status_code=404, detail="Log not found")
 
+    result = None
+
     with open(os.path.join(lh.dir, logfile), "rb") as f:
         events = log.Event.read_multiple(f)
 
@@ -156,6 +158,9 @@ async def get_log_entry(logfile: str, index: int, lh: LogHashes = Depends(get_lo
                 # Add in some sizing metadata
                 data["_total_size_bytes"] = evt.total_size.word_count * 8
                 result = data
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Log entry not found")
 
     # Don't try to encode raw data fields in the json,
     # it will just get interpreted as utf-8 text and you will have a bad time

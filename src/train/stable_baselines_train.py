@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print(f"Added {samples_added} samples to the replay buffer")
 
     for i in range(1000*1000):
-        model.train(gradient_steps=1000, batch_size=512)
+        model.train(gradient_steps=1000*10, batch_size=512) #*10 added in run23
         print("Trained 1000 steps")
         logger.dump(step=i)
 

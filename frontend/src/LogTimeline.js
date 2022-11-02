@@ -98,6 +98,10 @@ export function LogTimeline(props) {
         return <div className="timeline">Loading...</div>;
     }
 
+    if (data.length === 0) {
+        return <div className="timeline">No logs</div>;
+    }
+
     const filteredData = data.filter((log) => !filteredOut.has(log.which));
 
     const Row = ({ index, style }) => {
@@ -125,9 +129,13 @@ export function LogTimeline(props) {
     }
 
     const GetRowSize = (index) => {
-        if (filteredData[index].index === logIndex && logEntryData) {
+        if (index > filteredData.length) {
+            return 0;
+        }
+        else if (filteredData[index].index === logIndex && logEntryData) {
             return 20 * JSON.stringify(logEntryData, null, 2).split(/\r\n|\r|\n/).length;
         }
+
         return 25;
     }
 
@@ -150,8 +158,8 @@ export function LogTimeline(props) {
 
         return 0;
     }
-    console.log("num filtered rows", data.filter((_, index) => !filteredOut.has(data[index].which)).length);
-
+   
+    console.log("logindex", logIndex, data.length);
 
     return (
         <div className="timeline">

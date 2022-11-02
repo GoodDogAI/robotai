@@ -1,5 +1,7 @@
 import os
+import onnx
 import onnxruntime
+import onnx_graphsurgeon
 import numpy as np
 import io
 import copy
@@ -96,7 +98,7 @@ async def get_model_reference_input(model_name: str, input_name: str) -> FileRes
     
     
 @router.get("/{model_name}/reference_output/{output_name}")
-async def get_model_reference_input(model_name: str, output_name: str) -> FileResponse:
+async def get_model_reference_output(model_name: str, output_name: str) -> FileResponse:
     if model_name not in MODEL_CONFIGS:
         raise HTTPException(status_code=404, detail="Model not found")
 
@@ -122,3 +124,26 @@ async def get_model_reference_input(model_name: str, output_name: str) -> FileRe
                 media_type="application/octet-stream",
                 headers={"X-ModelFullname": model_fullname(config)})
 
+@router.get("/{model_name}/msgvecweights")
+async def get_msgvec_weight(model_name: str) -> JSONResponse:
+    if model_name not in MODEL_CONFIGS:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    config = MODEL_CONFIGS[model_name]
+    onnx_path = create_and_validate_onnx(config)
+    
+    onnx_model = onnx.load(onnx_path)  # load onnx model
+    graph = onnx_graphsurgeon.import_onnx(onnx_model)
+
+    # find the weight node
+    weight = graph.tensors()["actor.latent_pi.0.weight"].values
+
+    # find the sum abs of the weight for each input
+    weight_sum = np.sum(np.abs(weight), axis=0)
+
+    # Note, this is only going to be accurate if you can get the mean/variance of each input 
+
+    # Return the sorted index from the weight_sum array
+    sorted = np.argsort(weight_sum)
+
+    return JSONResponse(content={"sorted": sorted.tolist()})

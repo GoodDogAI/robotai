@@ -5,6 +5,7 @@ import numpy as np
 
 from fastapi.testclient import TestClient
 from cereal import log
+from src.config.config import HOST_CONFIG
 from src.logutil import sha256, LogHashes
 from src.tests.utils import artificial_logfile
 from src.web.main import app
@@ -79,7 +80,9 @@ class ModelServiceTest(unittest.TestCase):
 
         np.testing.assert_almost_equal(ort_outputs[0], ref_output, decimal=5)
 
-    
+    def test_msgvec_weights(self):
+        resp = self.client.get(f"/models/{HOST_CONFIG['DEFAULT_BRAIN_CONFIG']}/msgvecweights/")
+        self.assertEqual(resp.status_code, 200)
 
 if __name__ == '__main__':
     unittest.main()
