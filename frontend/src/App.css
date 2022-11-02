@@ -19,6 +19,12 @@
   flex: 1;
 }
 
+.msgvec {
+  padding-left: 1em;
+  flex: 2;
+  overflow: scroll;
+}
+
 .logFilter {
   margin-bottom: 1em;
 }

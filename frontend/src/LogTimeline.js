@@ -3,6 +3,7 @@ import { useQuery } from "react-query";
 import { VariableSizeList as List } from 'react-window';
 import classNames from 'classnames';
 import axios from "axios";
+import { MsgVec } from "./MsgVec";
 
 
 function formatSize(bytes) {
@@ -158,10 +159,9 @@ export function LogTimeline(props) {
 
         return 0;
     }
-   
-    console.log("logindex", logIndex, data.length);
-
+ 
     return (
+        <>
         <div className="timeline">
             <div className="frameContainer">
                 <div style={{ position: "relative", top: 0, left: 0 }}>
@@ -198,5 +198,7 @@ export function LogTimeline(props) {
 
             </div>
         </div>
+        <MsgVec/>
+        </>
     );
 }

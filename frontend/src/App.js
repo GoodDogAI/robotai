@@ -19,7 +19,6 @@ function App() {
                 <LogList logName={currentLog} onLogSelected={(newLog) => setCurrentLog(newLog)} />
                 <div className="padding"/>
                 <LogTimeline logName={currentLog}/>
-                <div className="padding"/>
             </div>
         </QueryClientProvider>
     );
