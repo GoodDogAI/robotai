@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useRef } from "react";
 import { useQuery } from "react-query";
 import { FixedSizeList as List } from 'react-window';
 import classNames from 'classnames';
@@ -21,11 +21,12 @@ function parseObs(msgvec) {
 }
 
 export function MsgVec(props) {
-    const { logName, index } = props;
+    const { logName, frameIndex } = props;
     const listEl = useRef(null);
     
     // Load the default brain config and get the msgvec config
     const { data: brainConfig } = useQuery("brainConfig", () => axios.get(`${process.env.REACT_APP_BACKEND_URL}/models/brain/default`).then((res) => res.data));
+    const { data: packet } = useQuery(["logs", "msgvec", logName, brainConfig?.basename, frameIndex], () => axios.get(`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/msgvec/${brainConfig?.basename}/${frameIndex}`).then((res) => res.data));
 
     let obs = [];
     
@@ -37,16 +38,19 @@ export function MsgVec(props) {
             "row": true,
         });
 
+        let pData = null;
+
+        if (packet) {
+            pData = packet.obs[index].toFixed(3);
+        }
 
         return (
             <div className={rowClass} style={style}>
-                <div className="cell index">{index}</div>
+                <div className="cell index">{pData}</div>
                 <div className="cell which">{obs[index].which}</div>
             </div>
         );
     }
-
-    console.log(brainConfig);
 
     return (
         <div className="msgvec">

@@ -198,7 +198,7 @@ export function LogTimeline(props) {
 
             </div>
         </div>
-        <MsgVec/>
+        <MsgVec logName={logName} frameIndex={data[logIndex].headIndex}/>
         </>
     );
 }

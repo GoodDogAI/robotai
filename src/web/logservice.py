@@ -1,3 +1,4 @@
+import functools
 import io
 import os
 import subprocess
@@ -269,20 +270,10 @@ def get_log_video(logfile: str, camera: Literal["color", "depth"]="color", lh: L
         with open(os.path.join(td, f"{logfile}.mp4"), "rb") as vf:
             return Response(content=vf.read(), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
 
-@router.get("/{logfile}/msgvec/{model_name}/{frameid}")
-def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
-    if not lh.filename_exists(logfile):
-        raise HTTPException(status_code=404, detail="Log not found")
-
-    if model_name not in MODEL_CONFIGS:
-        raise HTTPException(status_code=404, detail="Model not found")
-
+@functools.lru_cache(maxsize=8)
+def _get_loggroup(logfile: str, model_name: str, lh: LogHashes):
     model_config = MODEL_CONFIGS[model_name]
-    fullname = model_fullname(model_config)
-
-    start = time.perf_counter()
     dataset = MsgVecDataset(lh.dir, model_config)
-    print(f"Loading dataset took {time.perf_counter() - start:.2f}s")
 
     # Get the loggroup which contains the current log file
     loggroup = None
@@ -293,12 +284,25 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
 
     if loggroup is None:
         raise HTTPException(status_code=404, detail="Log not found in group")
+    
+    return list(dataset.generate_log_group(loggroup, shuffle_within_group=False))
+
+@router.get("/{logfile}/msgvec/{model_name}/{frameid}")
+def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    if model_name not in MODEL_CONFIGS:
+        raise HTTPException(status_code=404, detail="Model not found")
 
     target_key = f"{lh.get_logsummary(logfile).get_runname()}-{frameid}"
 
+    print(f"Start key: {_get_loggroup(logfile, model_name, lh)[0]['key']}")
+    print(f"End key: {_get_loggroup(logfile, model_name, lh)[-1]['key']}")
+
     # Run msgvec up to the desired frame
-    for packet in dataset.generate_log_group(loggroup, shuffle_within_group=False):
-        print(packet["key"])
+    for packet in _get_loggroup(logfile, model_name, lh):
+        #print(packet["key"])
         if packet["key"] == target_key:
             return JSONResponse({
                 "key": packet["key"],
