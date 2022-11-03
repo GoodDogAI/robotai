@@ -54,6 +54,11 @@ if __name__ == "__main__":
     logger = configure(os.path.join(log_dir, run_name), ["stdout", "tensorboard"])
     model.set_logger(logger)
 
+    # Copy the current file to the log directory, as a reference
+    with open(__file__, "r") as f:
+        with open(os.path.join(log_dir, run_name, "train_script.py"), "w") as f2:
+            f2.write(f.read())
+
     # Fill the replay buffer
     buffer = model.replay_buffer
     samples_added = 0
