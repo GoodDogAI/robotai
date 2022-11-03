@@ -25,15 +25,14 @@ class TestMsgVecDataset(unittest.TestCase):
         cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
         last_override = False
+        last_done = False
         # We set shuffle_within_group to False so that we can see each log's samples linearly, and make sure that various flags and overrides are set correctly
         for entry in itertools.islice(cache.generate_samples(shuffle_within_group=False), 10000):
-            if entry["reward_override"]:
-                print(entry["reward_override"], entry["reward"], entry["done"])
-
             if not entry["reward_override"] and last_override:
-                self.assertTrue(entry["done"])
+                self.assertTrue(last_done)
                 
             last_override = entry["reward_override"]
+            last_done = entry["done"]
 
         samples = list(itertools.islice(cache.generate_samples(shuffle_within_group=False), 100))
 
