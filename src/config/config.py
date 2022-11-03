@@ -358,7 +358,6 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "headCommand.pitchAngle",
-                    "index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -370,7 +369,6 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "headCommand.yawAngle",
-                    "index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
