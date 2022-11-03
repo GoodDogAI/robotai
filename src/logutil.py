@@ -29,6 +29,7 @@ def sha256(filename: str) -> str:
 
     return sha256_hash.hexdigest()
 
+
 # Just makes sure that every event in the log file can be parsed, doesn't handle modelValidation events
 def quick_validate_log(f: BinaryIO) -> bool:
     try:
@@ -40,6 +41,29 @@ def quick_validate_log(f: BinaryIO) -> bool:
         return True
     except capnp.KjException:
         return False
+
+
+def check_log_monotonic(f: BinaryIO) -> bool:
+    last_log_mono_time = None
+
+    events = log.Event.read_multiple(f)
+
+    for evt in events:
+        if last_log_mono_time is not None and evt.logMonoTime < last_log_mono_time:
+            return False
+
+        last_log_mono_time = evt.logMonoTime
+
+    return True
+
+
+def resort_log_monotonic(input: BinaryIO, output: BinaryIO):
+    events = log.Event.read_multiple(input)
+    events = sorted(events, key=lambda evt: evt.logMonoTime)
+
+    for evt in events:
+        evt.as_builder().write(output)
+
 
 def get_runname(filename: str) -> str:
     match = LOGNAME_RE.match(filename)

@@ -3,7 +3,8 @@ import unittest
 import tempfile
 import os
 
-from src.logutil import LogHashes, quick_validate_log
+from src.logutil import LogHashes, check_log_monotonic, quick_validate_log, resort_log_monotonic
+from src.messaging import new_message
 from src.tests.utils import artificial_logfile
 
 
@@ -97,5 +98,67 @@ class LogHashesTest(unittest.TestCase):
             self.assertEqual(lh.group_logs()[0][0].filename, "alphalog-6d7f2832-2022-10-11-18_9.log")
             self.assertEqual(lh.group_logs()[0][1].filename, "alphalog-6d7f2832-2022-10-11-18_10.log")
 
+    def test_logo_monotonic(self):
+        with tempfile.TemporaryDirectory() as td:
+            with open(os.path.join(td, "aligned.log"), "w+b") as f:
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 100
+                msg.write(f)
+
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 101
+                msg.write(f)
+
+                f.flush()
+                f.seek(0)
+
+                self.assertTrue(check_log_monotonic(f))
+
+            with open(os.path.join(td, "notaligned.log"), "w+b") as f:
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 100
+                msg.write(f)
+
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 99
+                msg.write(f)
+
+                f.flush()
+                f.seek(0)
+
+                self.assertFalse(check_log_monotonic(f))
+
+            with open(os.path.join(td, "alginedequal.log"), "w+b") as f:
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 100
+                msg.write(f)
+
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 100
+                msg.write(f)
+
+                msg = new_message("voltage")
+                msg.voltage.volts = 12.0
+                msg.logMonoTime = 102
+                msg.write(f)
+
+                f.flush()
+                f.seek(0)
+
+                self.assertTrue(check_log_monotonic(f))
+
+            with open(os.path.join(td, "notaligned.log"), "rb") as i, open(os.path.join(td, "notaligned_fixed.log"), "w+b") as o:
+                resort_log_monotonic(i, o)
+                
+                o.flush()
+                o.seek(0)
+                self.assertTrue(check_log_monotonic(o))
+            
 if __name__ == '__main__':
     unittest.main()

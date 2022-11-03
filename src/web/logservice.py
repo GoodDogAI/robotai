@@ -297,9 +297,6 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
 
     target_key = f"{lh.get_logsummary(logfile).get_runname()}-{frameid}"
 
-    print(f"Start key: {_get_loggroup(logfile, model_name, lh)[0]['key']}")
-    print(f"End key: {_get_loggroup(logfile, model_name, lh)[-1]['key']}")
-
     # Run msgvec up to the desired frame
     with open("/home/jake/robotai/debug.txt", "w") as f:
         for packet in _get_loggroup(logfile, model_name, lh):
