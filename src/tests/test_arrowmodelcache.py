@@ -20,7 +20,7 @@ class TestArrowModelCache(unittest.TestCase):
     def test_basic_reward(self):
         cache = ArrowModelCache(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["yolov7-tiny-prioritize_centered_nms"], force_rebuild=True)
 
-class TestArrowRLCache(unittest.TestCase):
+class TestMsgVecDataset(unittest.TestCase):
     def test_current_config(self):
         cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
@@ -65,6 +65,19 @@ class TestArrowRLCache(unittest.TestCase):
 
         print(f"Time to generate {counter} samples: {end - start}")
         print(f"Samples per second: {counter / (end - start)}")
+
+    def test_missing_frames(self):
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+
+        # Check that each frame key is incrementing by 1
+        last_frame = None
+        for entry in cache.generate_samples(shuffle_groups=False, shuffle_within_group=False):
+            frame = int(entry["key"].split('-')[-1])
+            print(entry["key"], frame)
+            if last_frame is not None:
+                self.assertEqual(frame, last_frame + 1)
+            last_frame = frame
+            
 
     def test_on_reward_override_done(self):
         brain_config = {
@@ -196,7 +209,7 @@ class TestArrowRLCache(unittest.TestCase):
             last_override = entry["reward_override"]
             last_done = entry["done"]
 
-class ManualTestArrowRLCache(unittest.TestCase):
+class ManualTestMsgVecDataset(unittest.TestCase):
     def setUp(self) -> None:
         self. brain_config = {
             "type": "brain",

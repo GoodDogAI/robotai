@@ -49,6 +49,9 @@ cdef class PyMsgVec:
     def act_size(self):
         return self.c_msgvec.act_size()
 
+    def _debug_print_timing(self):
+        self.c_msgvec._debug_print_timing()
+
     def input(self, message):
         cdef _DynamicStructReader reader
         cdef C_DynamicStruct.Reader c_reader

@@ -29,6 +29,8 @@ cdef extern from "msgvec.h":
         bool get_reward(float *reward) except +
         vector[WordArray] get_action_command(const float *actVector) except +
 
+        void _debug_print_timing()
+
 cdef extern from "msgvec.h" namespace "MsgVec":
     cpdef enum MessageTimingMode:
         REALTIME"MsgVec::MessageTimingMode::REALTIME"

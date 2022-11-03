@@ -34,6 +34,7 @@ class MsgVecDataset():
 
         raw_data = []
 
+        last_log_mono_time = None
         last_reward_was_override = False
         continue_processing_group = True
         cur_packet = {}
@@ -48,6 +49,9 @@ class MsgVecDataset():
 
                 # Get the actual events, starting with a keyframe, which we will need
                 for evt in events:
+                    if last_log_mono_time is not None and evt.logMonoTime < last_log_mono_time:
+                        raise RuntimeError("Log files are not in order")
+
                     status = msgvec.input(evt.as_builder())
 
                     if status["act_ready"]:
@@ -71,6 +75,7 @@ class MsgVecDataset():
                         reward_valid, reward_value = msgvec.get_reward()
 
                         if timeout == PyTimeoutResult.MESSAGES_NOT_READY:
+                            msgvec._debug_print_timing()
                             continue
 
                         if reward_valid:
@@ -91,6 +96,8 @@ class MsgVecDataset():
                             cur_packet["done"] = True
 
                         last_reward_was_override = reward_valid
+
+                    last_log_mono_time = evt.logMonoTime
 
 
         # The last packet is always done
