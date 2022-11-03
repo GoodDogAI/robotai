@@ -24,7 +24,7 @@ from src.train.rldataset import MsgVecDataset
 from src.utils.draw_bboxes import draw_bboxes_pil
 
 from src.web.dependencies import get_loghashes
-from src.logutil import LogHashes, LogSummary, quick_validate_log
+from src.logutil import LogHashes, LogSummary, quick_validate_log, resort_log_monotonic
 
 from src.video import get_image_packets, decode_last_frame
 from src.train import log_validation
@@ -89,13 +89,18 @@ async def post_log(logfile: UploadFile, sha256: str=Form(), lh: LogHashes = Depe
         raise HTTPException(status_code=500, detail="Log filename already exists")
 
     # Copy to a tempfile, because capnp can't read full messages from a stream
-    with tempfile.NamedTemporaryFile("w+b") as tf, open(newfilename, "wb") as f:
+    with tempfile.NamedTemporaryFile("w+b") as tf1, tempfile.NamedTemporaryFile("w+b") as tf2, open(newfilename, "wb") as f:
         logfile.file.seek(0)
-        shutil.copyfileobj(logfile.file, tf)
-        tf.seek(0)
+        shutil.copyfileobj(logfile.file, tf1)
+        tf1.seek(0)
+
+        # Make the log monotonic first
+        resort_log_monotonic(tf1, tf2)
+        tf2.flush()
+        tf2.seek(0)
 
         # Copy over to the final location doing a new validation
-        log_validation.full_validate_log(tf, f)
+        log_validation.full_validate_log(tf2, f)
 
     lh.update(original_hashes={
         logfile.filename: local_hash

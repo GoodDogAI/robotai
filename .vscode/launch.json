@@ -40,10 +40,10 @@
             "justMyCode": true
         },
         {
-            "name": "Python: Convert Old Bags",
+            "name": "Python: reprocess logs",
             "type": "python",
             "request": "launch",
-            "module": "src.utils.bag2log",
+            "module": "src.utils.reprocess_logs",
             "justMyCode": true
         },
         {

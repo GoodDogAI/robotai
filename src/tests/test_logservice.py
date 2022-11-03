@@ -6,7 +6,7 @@ import io
 
 from fastapi.testclient import TestClient
 from cereal import log
-from src.logutil import sha256, LogHashes
+from src.logutil import sha256, LogHashes, check_log_monotonic, resort_log_monotonic
 from src.tests.utils import artificial_logfile
 from src.web.main import app
 from src.web.dependencies import get_loghashes
@@ -117,6 +117,20 @@ class LogServiceTest(unittest.TestCase):
             resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
             self.assertEqual(resp.status_code, 200)
 
+    def test_post_nonmonotonic_log(self):
+        test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-478ab32e-2022-10-27-02_37.log")
+
+        with open(test_path, "rb") as tf:
+            self.assertFalse(check_log_monotonic(tf))
+
+        with open(test_path, "rb") as tf:
+            resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})
+            self.assertEqual(resp.status_code, 200)
+
+        with open(os.path.join(self.lh.dir, "alphalog-478ab32e-2022-10-27-02_37.log"), "rb") as tf:
+            self.assertTrue(check_log_monotonic(tf))
+
+
 class LogServiceRealDataTests(unittest.TestCase):
     def setUp(self) -> None:
         self.td = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest")
@@ -153,7 +167,7 @@ class LogServiceRealDataTests(unittest.TestCase):
         self.assertGreater(len(resp.content), 150_000_000)
 
     def test_msgvec(self):
-        test_log = "alphalog-22c37d10-2022-9-16-21_21.log"
+        test_log = "alphalog-478ab32e-2022-10-27-02_37.log"
 
         resp = self.client.get(f"/logs/{test_log}/msgvec/{HOST_CONFIG.DEFAULT_BRAIN_CONFIG}/120")
         self.assertEqual(resp.status_code, 200)
