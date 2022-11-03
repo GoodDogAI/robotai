@@ -370,4 +370,41 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             samples = list(cache.generate_samples())
             self.assertEqual(len(samples), 0)
             
-    
+    def test_messages_lose_readiness(self):
+        for delay, expected in [(0, 1), (int(1e9), 0)]:
+            with self.subTest():
+                with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
+                    cache = MsgVecDataset(td, self.brain_config)
+                    cache.vision_cache = MagicMock()
+                    cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+                    cache.reward_cache = MagicMock()
+                    cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+
+                    # Messages get ready
+                    msg = new_message("odriveFeedback")
+                    msg.write(f)
+                    msg = new_message("headFeedback")
+                    msg.write(f)
+                    
+                    # Inference occurs
+                    msg = new_message("modelInference")
+                    msg.write(f)
+
+                    # Action vector gets written out
+                    msg = new_message("odriveCommand")
+                    msg.write(f)    
+
+                    msg = new_message("odriveFeedback")
+                    msg.odriveFeedback.leftMotor.vel = 5.0
+                    msg.logMonoTime += delay
+                    msg.write(f)
+
+                    msg = new_message("modelInference")
+                    msg.logMonoTime += delay
+                    msg.write(f)
+                    msg = new_message("odriveCommand")
+                    msg.logMonoTime += delay
+                    msg.write(f)
+
+                    samples = list(cache.generate_samples())
+                    self.assertEqual(len(samples), expected)

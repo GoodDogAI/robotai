@@ -67,6 +67,7 @@ class MsgVecDataset():
         raw_data = []
 
         group_runname = log_group[0].get_runname()
+        last_timeout = PyTimeoutResult.MESSAGES_NOT_READY
         last_log_mono_time = None
         last_reward_was_override = False
 
@@ -91,7 +92,6 @@ class MsgVecDataset():
                 vision_vec = self.vision_cache.get(key, None)
 
                 if vision_vec is None:
-                    continue_processing_group = False
                     break
 
                 msgvec.input_vision(vision_vec, evt.modelInference.frameId)
@@ -99,8 +99,15 @@ class MsgVecDataset():
                 reward_valid, reward_value = msgvec.get_reward()
 
                 if timeout == PyTimeoutResult.MESSAGES_NOT_READY:
-                    msgvec._debug_print_timing()
-                    continue
+                    if last_timeout == PyTimeoutResult.MESSAGES_PARTIALLY_READY or last_timeout == PyTimeoutResult.MESSAGES_ALL_READY:
+                        # We got a timeout after messages were ready, so probably this batch is not good anymore
+                        break
+                    else:
+                        msgvec._debug_print_timing()
+                        continue
+                elif timeout == PyTimeoutResult.MESSAGES_PARTIALLY_READY and last_timeout == PyTimeoutResult.MESSAGES_ALL_READY:
+                    # We got a timeout after messages were ready, so probably this batch is not good anymore
+                    break
 
                 if reward_valid:
                     cur_packet["reward"] = reward_value
@@ -108,8 +115,8 @@ class MsgVecDataset():
                 else:
                     reward = self.reward_cache.get(key, None)
                     if reward is None:
-                        continue_processing_group = False
                         break
+
                     cur_packet["reward"] = reward
                     cur_packet["reward_override"] = False
 
@@ -120,6 +127,7 @@ class MsgVecDataset():
                     cur_packet["done"] = True
 
                 last_reward_was_override = reward_valid
+                last_timeout = timeout
 
             last_log_mono_time = evt.logMonoTime
 
