@@ -296,7 +296,7 @@ MODEL_CONFIGS = dotdict({
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [-1, 1],
+                        "msg_range": [-2, 2],
                         "vec_range": [-1, 1],
                     },
                 },
@@ -308,7 +308,7 @@ MODEL_CONFIGS = dotdict({
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [-1, 1],
+                        "msg_range": [-2, 2],
                         "vec_range": [-1, 1],
                     },
                 },
@@ -320,7 +320,7 @@ MODEL_CONFIGS = dotdict({
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
-                        "msg_range": [-1, 1],
+                        "msg_range": [-2, 2],
                         "vec_range": [-1, 1],
                     },
                 },
