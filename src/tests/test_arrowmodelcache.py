@@ -41,7 +41,7 @@ class TestMsgVecDataset(unittest.TestCase):
             np.testing.assert_array_almost_equal(sample["next_obs"], samples[index + 1]["obs"])
 
     def test_current_config_timing(self):
-        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "oct22testgroup"), MODEL_CONFIGS["basic-brain-test1"])
 
         # cache.vision_cache = MagicMock()
         # cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
@@ -67,7 +67,7 @@ class TestMsgVecDataset(unittest.TestCase):
         print(f"Samples per second: {counter / (end - start)}")
 
     def test_missing_frames(self):
-        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
+        cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "oct22testgroup"), MODEL_CONFIGS["basic-brain-test1"])
 
         # Check that each frame key is incrementing by 1
         last_frame = None
@@ -343,7 +343,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             msg = new_message("odriveFeedback")
             msg.write(f)
 
-            # Not sending any headback, so no samples should be generated            
+            # Not sending any head feedback, so no samples should be generated            
             # msg = new_message("headFeedback")
             # msg.write(f)
             

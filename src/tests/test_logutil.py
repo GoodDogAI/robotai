@@ -98,7 +98,7 @@ class LogHashesTest(unittest.TestCase):
             self.assertEqual(lh.group_logs()[0][0].filename, "alphalog-6d7f2832-2022-10-11-18_9.log")
             self.assertEqual(lh.group_logs()[0][1].filename, "alphalog-6d7f2832-2022-10-11-18_10.log")
 
-    def test_logo_monotonic(self):
+    def test_log_monotonic(self):
         with tempfile.TemporaryDirectory() as td:
             with open(os.path.join(td, "aligned.log"), "w+b") as f:
                 msg = new_message("voltage")
