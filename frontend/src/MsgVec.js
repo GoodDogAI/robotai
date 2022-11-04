@@ -101,6 +101,7 @@ export function MsgVec(props) {
             <div className={rowClass} style={style}>
                 <div className="cell index">{pData}</div>
                 <div className="cell which">{obs[index].which}</div>
+                <div className="cell index">{index}</div>
             </div>
         );
     }

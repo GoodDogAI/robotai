@@ -56,6 +56,12 @@
             ]
         },
         {
+            "name": "Debug Unit Test",
+            "type": "python",
+            "request": "test",
+            "justMyCode": false,
+        },
+        {
             "type": "cppdbg",
             "request": "launch",
             "name": "Launch braind",
