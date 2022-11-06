@@ -11,12 +11,14 @@ from tqdm import tqdm
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure
+from stable_baselines3.common.callbacks import BaseCallback
 
 from wandb.integration.sb3 import WandbCallback
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.train.rldataset import MsgVecDataset
+from stable_baselines3.common.buffers import ReplayBuffer
 from src.train.stable_baselines_buffers import HostReplayBuffer
 
 class MsgVecEnv(gym.Env):
@@ -26,13 +28,14 @@ class MsgVecEnv(gym.Env):
         self.observation_space = spaces.Box(low=-1, high=1, shape=(msgvec.obs_size(),))
 
 
-
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
     cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
-      
+    validation_log = "alphalog-4425c446"  
+    validation_buffer_size = 10_000
+
     buffer_size = 50_000
 
     env = MsgVecEnv(msgvec)
@@ -54,12 +57,15 @@ if __name__ == "__main__":
     logger = configure(os.path.join(log_dir, run_name), ["stdout", "tensorboard"])
     model.set_logger(logger)
 
+    # TODO Log the hyperparameters
+    #https://stable-baselines3.readthedocs.io/en/master/guide/tensorboard.html
+
     # Copy the current file to the log directory, as a reference
     with open(__file__, "r") as f:
         with open(os.path.join(log_dir, run_name, "train_script.py"), "w") as f2:
             f2.write(f.read())
 
-    # Fill the replay buffer
+    # Fill the training replay buffer
     buffer = model.replay_buffer
     samples_added = 0
       
@@ -69,9 +75,16 @@ if __name__ == "__main__":
 
     print(f"Added {samples_added} samples to the replay buffer")
 
+    # Fill the validation replay buffer
+    validation_buffer = ReplayBuffer(buffer_size=validation_buffer_size, handle_timeout_termination=False)
+    
+
     for i in range(1000*1000):
         model.train(gradient_steps=1000*10, batch_size=512) #*10 added in run23
         print("Trained 1000 steps")
+
+        # 
+
         logger.dump(step=i)
 
         # Each step, replace 50% of the replay buffer with new samples
