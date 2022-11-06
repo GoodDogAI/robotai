@@ -17,7 +17,7 @@
 
 const char *service_name = "odriveFeedback";
 ExitHandler do_exit;
-const auto loop_time = std::chrono::milliseconds(50);
+const auto loop_time = std::chrono::microseconds(33'333);
 
 struct ODriveCommandState {
     float currentLeft;
