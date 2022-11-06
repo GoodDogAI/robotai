@@ -97,6 +97,9 @@ class ArrowModelCache():
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
 
     def _cache_needs_rebuild(self):
+        # TODO This cache detection mechanism is not ideal, best if we write to a separate location
+        # Which input logs were processed already. Otherwise, you can have built the cache with a run that was
+        # only partially uploaded, and then it's basically wrong forever.
         for group in self.lh.group_logs():
             cache_path = self.get_cache_path(group[0].get_runname())
 
