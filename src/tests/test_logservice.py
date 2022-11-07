@@ -120,8 +120,16 @@ class LogServiceTest(unittest.TestCase):
     def test_post_nonmonotonic_log(self):
         test_path = os.path.join(HOST_CONFIG.RECORD_DIR, "unittest", "alphalog-478ab32e-2022-10-27-02_37.log")
 
-        with open(test_path, "rb") as tf:
-            self.assertFalse(check_log_monotonic(tf))
+        with open(test_path, "rb") as tf, tempfile.NamedTemporaryFile("w+b") as tf2:
+            events = log.Event.read_multiple(tf)
+            events = sorted(events, key=lambda evt: -evt.logMonoTime)
+
+            for evt in events:
+                evt.as_builder().write(tf2)
+
+            tf2.flush()
+            tf2.seek(0)
+            self.assertFalse(check_log_monotonic(tf2))
 
         with open(test_path, "rb") as tf:
             resp = self.client.post("/logs/", files={"logfile": tf, "sha256": (None, sha256(tf.name))})

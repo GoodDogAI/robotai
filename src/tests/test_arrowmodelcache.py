@@ -117,6 +117,7 @@ class TestMsgVecDataset(unittest.TestCase):
                 {
                     "type": "vision",
                     "size": 17003,
+                    "timeout": 0.100,
                     "index": -1,
                 }
             ],
@@ -248,6 +249,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     {
                         "type": "vision",
                         "size": 17003,
+                        "timeout": 0.100,
                         "index": -1,
                     }
                 ],

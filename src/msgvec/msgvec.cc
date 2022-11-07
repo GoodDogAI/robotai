@@ -40,6 +40,7 @@
         {
             "type": "vision",
             "size": 123,
+            "timeout": 0.10,
             "index": -1,
         }
     ],
@@ -176,10 +177,15 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                 throw std::runtime_error("msgvec: vision size must be > 1");
             }
 
+            if (!obs.contains("timeout")) {
+                throw std::runtime_error("msgvec: vision section must have timeout");
+            }
+
             const auto [queue_size, obs_size] = get_queue_obs_len(obs);
 
             m_visionHistory = std::deque<std::vector<float>>(queue_size, std::vector<float>(m_visionSize, 0.0f));
             m_visionHistoryIds = std::deque<uint32_t>(queue_size, 0);
+            m_visionHistoryTimestamps = std::deque<uint64_t>(queue_size, 0);
 
             m_obsSize += m_visionSize * obs_size.size();
         }
@@ -415,6 +421,9 @@ void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
 
     m_visionHistoryIds.push_front(frameId);
     m_visionHistoryIds.pop_back();
+
+    m_visionHistoryTimestamps.push_front(_get_msgvec_log_mono_time());
+    m_visionHistoryTimestamps.pop_back();
 }
 
 size_t MsgVec::obs_size() const {
@@ -456,7 +465,6 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
             
                 if (cur_time - m_obsHistoryTimestamps[index][history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
                     if (i == 0) {
-                        //std::cerr << "Failure syncing " << obs["path"]  << " Cur time: " << cur_time << ", history time: " << m_obsHistoryTimestamps[index][history_index] << ", timeout: " << obs["timeout"].get<float>() << std::endl;
                         timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
                     } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
                         timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
@@ -468,11 +476,18 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         } else if (obs["type"] == "vision") {
             const auto [queue_size, indices] = get_queue_obs_len(obs);
 
-            //TODO Keep track of timing on vision inputs as well
-
             for (size_t i = 0; i < indices.size(); i++) {
                 auto history_index = std::abs(indices[i]) - 1;
                 std::copy(m_visionHistory[history_index].begin(), m_visionHistory[history_index].end(), &obsVector[curpos]);
+
+                if (cur_time - m_visionHistoryTimestamps[history_index] > (history_index + 1) * obs["timeout"].get<float>() * 1e9) {
+                    if (i == 0) {
+                        timestamps_valid = TimeoutResult::MESSAGES_NOT_READY;
+                    } else if (timestamps_valid == TimeoutResult::MESSAGES_ALL_READY) {
+                        timestamps_valid = TimeoutResult::MESSAGES_PARTIALLY_READY;
+                    }
+                }
+
                 curpos += m_visionSize;
             }
         }

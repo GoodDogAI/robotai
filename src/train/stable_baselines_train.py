@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.logger import configure, HParam
-
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
@@ -107,12 +107,11 @@ if __name__ == "__main__":
 
     for step in range(1000*1000):
         step_start_time = time.perf_counter()
-
-        model.train(gradient_steps=num_updates, batch_size=batch_size)
+        model.train(gradient_steps=10, batch_size=batch_size)
         gradient_end_time = time.perf_counter()
 
         print(f"Trained {num_updates} steps in {gradient_end_time - step_start_time:.2f}s")
-        logger.record("train/gradient_time", gradient_end_time - step_start_time)
+        logger.record("perf/gradient_time", gradient_end_time - step_start_time)
 
         # Run the actor against the entire validation buffer, and measure the variance of the actions
         validation_acts = []
@@ -144,7 +143,7 @@ if __name__ == "__main__":
             samples_added += 1
         
         refill_end_time = time.perf_counter()
-        logger.record("train/buffer_time", refill_end_time - gradient_end_time)
+        logger.record("perf/buffer_time", refill_end_time - gradient_end_time)
 
         logger.dump(step=step)
 

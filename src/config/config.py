@@ -328,6 +328,7 @@ MODEL_CONFIGS = dotdict({
                 {
                     "type": "vision",
                     "size": 17003,
+                    "timeout": 0.100,
                     "index": [-1, -2],
                 }
             ],
