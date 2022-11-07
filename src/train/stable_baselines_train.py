@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=1.0,
+                target_entropy=-1.0,
                 learning_rate=1e-4,
                 replay_buffer_class=HostReplayBuffer,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 
     for step in range(1000*1000):
         step_start_time = time.perf_counter()
-        model.train(gradient_steps=10, batch_size=batch_size)
+        model.train(gradient_steps=num_updates, batch_size=batch_size)
         gradient_end_time = time.perf_counter()
 
         print(f"Trained {num_updates} steps in {gradient_end_time - step_start_time:.2f}s")
