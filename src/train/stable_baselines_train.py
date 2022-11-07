@@ -1,6 +1,6 @@
 import os
 import gym
-import tempfile
+import time
 import torch
 import glob
 import itertools
@@ -32,11 +32,11 @@ if __name__ == "__main__":
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
     cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
-    buffer_size = 5_000
+    buffer_size = 50_000
     batch_size = 512
     validation_runname = "alphalog-4425c446"  
     validation_buffer_size = 10_000
-
+    num_updates = round(buffer_size * 10 / batch_size)
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
@@ -66,6 +66,7 @@ if __name__ == "__main__":
         "algorithm": model.__class__.__name__,
         "buffer_size": buffer_size,
         "batch_size": batch_size,
+        "num_updates": num_updates,
         "learning_rate": model.learning_rate,
         "target_entropy": model.target_entropy,
         "validation_runname": validation_runname,
@@ -73,6 +74,7 @@ if __name__ == "__main__":
     }, metric_dict={
         "train/actor_loss": 0,
         "train/critic_loss": 0,
+        "validation/act_var": 0,
     }))
 
     # Copy the current file to the log directory, as a reference
@@ -104,9 +106,13 @@ if __name__ == "__main__":
     print(f"Added {validation_buffer.size()} samples to the validation buffer from {validation_runname}")
 
     for step in range(1000*1000):
-        num_updates = round(buffer_size * 5 / batch_size)
+        step_start_time = time.perf_counter()
+
         model.train(gradient_steps=num_updates, batch_size=batch_size)
-        print(f"Trained {num_updates} steps")
+        gradient_end_time = time.perf_counter()
+
+        print(f"Trained {num_updates} steps in {gradient_end_time - step_start_time:.2f}s")
+        logger.record("train/gradient_time", gradient_end_time - step_start_time)
 
         # Run the actor against the entire validation buffer, and measure the variance of the actions
         validation_acts = []
@@ -118,7 +124,7 @@ if __name__ == "__main__":
             # Perturb the observations and see how much the output changes
             perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * observation_stds * 0.1
             perturbed_acts.append(model.actor(perturbed_obs, deterministic=True).detach().cpu())
-            logger.record_mean("validation/perturbed_act_diff", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])))
+            logger.record_mean("validation/perturbed_act_diff_mean", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])).item())
 
         # Calculate and report statistics against the validation buffer
         validation_acts = torch.concat(validation_acts)
@@ -130,12 +136,17 @@ if __name__ == "__main__":
             logger.record(f"validation/{act['path'].replace('.', '_')}_stddev", torch.sqrt(validation_act_var[i]).item())
             logger.record(f"validation/{act['path'].replace('.', '_')}_hist", validation_acts[:, i])            
 
-        logger.dump(step=step)
+        logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
 
         # Each step, replace 50% of the replay buffer with new samples
         for entry in tqdm(itertools.islice(cache.generate_samples(), buffer_size // 2), desc="Refill buffer", total=buffer_size // 2):
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
+        
+        refill_end_time = time.perf_counter()
+        logger.record("train/buffer_time", refill_end_time - gradient_end_time)
+
+        logger.dump(step=step)
 
         if i % 20 == 0:
             model.save(f"/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-{run_name}.zip")
