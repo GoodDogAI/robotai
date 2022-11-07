@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, List
 from cereal import log
 import src.PyNvCodec as nvc
-import src.PytorchNvCodec as pnvc
 from polygraphy.cuda import DeviceView
 
 from src.config import MODEL_CONFIGS, HOST_CONFIG, DEVICE_CONFIG

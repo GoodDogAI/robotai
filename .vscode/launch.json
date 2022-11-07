@@ -12,6 +12,13 @@
             "module": "src.train.stable_baselines_train",
         },
         {
+            "name": "Python: Test rl dataloader",
+            "type": "python",
+            "request": "launch",
+            "justMyCode": false,
+            "module": "src.train.rldataset_dataloader",
+        },
+        {
             "name": "Python: Train Playground",
             "type": "python",
             "request": "launch",

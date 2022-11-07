@@ -58,8 +58,8 @@ FetchContent_MakeAvailable(argparse)
 
 
 FetchContent_Declare(npy
-        GIT_REPOSITORY https://github.com/matajoh/libnpy
-        GIT_TAG v1.5.2 
+        GIT_REPOSITORY https://github.com/jakepoz/libnpy
+        GIT_TAG shared_cmake_fixes
         )
 FetchContent_MakeAvailable(npy)
 
