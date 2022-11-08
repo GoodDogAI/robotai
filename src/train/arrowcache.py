@@ -159,11 +159,14 @@ class ArrowModelCache():
         start = time.perf_counter()
 
         run_name = "-".join(key.split("-")[0:-1])
-        pd = self.get_dataframe(run_name)
 
         try:
+            pd = self.get_dataframe(run_name)
             result = pd.loc[key]
         except KeyError:
+            return default
+        except FileNotFoundError:
+            print(f"Warning: Cache file {run_name} not found")
             return default
 
         #print(f"Took {time.perf_counter() - start} to load {key}")
