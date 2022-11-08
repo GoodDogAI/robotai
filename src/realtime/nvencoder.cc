@@ -230,10 +230,8 @@ NVEncoder::NVEncoder(std::string encoderdev, int32_t in_width, int32_t in_height
     {
         struct v4l2_ext_control ctrls[] = {
             // Generic controls
-            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE, .value = bitrate },
-            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE_PEAK, .value = bitrate * 2},
-            // { .id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE, .value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR },
             { .id = V4L2_CID_MPEG_VIDEO_GOP_SIZE, .value = fps },
+            //{ .id = V4L2_CID_MPEG_VIDEOENC_ENABLE_LOSSLESS, .value = 1},
 
             // NVIDIA Specific controls
             { .id = V4L2_CID_MPEG_VIDEO_H265_PROFILE, .value = V4L2_MPEG_VIDEO_H265_PROFILE_MAIN },
