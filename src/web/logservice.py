@@ -1,5 +1,6 @@
 import functools
 import io
+import threading
 import os
 import subprocess
 import time
@@ -275,22 +276,24 @@ def get_log_video(logfile: str, camera: Literal["color", "depth"]="color", lh: L
         with open(os.path.join(td, f"{logfile}.mp4"), "rb") as vf:
             return Response(content=vf.read(), media_type="video/mp4", headers={"Content-Disposition": f"attachment; filename={logfile}.mkv"})  
 
+_loggroup_lock = threading.Lock()
 @functools.lru_cache(maxsize=8)
 def _get_loggroup(logfile: str, model_name: str, lh: LogHashes):
-    model_config = MODEL_CONFIGS[model_name]
-    dataset = MsgVecDataset(lh.dir, model_config)
+    with _loggroup_lock:
+        model_config = MODEL_CONFIGS[model_name]
+        dataset = MsgVecDataset(lh.dir, model_config)
 
-    # Get the loggroup which contains the current log file
-    loggroup = None
-    for lg in lh.group_logs():
-        if logfile in [lf.filename for lf in lg]:
-            loggroup = lg
-            break
+        # Get the loggroup which contains the current log file
+        loggroup = None
+        for lg in lh.group_logs():
+            if logfile in [lf.filename for lf in lg]:
+                loggroup = lg
+                break
 
-    if loggroup is None:
-        raise HTTPException(status_code=404, detail="Log not found in group")
-    
-    return list(dataset.generate_log_group(loggroup, shuffle_within_group=False))
+        if loggroup is None:
+            raise HTTPException(status_code=404, detail="Log not found in group")
+        
+        return list(dataset.generate_log_group(loggroup, shuffle_within_group=False))
 
 @router.get("/{logfile}/msgvec/{model_name}/{frameid}")
 def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
@@ -303,16 +306,14 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
     target_key = f"{lh.get_logsummary(logfile).get_runname()}-{frameid}"
 
     # Run msgvec up to the desired frame
-    with open("/home/jake/robotai/debug.txt", "w") as f:
-        for packet in _get_loggroup(logfile, model_name, lh):
-            print(packet["key"], packet["done"], file=f)
-            if packet["key"] == target_key:
-                return JSONResponse({
-                    "key": packet["key"],
-                    "obs": packet["obs"].tolist(),
-                    "act": packet["act"].tolist(),
-                    "reward": packet["reward"],
-                    "done": packet["done"],
-                })
+    for packet in _get_loggroup(logfile, model_name, lh):
+        if packet["key"] == target_key:
+            return JSONResponse({
+                "key": packet["key"],
+                "obs": packet["obs"].tolist(),
+                "act": packet["act"].tolist(),
+                "reward": packet["reward"],
+                "done": packet["done"],
+            })
 
     raise HTTPException(status_code=404, detail="Frame not found")
