@@ -91,6 +91,8 @@ class MsgVecDataset():
 
                 vision_vec = self.vision_cache.get(key, None)
 
+                # TODO Throw exception if the vision vector is not found and it should have been
+                # Ex. if it's not one of the last 5 frames in the log
                 if vision_vec is None:
                     break
 

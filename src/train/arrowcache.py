@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, List
 from cereal import log
 import src.PyNvCodec as nvc
-import src.PytorchNvCodec as pnvc
 from polygraphy.cuda import DeviceView
 
 from src.config import MODEL_CONFIGS, HOST_CONFIG, DEVICE_CONFIG
@@ -25,7 +24,7 @@ from src.train.modelloader import load_vision_model, model_fullname
 # the results to an arrow cache file. The keys are the videofilename-frameindex.
 class ArrowModelCache():
     def __init__(self, dir: str, model_config: Dict, force_rebuild: bool=False):
-        self.lh = LogHashes(dir)
+        self.dir = dir
         self.model_fullname = model_fullname(model_config)
         self.model_config = model_config
         Path(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname).mkdir(parents=True, exist_ok=True)
@@ -66,7 +65,7 @@ class ArrowModelCache():
         key_queue = []
 
         for logfile in group:
-            with open(os.path.join(self.lh.dir, logfile.filename), "rb") as f:
+            with open(os.path.join(self.dir, logfile.filename), "rb") as f:
                 print("Processing", logfile.filename)
                 events = log.Event.read_multiple(f)
 
@@ -97,7 +96,12 @@ class ArrowModelCache():
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
 
     def _cache_needs_rebuild(self):
-        for group in self.lh.group_logs():
+        lh = LogHashes(self.dir)
+
+        # TODO This cache detection mechanism is not ideal, best if we write to a separate location
+        # Which input logs were processed already. Otherwise, you can have built the cache with a run that was
+        # only partially uploaded, and then it's basically wrong forever.
+        for group in lh.group_logs():
             cache_path = self.get_cache_path(group[0].get_runname())
 
             if not os.path.exists(cache_path):
@@ -110,8 +114,10 @@ class ArrowModelCache():
         if not force_rebuild and not self._cache_needs_rebuild():
             return
 
+        lh = LogHashes(self.dir)
+
         with load_vision_model(self.model_fullname) as engine:
-            for group in self.lh.group_logs():
+            for group in lh.group_logs():
                 cache_path = self.get_cache_path(group[0].get_runname())
 
                 if os.path.exists(cache_path) and not force_rebuild:

@@ -16,7 +16,7 @@
 #include "cereal/messaging/messaging.h"
 
 ExitHandler do_exit;
-const auto loop_time = std::chrono::milliseconds(50);
+const auto loop_time = std::chrono::microseconds(33'333);
 
 enum class YawGyroState {
   INIT,

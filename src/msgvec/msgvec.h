@@ -87,6 +87,7 @@ class MsgVec {
         size_t m_visionSize;
         std::deque<std::vector<float>> m_visionHistory;
         std::deque<uint32_t> m_visionHistoryIds;
+        std::deque<uint64_t> m_visionHistoryTimestamps;
 
         // Needs to be a MallocMessageBuilder so that it keeps its own copy of the message
         capnp::MallocMessageBuilder m_lastAppControlMsg;
