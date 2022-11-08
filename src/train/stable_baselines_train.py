@@ -28,6 +28,15 @@ class MsgVecEnv(gym.Env):
         self.observation_space = spaces.Box(low=-1, high=1, shape=(msgvec.obs_size(),))
 
 
+# TODO:
+# - [ ] Figure out refreshing caches if new data comes in while training
+# - [ ] Figure out why last few samples of that recent validation run are all the same value
+# - [ ] Check timings of loading messages, maybe its' device IO bottlenecked
+# - [ ] Normalize observations
+# - [ ] Normalize rewards
+# - [ ] Delta on rewards
+
+
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
