@@ -252,6 +252,10 @@ int main(int argc, char *argv[])
     msgvec_ready = timeout_res != MsgVec::TimeoutResult::MESSAGES_NOT_READY;
     msgvec_obs_result = timeout_res;
 
+    // Feed in an empty vision frame, since we aren't calculating anything yet
+    std::vector<float> vision_tmp(msgvec->vision_size(), 0.0f);
+    msgvec->input_vision(vision_tmp.data(), 0);
+
     if (std::chrono::steady_clock::now() - start_sync_time > std::chrono::seconds(5)) {
         fmt::print(stderr, "Failed to sync vision and msgvec, check timeout values in MsgVec configuration\n");
         return EXIT_FAILURE;
