@@ -152,12 +152,13 @@ if __name__ == "__main__":
         logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
 
         # Each step, replace 50% of the replay buffer with new samples
-        for entry in tqdm(itertools.islice(cache.generate_samples(), buffer_size // 2), desc="Refill buffer", total=buffer_size // 2):
+        for entry in itertools.islice(cache.generate_samples(), buffer_size // 2):
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
         
         refill_end_time = time.perf_counter()
         logger.record("perf/buffer_time", refill_end_time - gradient_end_time)
+        print(f"[{run_name}] Refilled {buffer_size // 2} entries in {refill_end_time - gradient_end_time:.2f}s")
 
         logger.dump(step=step)
 
