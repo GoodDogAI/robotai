@@ -147,6 +147,6 @@ if __name__ == "__main__":
 
         logger.dump(step=step)
 
-        if i % 20 == 0:
+        if step % 20 == 0:
             model.save(f"/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-{run_name}.zip")
             print("Model saved")

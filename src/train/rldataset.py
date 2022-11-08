@@ -155,7 +155,7 @@ class MsgVecDataset():
             random.shuffle(final_data)
 
         # Once you process a whole group, you can yield the results
-        yield from final_data        
+        return final_data        
 
     def generate_samples(self, shuffle_groups: bool = True, shuffle_within_group: bool = True):
         # Each grouped log is handled separately, but the root-level groups are shuffled
