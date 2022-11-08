@@ -248,9 +248,9 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
             fmt::print(stderr, "Depth Frame number mismatch\n");
             fmt::print(stderr, "Got {} expected {}\n", depth_frame.get_frame_number(), frame_id + 1);
             
-            if (std::abs(static_cast<int64_t>(depth_frame.get_frame_number()) - (frame_id + 1)) > 1)
+            if (std::abs(static_cast<int64_t>(depth_frame.get_frame_number()) - (frame_id + 1)) > 3)
             {
-                fmt::print(stderr, "Too many depth frame mismatches\n");
+                fmt::print(stderr, "Too large depth frame mismatche\n");
                 do_exit = true;
                 break;
             }
