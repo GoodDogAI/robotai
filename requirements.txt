@@ -79,3 +79,6 @@ av
 
 # For caching hashes of checkpoints to speed up model loading
 xattr
+
+# For plotting logs to the tensorboard
+matplotlib

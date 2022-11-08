@@ -5,12 +5,13 @@ import torch
 import glob
 import itertools
 import numpy as np
+import matplotlib.pyplot as plt
 
 from gym import spaces
 from tqdm import tqdm
 
 from stable_baselines3 import SAC
-from stable_baselines3.common.logger import configure, HParam
+from stable_baselines3.common.logger import configure, HParam, Figure
 from torch.profiler import profile, record_function, ProfilerActivity
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
@@ -40,7 +41,7 @@ if __name__ == "__main__":
 
     env = MsgVecEnv(msgvec)
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=-1.0,
+                target_entropy=1.0,
                 learning_rate=1e-4,
                 replay_buffer_class=HostReplayBuffer,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
@@ -134,6 +135,12 @@ if __name__ == "__main__":
             logger.record(f"validation/{act['path'].replace('.', '_')}_var", validation_act_var[i].item())
             logger.record(f"validation/{act['path'].replace('.', '_')}_stddev", torch.sqrt(validation_act_var[i]).item())
             logger.record(f"validation/{act['path'].replace('.', '_')}_hist", validation_acts[:, i])            
+
+            figure = plt.figure()
+            figure.add_subplot().plot(validation_acts[:, i].numpy())
+            logger.record(f"trajectory/{act['path'].replace('.', '_')}", Figure(figure, close=True))
+            plt.close()
+
 
         logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
 
