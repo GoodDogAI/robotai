@@ -2,6 +2,7 @@ import os
 import gym
 import time
 import torch
+import json
 import glob
 import itertools
 import numpy as np
@@ -83,10 +84,11 @@ if __name__ == "__main__":
     }
 
     if model.target_entropy is not None:
-        hparam_dict["target_entropy"] = model.target_entropy
+        hparam_dict["target_entropy"] = float(model.target_entropy)
 
     if model.ent_coef is not None:
-        hparam_dict["ent_coef"] = model.ent_coef
+        hparam_dict["ent_coef"] = float(model.ent_coef)
+
 
     logger.record("hparams", HParam(hparam_dict=hparam_dict, metric_dict={
         "train/actor_loss": 0,
@@ -98,6 +100,14 @@ if __name__ == "__main__":
     with open(__file__, "r") as f:
         with open(os.path.join(log_dir, run_name, "train_script.py"), "w") as f2:
             f2.write(f.read())
+
+    # Copy over the brain config and all submodel configs for references
+    with open(os.path.join(log_dir, run_name, "brain_config.json"), "w") as f2:
+        json.dump(brain_config, f2, indent=4)
+
+    for type, submodel in brain_config["models"].items():
+        with open(os.path.join(log_dir, run_name, f"{submodel}_config.json"), "w") as f2:
+            json.dump(MODEL_CONFIGS[submodel], f2, indent=4)
 
     # Fill the training replay buffer
     buffer = model.replay_buffer
