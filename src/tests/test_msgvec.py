@@ -1949,6 +1949,47 @@ class TestMsgVec(unittest.TestCase):
         # so, you expect -0.5 for the timing index
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5, 10])
 
+    def test_timing_index_realtime(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timing_index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+        self.assertEqual(msgvec.obs_size(), 2)
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 12.0
+        msgvec.input(msg)
+
+        # You query the obs vector instantly after getting the message
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], -0.5, places=1)
+
+        time.sleep(0.005)
+        omsg = new_message("odriveFeedback")
+        msgvec.input(omsg)
+
+        # If you have delayed half of the timeout, on average should be 0.0 timing value
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 0.0, places=1)
+
+        time.sleep(0.01)
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 1.0, places=1)
+
 
     def test_real_data_to_vector(self):
         config = {"obs": [
