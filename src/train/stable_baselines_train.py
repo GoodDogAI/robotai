@@ -35,7 +35,7 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [ ] Fill the buffer in a separate process
 # - [X] Normalize rewards
 # - [ ] Delta on actions
-# - [ ] What happens if msgvec actions are 1.0, does the gradient explode?
+# - [X] What happens if msgvec actions are greater than 1.0, does the gradient explode? No, because we look at the gradient of tanh, not its inverse
 
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]

@@ -1843,6 +1843,69 @@ class TestMsgVec(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             msgvec.get_action_command(np.array([math.nan], dtype=np.float32))
 
+    def test_timing_index_basic(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timing_index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.obs_size(), 2)
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 12.0
+        msgvec.input(msg)
+
+        # You query the obs vector instantly after getting the message
+        # so, you expect -0.5 for the timing index
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5])
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 12.0
+        msgvec.input(msg)
+
+        # Replay mode, so timing is always relative to the last message received
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5])
+
+        omsg = new_message("odriveFeedback")
+        omsg.logMonoTime = msg.logMonoTime + 1e9 * 0.005
+        msgvec.input(omsg)
+
+        # If you have delayed half of the timeout, on average should be 0.0 timing value
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0])
+
+        omsg = new_message("odriveFeedback")
+        omsg.logMonoTime = msg.logMonoTime + 1e9 * 0.01
+        msgvec.input(omsg)
+
+        # If you have delayed the timeout, on average should be 0.5 timing value
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.5])
+
+
+        # If things are really delayed, you should get a clamped 1.0 timing value
+        omsg = new_message("odriveFeedback")
+        omsg.logMonoTime = msg.logMonoTime + 1e9 * 1.01
+        msgvec.input(omsg)
+
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 1.0])
+
+
     def test_real_data_to_vector(self):
         config = {"obs": [
                 { 

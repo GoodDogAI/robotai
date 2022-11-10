@@ -24,6 +24,7 @@
             "type": "msg",
             "path": "voltage.volts",
             "index": -1,  # -1 means last frame, -4 means last 4 frames, or specify [-1, -5, -20] for example
+            "timing_index": -1, # Optional, includes extra timing info for the specified message. (Same format as index)
             "timeout": 0.01,
             "filter": {
                 "field": "type",
@@ -166,6 +167,23 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
             } 
           
             verify_transform(obs["transform"]);
+
+            if (obs.contains("timing_index")) {
+                if (obs["timing_index"].is_number()) {
+                    if (obs["timing_index"].get<int64_t>() >= 0) {
+                        throw std::runtime_error("msgvec: timing_index must be negative");
+                    }
+ 
+                    if (obs["timing_index"].get<int64_t>() < -static_cast<int64_t>(queue_size)) {
+                        throw std::runtime_error("msgvec: timing_index must be within regular queue size");
+                    }
+
+                    m_obsSize += std::abs(obs["timing_index"].get<int64_t>());
+                }
+                else {
+                    throw std::runtime_error("msgvec: timing_index must be a number");
+                } 
+            }
         }
         else if (obs["type"] == "vision") {
             if (!obs.contains("size")) {
@@ -473,6 +491,18 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
             }
 
             curpos += indices.size();
+
+            // If there is a timing_index, then we write out additional values representing the timing of when those messages arrived
+            if (obs.contains("timing_index")) {
+                int64_t num_timing_points = std::abs(obs["timing_index"].get<int64_t>());
+                for (size_t i = 0; i < num_timing_points; i++) {
+                    auto history_index = i;
+                    float expectedTime = 1e9 * obs["timeout"].get<float>() * (i + 1);
+                    obsVector[curpos + i] = std::clamp((cur_time - m_obsHistoryTimestamps[index][history_index] - expectedTime / 2) / expectedTime, -1.0f, 1.0f);
+                }
+
+                curpos += num_timing_points;
+            }
         } else if (obs["type"] == "vision") {
             const auto [queue_size, indices] = get_queue_obs_len(obs);
 
