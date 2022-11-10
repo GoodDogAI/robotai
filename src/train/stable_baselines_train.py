@@ -4,6 +4,7 @@ import time
 import torch
 import json
 import glob
+import math
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,7 +16,9 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.logger import configure, HParam, Figure
-from torch.profiler import profile, record_function, ProfilerActivity
+
+from src.models.stable_baselines3.env import MsgVecEnv
+from src.models.stable_baselines3.feature_extractor import MsgVecNormalizeFeatureExtractor
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
@@ -23,23 +26,6 @@ from src.train.rldataset import MsgVecDataset
 from stable_baselines3.common.buffers import ReplayBuffer
 from src.train.stable_baselines_buffers import HostReplayBuffer
 
-
-class MsgVecEnv(gym.Env):
-    def __init__(self, msgvec) -> None:
-        super().__init__()
-        self.action_space = spaces.Box(low=-1, high=1, shape=(msgvec.act_size(),))
-        self.observation_space = spaces.Box(low=-1, high=1, shape=(msgvec.obs_size(),))
-
-
-class MsgVecNormalizeFeatureExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.Space, obs_means: torch.Tensor, obs_stds: torch.Tensor):
-        super().__init__(observation_space, get_flattened_obs_dim(observation_space))
-        self.flatten = torch.nn.Flatten()
-        self.obs_means = obs_means
-        self.obs_stds = obs_stds
-
-    def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        return (self.flatten(observations) - self.obs_means) / self.obs_stds
 
 # TODO:
 # - [X] Figure out refreshing caches if new data comes in while training
@@ -65,6 +51,8 @@ if __name__ == "__main__":
     env = MsgVecEnv(msgvec)
     obs_means = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
     obs_stds = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
+    reward_mean = 0.0
+    reward_std = 0.0
 
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 ent_coef=0.95,
@@ -128,7 +116,7 @@ if __name__ == "__main__":
     with open(os.path.join(log_dir, run_name, "brain_config.json"), "w") as f2:
         json.dump(brain_config, f2, indent=4)
 
-    for type, submodel in brain_config["models"].items():
+    for submodel_type, submodel in brain_config["models"].items():
         with open(os.path.join(log_dir, run_name, f"{submodel}_config.json"), "w") as f2:
             json.dump(MODEL_CONFIGS[submodel], f2, indent=4)
 
@@ -136,7 +124,7 @@ if __name__ == "__main__":
     buffer = model.replay_buffer
     samples_added = 0
       
-    for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
+    for entry in tqdm(itertools.islice(cache.generate_dataset(), 10000), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
@@ -144,13 +132,21 @@ if __name__ == "__main__":
 
         if samples_added == 1:
             obs_means.copy_(torch.from_numpy(entry["obs"]).cuda())
+            reward_mean = entry["reward"]
         else:
             delta = torch.from_numpy(entry["obs"]).cuda() - obs_means
             obs_means += delta / samples_added
             obs_stds += delta * (torch.from_numpy(entry["obs"]).cuda() - obs_means)
 
+            delta = entry["reward"] - reward_mean
+            reward_mean += delta / samples_added
+            reward_std += delta * (entry["reward"] - reward_mean)
+
     obs_stds /= samples_added - 1
     obs_stds.sqrt_()
+
+    reward_std /= samples_added - 1
+    reward_std = math.sqrt(reward_std)
 
     print(f"Read {samples_added} dataset samples")
 
