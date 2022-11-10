@@ -12,6 +12,8 @@ from gym import spaces
 from tqdm import tqdm
 
 from stable_baselines3 import SAC
+from stable_baselines3.common.preprocessing import get_flattened_obs_dim
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.logger import configure, HParam, Figure
 from torch.profiler import profile, record_function, ProfilerActivity
 
@@ -29,13 +31,23 @@ class MsgVecEnv(gym.Env):
         self.observation_space = spaces.Box(low=-1, high=1, shape=(msgvec.obs_size(),))
 
 
+class MsgVecNormalizeFeatureExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.Space, obs_means: torch.Tensor, obs_stds: torch.Tensor):
+        super().__init__(observation_space, get_flattened_obs_dim(observation_space))
+        self.flatten = torch.nn.Flatten()
+        self.obs_means = obs_means
+        self.obs_stds = obs_stds
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return (self.flatten(observations) - self.obs_means) / self.obs_stds
+
 # TODO:
 # - [ ] Figure out refreshing caches if new data comes in while training
 # - [ ] Figure out why last few samples of that recent validation run are all the same value
-# - [ ] Check timings of loading messages, maybe its' device IO bottlenecked
-# - [ ] Normalize observations
+# - [X] Check timings of loading messages, maybe its' device IO bottlenecked
+# - [X] Normalize observations
 # - [ ] Normalize rewards
-# - [ ] Delta on rewards
+# - [ ] Delta on actions
 
 
 if __name__ == "__main__":
@@ -50,9 +62,19 @@ if __name__ == "__main__":
     num_updates = round(buffer_size * 10 / batch_size)
 
     env = MsgVecEnv(msgvec)
+    obs_means = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
+    obs_stds = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
+
     model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 ent_coef=0.95,
                 learning_rate=1e-4,
+                policy_kwargs={
+                    "features_extractor_class": MsgVecNormalizeFeatureExtractor,
+                    "features_extractor_kwargs": {
+                        "obs_means": obs_means,
+                        "obs_stds": obs_stds,
+                    },
+                },
                 replay_buffer_class=HostReplayBuffer,
                 replay_buffer_kwargs={"handle_timeout_termination": False})
  
@@ -109,15 +131,27 @@ if __name__ == "__main__":
         with open(os.path.join(log_dir, run_name, f"{submodel}_config.json"), "w") as f2:
             json.dump(MODEL_CONFIGS[submodel], f2, indent=4)
 
-    # Fill the training replay buffer
+    # Read through the whole dataset, calculating statistics, and filling the training replay buffer
     buffer = model.replay_buffer
     samples_added = 0
       
-    for entry in tqdm(itertools.islice(cache.generate_samples(), buffer_size), desc="Replay buffer", total=buffer_size):
-        buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+    for entry in tqdm(itertools.islice(cache.generate_dataset(), 60000), desc="Replay buffer", total=cache.estimated_size()):
+        if samples_added < buffer_size:
+            buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+        
         samples_added += 1
 
-    print(f"Added {samples_added} samples to the replay buffer")
+        if samples_added == 1:
+            obs_means.copy_(torch.from_numpy(entry["obs"]).cuda())
+        else:
+            delta = torch.from_numpy(entry["obs"]).cuda() - obs_means
+            obs_means += delta / samples_added
+            obs_stds += delta * (torch.from_numpy(entry["obs"]).cuda() - obs_means)
+
+    obs_stds /= samples_added - 1
+    obs_stds.sqrt_()
+
+    print(f"Read {samples_added} dataset samples")
 
     # Fill the validation replay buffer
     validation_buffer = ReplayBuffer(buffer_size=validation_buffer_size,
@@ -127,8 +161,6 @@ if __name__ == "__main__":
 
     for entry in cache.generate_log_group(valgroup, shuffle_within_group=False):
         validation_buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
-
-    observation_stds = torch.from_numpy(validation_buffer.observations[:validation_buffer.size(), 0].std(axis=0)).to(model.device)
 
     print(f"Added {validation_buffer.size()} samples to the validation buffer from {validation_runname}")
 
@@ -148,7 +180,7 @@ if __name__ == "__main__":
             validation_acts.append(model.actor(obs, deterministic=True).detach().cpu())
 
             # Perturb the observations and see how much the output changes
-            perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * observation_stds * 0.1
+            perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * obs_stds * 0.1
             perturbed_acts.append(model.actor(perturbed_obs, deterministic=True).detach().cpu())
             logger.record_mean("validation/perturbed_act_diff_mean", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])).item())
 
@@ -171,7 +203,7 @@ if __name__ == "__main__":
         logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
 
         # Each step, replace 50% of the replay buffer with new samples
-        for entry in itertools.islice(cache.generate_samples(), buffer_size // 2):
+        for entry in itertools.islice(cache.sample_dataset(), buffer_size // 2):
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
         

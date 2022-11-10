@@ -29,6 +29,15 @@ class MsgVecDataset():
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
 
+    def estimated_size(self) -> int:
+        est = 0
+        logs_per_group = 800
+
+        for log in self.lh.values():
+            est += logs_per_group
+
+        return est
+
     def _sort_log_group_messages(self, log_group: List[LogSummary]) -> List[log.Event]:
         # Sorts and returns the messages within the log group
         # Occasionally, on log rotation, you may have some messages out of order
@@ -157,19 +166,21 @@ class MsgVecDataset():
         # Once you process a whole group, you can yield the results
         return final_data        
 
-    def generate_samples(self, shuffle_groups: bool = True, shuffle_within_group: bool = True):
-        # Each grouped log is handled separately, but the root-level groups are shuffled
+    # Use this method to return the full dataset, it returns each valid log entry exactly once
+    def generate_dataset(self, shuffle_within_group: bool = True):
         groups = self.lh.group_logs()
-
-        if shuffle_groups:
-            random.shuffle(groups)
 
         for group in groups:
             yield from self.generate_log_group(group, shuffle_within_group)
 
-        # You could enable multiprocessing, but the memory usage is very high unfortunately
-        # pool = multiprocessing.Pool()
+    # Use this method estimate a randoml sample of a subset of the dataset
+    # It samples log groups, then returns shuffled samples from within that loggroup
+    def sample_dataset(self):
+        # Each grouped log is handled separately, but the root-level groups are shuffled
+        groups = self.lh.group_logs()
 
-        # for grp_result in pool.imap(functools.partial(self._generate_log_group, shuffle_within_group=shuffle_within_group), groups, chunksize=1):
-        #     yield from grp_result
+        while True:
+            group = random.choices(groups, weights=[len(group) for group in groups])[0]
+            yield from self.generate_log_group(group, shuffle_within_group=True)
+
                         

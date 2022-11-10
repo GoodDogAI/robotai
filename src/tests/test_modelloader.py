@@ -221,6 +221,12 @@ class TestModelLoaderTRT(unittest.TestCase):
         onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
 
+    def test_stable_baselines_normalized_actor(self):
+        config = copy.deepcopy(self.sampleBrainConfig)
+        config["checkpoint"] = "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run55.zip"
+        onnx_path = create_and_validate_onnx(config, skip_cache=True)
+        create_and_validate_trt(onnx_path, skip_cache=True)
+
     def test_model_fullname(self):
         with tempfile.TemporaryDirectory() as td:
             with open(os.path.join(td, "test.pt"), "wb") as f:
