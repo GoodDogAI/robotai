@@ -33,7 +33,7 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [X] Check timings of loading messages, maybe its' device IO bottlenecked
 # - [X] Normalize observations
 # - [ ] Fill the buffer in a separate process
-# - [ ] Normalize rewards
+# - [X] Normalize rewards
 # - [ ] Delta on actions
 # - [ ] What happens if msgvec actions are 1.0, does the gradient explode?
 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     buffer = model.replay_buffer
     samples_added = 0
       
-    for entry in tqdm(itertools.islice(cache.generate_dataset(), 10000), desc="Replay buffer", total=cache.estimated_size()):
+    for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
