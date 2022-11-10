@@ -27,14 +27,14 @@ class TestMsgVecDataset(unittest.TestCase):
         last_override = False
         last_done = False
         # We set shuffle_within_group to False so that we can see each log's samples linearly, and make sure that various flags and overrides are set correctly
-        for entry in itertools.islice(cache.generate_samples(shuffle_within_group=False), 10000):
+        for entry in itertools.islice(cache.generate_dataset(shuffle_within_group=False), 10000):
             if not entry["reward_override"] and last_override:
                 self.assertTrue(last_done)
                 
             last_override = entry["reward_override"]
             last_done = entry["done"]
 
-        samples = list(itertools.islice(cache.generate_samples(shuffle_within_group=False), 100))
+        samples = list(itertools.islice(cache.generate_dataset(shuffle_within_group=False), 100))
 
         for index, sample in enumerate(samples[:-1]):
             np.testing.assert_array_almost_equal(sample["next_obs"], samples[index + 1]["obs"])
@@ -47,7 +47,7 @@ class TestMsgVecDataset(unittest.TestCase):
         # cache.reward_cache = MagicMock()
         # cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
         counter = 0
-        for entry in cache.generate_samples():
+        for entry in cache.generate_dataset():
             counter += 1
 
         # Read it twice to make sure the cache is warmed up
@@ -58,7 +58,7 @@ class TestMsgVecDataset(unittest.TestCase):
 
         start = time.perf_counter()
         counter = 0
-        for entry in cache.generate_samples():
+        for entry in cache.generate_dataset():
             counter += 1
         end = time.perf_counter()
 
@@ -70,7 +70,7 @@ class TestMsgVecDataset(unittest.TestCase):
 
         # Check that each frame key is incrementing by 1
         last_frame = None
-        for entry in cache.generate_samples(shuffle_groups=False, shuffle_within_group=False):
+        for entry in cache.generate_dataset(shuffle_within_group=False):
             frame = int(entry["key"].split('-')[-1])
             print(entry["key"], frame)
             if last_frame is not None:
@@ -198,7 +198,7 @@ class TestMsgVecDataset(unittest.TestCase):
 
         last_override = False
         last_done = None
-        for entry in cache.generate_samples(shuffle_within_group=False):
+        for entry in cache.generate_dataset(shuffle_within_group=False):
             if entry["reward_override"]:
                 print(entry["reward_override"], entry["reward"], entry["done"])
 
@@ -310,7 +310,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             msg.write(f)
 
             f.flush()
-            self.assertEqual(list(cache.generate_samples()), [])
+            self.assertEqual(list(cache.generate_dataset()), [])
 
             # Action vector gets written out
             msg = new_message("odriveCommand")
@@ -318,14 +318,14 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             
             # Still blank because you need two datapoints to make a valid log
             f.flush()
-            self.assertEqual(list(cache.generate_samples()), [])
+            self.assertEqual(list(cache.generate_dataset()), [])
 
             msg = new_message("modelInference")
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.write(f)
 
-            samples = list(cache.generate_samples())
+            samples = list(cache.generate_dataset())
             self.assertEqual(len(samples), 1)
 
             self.assertTrue(samples[0]["done"])
@@ -353,7 +353,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             msg.write(f)
 
             f.flush()
-            self.assertEqual(list(cache.generate_samples()), [])
+            self.assertEqual(list(cache.generate_dataset()), [])
 
             # Action vector gets written out
             msg = new_message("odriveCommand")
@@ -361,14 +361,14 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             
             # Still blank because you need two datapoints to make a valid log
             f.flush()
-            self.assertEqual(list(cache.generate_samples()), [])
+            self.assertEqual(list(cache.generate_dataset()), [])
 
             msg = new_message("modelInference")
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.write(f)
 
-            samples = list(cache.generate_samples())
+            samples = list(cache.generate_dataset())
             self.assertEqual(len(samples), 0)
             
     def test_messages_lose_readiness(self):
@@ -407,5 +407,5 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     msg.logMonoTime += delay
                     msg.write(f)
 
-                    samples = list(cache.generate_samples())
+                    samples = list(cache.generate_dataset())
                     self.assertEqual(len(samples), expected)
