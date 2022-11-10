@@ -176,7 +176,7 @@ if __name__ == "__main__":
         # Run the actor against the entire validation buffer, and measure the variance of the actions
         validation_acts = []
         perturbed_acts = []
-        for i in range(0, validation_buffer.size(), batch_size):
+        for i in range(0, validation_buffer.size() - batch_size, batch_size):
             obs = torch.from_numpy(validation_buffer.observations[i:i+batch_size, 0]).to(model.device)
             validation_acts.append(model.actor(obs, deterministic=True).detach().cpu())
 
