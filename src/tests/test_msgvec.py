@@ -1905,6 +1905,50 @@ class TestMsgVec(unittest.TestCase):
 
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 1.0])
 
+    def test_timing_index_second_msg(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timing_index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "identity"
+                }
+
+            },
+            {
+                "type": "msg",
+                "path": "headFeedback.pitchAngle",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity"
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.obs_size(), 3)
+
+        msg = new_message("headFeedback")
+        msg.headFeedback.pitchAngle = 10.0
+        msgvec.input(msg)
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 12.0
+        msgvec.input(msg)
+
+        # You query the obs vector instantly after getting the message
+        # so, you expect -0.5 for the timing index
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5, 10])
+
 
     def test_real_data_to_vector(self):
         config = {"obs": [
