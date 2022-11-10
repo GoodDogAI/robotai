@@ -19,12 +19,12 @@ from stable_baselines3.common.logger import configure, HParam, Figure
 
 from src.models.stable_baselines3.env import MsgVecEnv
 from src.models.stable_baselines3.feature_extractor import MsgVecNormalizeFeatureExtractor
+from src.models.stable_baselines3.buffers import HostReplayBuffer
 
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.train.rldataset import MsgVecDataset
 from stable_baselines3.common.buffers import ReplayBuffer
-from src.train.stable_baselines_buffers import HostReplayBuffer
 
 
 # TODO:
@@ -32,10 +32,10 @@ from src.train.stable_baselines_buffers import HostReplayBuffer
 # - [X] Figure out why last few samples of that recent validation run are all the same value
 # - [X] Check timings of loading messages, maybe its' device IO bottlenecked
 # - [X] Normalize observations
+# - [ ] Fill the buffer in a separate process
 # - [ ] Normalize rewards
 # - [ ] Delta on actions
 # - [ ] What happens if msgvec actions are 1.0, does the gradient explode?
-
 
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
@@ -147,14 +147,14 @@ if __name__ == "__main__":
 
     reward_std /= samples_added - 1
     reward_std = math.sqrt(reward_std)
+    buffer.normalize_reward(reward_mean, reward_std)
 
     print(f"Read {samples_added} dataset samples")
 
     # Fill the validation replay buffer
     validation_buffer = ReplayBuffer(buffer_size=validation_buffer_size,
                                      observation_space=env.observation_space, action_space=env.action_space, handle_timeout_termination=False)
-    groups = cache.lh.group_logs()
-    valgroup = next(g for g in groups if g[0].get_runname() == validation_runname)
+    valgroup = next(g for g in cache.groups if g[0].get_runname() == validation_runname)
 
     for entry in cache.generate_log_group(valgroup, shuffle_within_group=False):
         validation_buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
