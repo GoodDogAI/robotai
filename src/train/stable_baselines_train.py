@@ -43,7 +43,7 @@ class MsgVecNormalizeFeatureExtractor(BaseFeaturesExtractor):
 
 # TODO:
 # - [X] Figure out refreshing caches if new data comes in while training
-# - [ ] Figure out why last few samples of that recent validation run are all the same value
+# - [X] Figure out why last few samples of that recent validation run are all the same value
 # - [X] Check timings of loading messages, maybe its' device IO bottlenecked
 # - [X] Normalize observations
 # - [ ] Normalize rewards
