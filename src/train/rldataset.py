@@ -22,19 +22,23 @@ from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 # It relies on the ArrowModelCache for filling in vision intermediates and rewards
 class MsgVecDataset():
     def __init__(self, dir: str, brain_model_config: Dict) -> None:
-        self.lh = LogHashes(dir)
+        self.dir = dir
         self.brain_config = brain_model_config
         self.brain_fullname = model_fullname(brain_model_config)
 
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
         self.reward_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["reward"]])
 
+        lh = LogHashes(dir)
+        self.groups = lh.group_logs()
+
     def estimated_size(self) -> int:
         est = 0
         logs_per_group = 800
 
-        for log in self.lh.values():
-            est += logs_per_group
+        for group in self.groups:
+            for log in group:
+                est += logs_per_group
 
         return est
 
@@ -48,13 +52,13 @@ class MsgVecDataset():
 
         with contextlib.ExitStack() as stack:
             # Read in the first log fully to populate the buffer
-            f = stack.enter_context(open(os.path.join(self.lh.dir, log_group[0].filename), "rb"))
+            f = stack.enter_context(open(os.path.join(self.dir, log_group[0].filename), "rb"))
             all_events += [evt for evt in log.Event.read_multiple(f)]
             to_yield += len(all_events)
 
             # Now for the remaining logs, read in, resort then yield up to the previous amount
             for logfile in log_group[1:]:
-                f = stack.enter_context(open(os.path.join(self.lh.dir, logfile.filename), "rb"))
+                f = stack.enter_context(open(os.path.join(self.dir, logfile.filename), "rb"))
                 all_events += [evt for evt in log.Event.read_multiple(f)]
                 all_events.sort(key=lambda evt: evt.logMonoTime)
 
@@ -168,19 +172,15 @@ class MsgVecDataset():
 
     # Use this method to return the full dataset, it returns each valid log entry exactly once
     def generate_dataset(self, shuffle_within_group: bool = True):
-        groups = self.lh.group_logs()
-
-        for group in groups:
+        for group in self.groups:
             yield from self.generate_log_group(group, shuffle_within_group)
 
     # Use this method estimate a randoml sample of a subset of the dataset
     # It samples log groups, then returns shuffled samples from within that loggroup
     def sample_dataset(self):
         # Each grouped log is handled separately, but the root-level groups are shuffled
-        groups = self.lh.group_logs()
-
         while True:
-            group = random.choices(groups, weights=[len(group) for group in groups])[0]
+            group = random.choices(self.groups, weights=[len(g) for g in self.groups])[0]
             yield from self.generate_log_group(group, shuffle_within_group=True)
 
                         

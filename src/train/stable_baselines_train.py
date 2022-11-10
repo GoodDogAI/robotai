@@ -42,12 +42,13 @@ class MsgVecNormalizeFeatureExtractor(BaseFeaturesExtractor):
         return (self.flatten(observations) - self.obs_means) / self.obs_stds
 
 # TODO:
-# - [ ] Figure out refreshing caches if new data comes in while training
+# - [X] Figure out refreshing caches if new data comes in while training
 # - [ ] Figure out why last few samples of that recent validation run are all the same value
 # - [X] Check timings of loading messages, maybe its' device IO bottlenecked
 # - [X] Normalize observations
 # - [ ] Normalize rewards
 # - [ ] Delta on actions
+# - [ ] What happens if msgvec actions are 1.0, does the gradient explode?
 
 
 if __name__ == "__main__":
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     buffer = model.replay_buffer
     samples_added = 0
       
-    for entry in tqdm(itertools.islice(cache.generate_dataset(), 60000), desc="Replay buffer", total=cache.estimated_size()):
+    for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
