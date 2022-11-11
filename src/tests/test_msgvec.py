@@ -2329,3 +2329,30 @@ class TestMsgVecRelative(unittest.TestCase):
 
         result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+
+    def test_relative_no_transform(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 2.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                }
+            }
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 2.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 3.0)
+
+        result = msgvec.get_action_command(np.array([-10.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -7.0)
+
+        result = msgvec.get_action_command(np.array([-100.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
