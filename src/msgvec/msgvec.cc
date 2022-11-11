@@ -249,6 +249,10 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                 if (!act.contains("range") || !act["range"].is_array() || act["range"].size() != 2) {
                     throw std::runtime_error("relative_msg must have min/max range");
                 }
+                m_relativeActValues.push_back(act["initial"].get<float>());
+            }
+            else {
+                m_relativeActValues.push_back(0.0f);
             }
         }
         else {
@@ -659,7 +663,16 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
             actValue = transform_vec_to_msg(act["transform"], actValue);
         }
 
-        set_dotted_value(dyn, act["path"], actValue);
+        if (act["type"] == "msg") {       
+            set_dotted_value(dyn, act["path"], actValue);
+        }
+        else if (act["type"] == "relative_msg") {
+            m_relativeActValues[act_index] = std::clamp(m_relativeActValues[act_index] + actValue, act["range"][0].get<float>(), act["range"][1].get<float>());
+            set_dotted_value(dyn, act["path"], m_relativeActValues[act_index]);
+        }
+        else {
+            throw std::runtime_error("Unknown action type");
+        }
 
         act_index++;
     }

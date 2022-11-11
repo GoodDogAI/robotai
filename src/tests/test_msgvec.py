@@ -2227,3 +2227,105 @@ class TestMsgVec(unittest.TestCase):
           
 
 
+class TestMsgVecRelative(unittest.TestCase):
+    def test_relative_basic(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 5.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -5.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -10.0)
+
+        result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -7.5)
+
+    def test_relative_initial(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 10.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 10.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 15.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 10.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 5.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 2.5)
+
+    def test_relative_min_max(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-100.0, 100.0],
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 45.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)

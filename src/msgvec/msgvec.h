@@ -80,6 +80,7 @@ class MsgVec {
         size_t m_obsSize, m_actSize;
         std::vector<float> m_actVector;
         std::vector<bool> m_actVectorReady;
+        std::vector<float> m_relativeActValues;
 
         std::map<int, std::deque<float>> m_obsHistory;
         std::map<int, std::deque<uint64_t>> m_obsHistoryTimestamps;
