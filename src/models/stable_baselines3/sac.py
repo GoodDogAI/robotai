@@ -227,7 +227,7 @@ class CustomSAC(OffPolicyAlgorithm):
                 ent_coef = th.exp(self.log_ent_coef.detach())
                 ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
                 ent_coef_losses.append(ent_coef_loss.item())
-                log_probs.append(log_prob.mean().item())
+                log_probs.append(-log_prob.mean().item())
             else:
                 ent_coef = self.ent_coef_tensor
 

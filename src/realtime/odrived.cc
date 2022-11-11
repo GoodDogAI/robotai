@@ -129,6 +129,7 @@ int main(int argc, char **argv)
     PubMaster pm { {service_name} };
     Serial port { ODRIVE_SERIAL_PORT, ODRIVE_BAUD_RATE };
     bool motors_enabled { false };
+    int exit_code { EXIT_SUCCESS };
 
     fmt::print("Opened ODrive serial device, starting communication\n");
 
@@ -158,88 +159,93 @@ int main(int argc, char **argv)
     std::thread command_thread {odrive_command_processor};
 
     // Run the main loop
-    while (!do_exit) {
-        auto start_loop { std::chrono::steady_clock::now() };
-        ODriveCommandState cur_command = command_state;
+    try {
+        while (!do_exit) {
+            auto start_loop { std::chrono::steady_clock::now() };
+            ODriveCommandState cur_command = command_state;
 
-        if (start_loop - cur_command.time > std::chrono::seconds(1)) {
-            if (motors_enabled) {
-                command_state = {0, 0, 0, 0, cereal::ODriveCommand::ControlMode::VELOCITY, start_loop};
+            if (start_loop - cur_command.time > std::chrono::seconds(1)) {
+                if (motors_enabled) {
+                    command_state = {0, 0, 0, 0, cereal::ODriveCommand::ControlMode::VELOCITY, start_loop};
 
-                fmt::print("Disabling motors after inactivity\n");
-                send_raw_command(port, "w axis0.requested_state 1\n");
-                send_raw_command(port, "w axis1.requested_state 1\n");
-                motors_enabled = false;
+                    fmt::print("Disabling motors after inactivity\n");
+                    send_raw_command(port, "w axis0.requested_state 1\n");
+                    send_raw_command(port, "w axis1.requested_state 1\n");
+                    motors_enabled = false;
+                }
             }
+            else if (!motors_enabled) {
+                fmt::print("Received message, enabling motors\n");
+
+                //Put motors into AXIS_STATE_CLOSED_LOOP_CONTROL
+                send_raw_command(port, "w axis0.requested_state 8\n");
+                send_raw_command(port, "w axis1.requested_state 8\n");
+                motors_enabled = true;
+            }
+
+            // Send motor commands
+            if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::VELOCITY) {
+                send_raw_command(port, fmt::format("v 0 {}\n", cur_command.velocityLeft));
+                send_raw_command(port, fmt::format("v 1 {}\n", cur_command.velocityRight));
+            }
+            else if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::CURRENT) {
+                send_raw_command(port, fmt::format("c 0 {}\n", cur_command.currentLeft));
+                send_raw_command(port, fmt::format("c 1 {}\n", cur_command.currentRight));
+            }
+            else {
+                throw std::invalid_argument("Invalid control mode");
+            }
+
+            // Read and update vbus voltage
+            float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
+            if (std::isnan(vbus_voltage)) {
+                throw std::runtime_error("Got unexpected NaN voltage from Odrive");
+            }
+
+            MessageBuilder vmsg;
+            auto vevent = vmsg.initEvent(true);
+            auto vdat = vevent.initVoltage();
+            vdat.setVolts(vbus_voltage);
+            vdat.setType(cereal::Voltage::Type::MAIN_BATTERY);
+            
+            auto vwords = capnp::messageToFlatArray(vmsg);
+            auto vbytes = vwords.asBytes();
+            pm.send(service_name, vbytes.begin(), vbytes.size());
+
+            // Read and update motor feedback
+            MessageBuilder fmsg;
+            auto fevent = fmsg.initEvent(true);
+            auto fdat = fevent.initOdriveFeedback();
+            auto left = fdat.initLeftMotor();
+            auto right = fdat.initRightMotor();
+
+            auto left_data = request_feedback(port, 0);
+            left.setPos(left_data.first);
+            left.setVel(left_data.second);
+
+            auto right_data = request_feedback(port, 1);
+            right.setPos(right_data.first);
+            right.setVel(right_data.second);
+
+            left.setCurrent(send_float_command(port, "r axis0.motor.current_control.Iq_setpoint\n"));
+            right.setCurrent(send_float_command(port, "r axis1.motor.current_control.Iq_setpoint\n"));
+
+            auto fwords = capnp::messageToFlatArray(fmsg);
+            auto fbytes = fwords.asBytes();
+            pm.send(service_name, fbytes.begin(), fbytes.size());
+
+            //fmt::print("Loop took {}\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_loop));
+
+            if (std::chrono::steady_clock::now() - start_loop > loop_time) {
+                throw std::runtime_error("Could not keep up with realtime loop in ODrive\n");
+            }
+
+            std::this_thread::sleep_until(start_loop + loop_time);
         }
-        else if (!motors_enabled) {
-            fmt::print("Received message, enabling motors\n");
-
-            //Put motors into AXIS_STATE_CLOSED_LOOP_CONTROL
-            send_raw_command(port, "w axis0.requested_state 8\n");
-            send_raw_command(port, "w axis1.requested_state 8\n");
-            motors_enabled = true;
-        }
-
-        // Send motor commands
-        if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::VELOCITY) {
-            send_raw_command(port, fmt::format("v 0 {}\n", cur_command.velocityLeft));
-            send_raw_command(port, fmt::format("v 1 {}\n", cur_command.velocityRight));
-        }
-        else if (cur_command.controlMode == cereal::ODriveCommand::ControlMode::CURRENT) {
-            send_raw_command(port, fmt::format("c 0 {}\n", cur_command.currentLeft));
-            send_raw_command(port, fmt::format("c 1 {}\n", cur_command.currentRight));
-        }
-        else {
-            throw std::invalid_argument("Invalid control mode");
-        }
-
-        // Read and update vbus voltage
-        float vbus_voltage = send_float_command(port, "r vbus_voltage\n");
-        if (std::isnan(vbus_voltage)) {
-            throw std::runtime_error("Got unexpected NaN voltage from Odrive");
-        }
-
-        MessageBuilder vmsg;
-        auto vevent = vmsg.initEvent(true);
-        auto vdat = vevent.initVoltage();
-        vdat.setVolts(vbus_voltage);
-        vdat.setType(cereal::Voltage::Type::MAIN_BATTERY);
-        
-        auto vwords = capnp::messageToFlatArray(vmsg);
-        auto vbytes = vwords.asBytes();
-        pm.send(service_name, vbytes.begin(), vbytes.size());
-
-        // Read and update motor feedback
-        MessageBuilder fmsg;
-        auto fevent = fmsg.initEvent(true);
-        auto fdat = fevent.initOdriveFeedback();
-        auto left = fdat.initLeftMotor();
-        auto right = fdat.initRightMotor();
-
-        auto left_data = request_feedback(port, 0);
-        left.setPos(left_data.first);
-        left.setVel(left_data.second);
-
-        auto right_data = request_feedback(port, 1);
-        right.setPos(right_data.first);
-        right.setVel(right_data.second);
-
-        left.setCurrent(send_float_command(port, "r axis0.motor.current_control.Iq_setpoint\n"));
-        right.setCurrent(send_float_command(port, "r axis1.motor.current_control.Iq_setpoint\n"));
-
-        auto fwords = capnp::messageToFlatArray(fmsg);
-        auto fbytes = fwords.asBytes();
-        pm.send(service_name, fbytes.begin(), fbytes.size());
-
-        //fmt::print("Loop took {}\n", std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_loop));
-
-        if (std::chrono::steady_clock::now() - start_loop > loop_time) {
-            fmt::print(stderr, "Could not keep up with realtime loop in ODrive\n");
-            return EXIT_FAILURE;
-        }
-
-        std::this_thread::sleep_until(start_loop + loop_time);
+    }
+    catch(const std::exception& e) {
+        fmt::print(stderr, "Error in ODrive loop: {}\n", e.what());
+        exit_code = EXIT_FAILURE;
     }
 
     // Disable motors when we quit the program
@@ -248,5 +254,5 @@ int main(int argc, char **argv)
 
     command_thread.join();
 
-    return EXIT_SUCCESS;
+    return exit_code;
 }
