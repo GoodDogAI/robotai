@@ -138,7 +138,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-test1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run39.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run58.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {

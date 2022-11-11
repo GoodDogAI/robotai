@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 from gym import spaces
 from tqdm import tqdm
 
-from stable_baselines3 import SAC
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.logger import configure, HParam, Figure
 
+from src.models.stable_baselines3.sac import CustomSAC
 from src.models.stable_baselines3.env import MsgVecEnv
 from src.models.stable_baselines3.feature_extractor import MsgVecNormalizeFeatureExtractor
 from src.models.stable_baselines3.buffers import HostReplayBuffer
@@ -35,6 +35,7 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [ ] Fill the buffer in a separate process
 # - [X] Normalize rewards
 # - [ ] Delta on actions
+# - [X] Record estimated target entropy in training
 # - [X] What happens if msgvec actions are greater than 1.0, does the gradient explode? No, because we look at the gradient of tanh, not its inverse
 
 if __name__ == "__main__":
@@ -54,8 +55,8 @@ if __name__ == "__main__":
     reward_mean = 0.0
     reward_std = 0.0
 
-    model = SAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                ent_coef=0.95,
+    model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
+                target_entropy=2.0,
                 learning_rate=1e-4,
                 policy_kwargs={
                     "features_extractor_class": MsgVecNormalizeFeatureExtractor,
@@ -98,7 +99,7 @@ if __name__ == "__main__":
         hparam_dict["target_entropy"] = float(model.target_entropy)
 
     if model.ent_coef is not None:
-        hparam_dict["ent_coef"] = float(model.ent_coef)
+        hparam_dict["ent_coef"] = "auto" if model.ent_coef == "auto" else float(model.ent_coef)
 
 
     logger.record("hparams", HParam(hparam_dict=hparam_dict, metric_dict={

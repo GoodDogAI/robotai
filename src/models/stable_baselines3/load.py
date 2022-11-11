@@ -1,5 +1,5 @@
 import torch
-from stable_baselines3.sac import SAC
+from src.models.stable_baselines3.sac import CustomSAC
 
 class OnnxableActor(torch.nn.Module):
     def __init__(self, actor: torch.nn.Module):
@@ -12,5 +12,5 @@ class OnnxableActor(torch.nn.Module):
         return self.actor(observation, deterministic=True)
 
 def load_stable_baselines3_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
-    sac = SAC.load(checkpoint_zip)
+    sac = CustomSAC.load(checkpoint_zip)
     return OnnxableActor(sac.actor)
