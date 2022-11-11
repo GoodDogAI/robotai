@@ -1947,6 +1947,89 @@ class TestMsgVec(unittest.TestCase):
         # so, you expect 0 for the timing index
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.0, 10])
 
+    def test_timing_index_configs(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -1,
+                "timing_index": -2,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "identity"
+                }
+            }
+        ], "act": []}
+
+        with self.assertRaises(Exception):
+            msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+    def test_timing_index_multi1(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "voltage.volts",
+                "index": -3,
+                "timing_index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "voltage.type",
+                    "op": "eq",
+                    "value": "mainBattery",
+                },
+                "transform": {
+                    "type": "identity"
+                }
+
+            },
+            {
+                "type": "msg",
+                "path": "headFeedback.pitchAngle",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity"
+                }
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.obs_size(), 5)
+
+        msg = new_message("headFeedback")
+        msg.headFeedback.pitchAngle = 10.0
+        msgvec.input(msg)
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 12.0
+        msgvec.input(msg)
+
+        # You query the obs vector instantly after getting the message
+        # so, you expect 0 for the timing index
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12.0, 0.0, 0.0, 0.0, 10.0])  
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 11.0
+        msgvec.input(msg)
+
+        msg = new_message("voltage")
+        msg.voltage.type = "mainBattery"
+        msg.voltage.volts = 10.0
+        msgvec.input(msg)
+
+        prevTime = msg.logMonoTime
+        msg = new_message("headFeedback")
+        msg.headFeedback.pitchAngle = 9.0
+        msg.logMonoTime = prevTime + 1e9 * 0.005
+        msgvec.input(msg)
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [10.0, 11.0, 12.0, 0.5, 9.0])  
+
     def test_timing_index_realtime(self):
         config = {"obs":  [
             {

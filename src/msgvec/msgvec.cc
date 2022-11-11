@@ -59,7 +59,6 @@
         { 
             "type": "msg",
             "path": "headCommand.pitchAngle",
-            "index": -1,
             "timeout": 0.01,
             "transform": {
                 "type": "rescale",
@@ -67,6 +66,19 @@
                 "msg_range": [-45.0, 45.0],
             },
         },
+
+        {
+            "type": "relative_msg":
+            "path": "headCommand.pitchAngle",
+            "timeout": 0.01,
+            "initial": 0.0,
+            "range": [-45.0, 45.0],
+            "transform": {
+                "type": "rescale",
+                "vec_range": [-1, 1],          # 1.0 means adding 15 degrees to the pitch angle
+                "msg_range": [-15.0, 15.0],
+            },
+        }
     ],
 }
 */
@@ -218,7 +230,7 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
     // Also verify that all action paths are unique
     std::set<std::string> actPaths;
     for (auto &act: m_config["act"]) {
-        if (act["type"] == "msg") {
+        if (act["type"] == "msg" || act["type"] == "relative_msg") {
             m_actSize += 1;
 
             KJ_IF_MAYBE(msgEnumerant, get_event_which(act["path"])) {
@@ -228,6 +240,16 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
             } 
 
             verify_transform(act["transform"]);
+
+            if (act["type"] == "relative_msg") {
+                if (!act.contains("initial") || !act["initial"].is_number()) {
+                    throw std::runtime_error("relative_msg must have initial value");
+                }
+                
+                if (!act.contains("range") || !act["range"].is_array() || act["range"].size() != 2) {
+                    throw std::runtime_error("relative_msg must have min/max range");
+                }
+            }
         }
         else {
             throw std::runtime_error("Unknown action type");
