@@ -1872,8 +1872,7 @@ class TestMsgVec(unittest.TestCase):
         msgvec.input(msg)
 
         # You query the obs vector instantly after getting the message
-        # so, you expect -0.5 for the timing index
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5])
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.0])
 
         msg = new_message("voltage")
         msg.voltage.type = "mainBattery"
@@ -1881,29 +1880,28 @@ class TestMsgVec(unittest.TestCase):
         msgvec.input(msg)
 
         # Replay mode, so timing is always relative to the last message received
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5])
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.0])
 
         omsg = new_message("odriveFeedback")
         omsg.logMonoTime = msg.logMonoTime + 1e9 * 0.005
         msgvec.input(omsg)
 
-        # If you have delayed half of the timeout, on average should be 0.0 timing value
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0])
+        # If you have delayed half of the timeout, on average should be 0.5 timing value
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.5])
 
         omsg = new_message("odriveFeedback")
         omsg.logMonoTime = msg.logMonoTime + 1e9 * 0.01
         msgvec.input(omsg)
 
-        # If you have delayed the timeout, on average should be 0.5 timing value
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.5])
+        # If you have delayed the timeout, on average should be 1.0 timing value
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 1.0])
 
-
-        # If things are really delayed, you should get a clamped 1.0 timing value
+        # If things are really delayed, you should get a clamped 2.0 timing value
         omsg = new_message("odriveFeedback")
         omsg.logMonoTime = msg.logMonoTime + 1e9 * 1.01
         msgvec.input(omsg)
 
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 1.0])
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 2.0])
 
     def test_timing_index_second_msg(self):
         config = {"obs":  [
@@ -1946,8 +1944,8 @@ class TestMsgVec(unittest.TestCase):
         msgvec.input(msg)
 
         # You query the obs vector instantly after getting the message
-        # so, you expect -0.5 for the timing index
-        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, -0.5, 10])
+        # so, you expect 0 for the timing index
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12, 0.0, 10])
 
     def test_timing_index_realtime(self):
         config = {"obs":  [
@@ -1978,18 +1976,20 @@ class TestMsgVec(unittest.TestCase):
         msgvec.input(msg)
 
         # You query the obs vector instantly after getting the message
-        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], -0.5, places=1)
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 0.0, places=1)
 
         time.sleep(0.005)
         omsg = new_message("odriveFeedback")
         msgvec.input(omsg)
 
-        # If you have delayed half of the timeout, on average should be 0.0 timing value
-        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 0.0, places=1)
+        # If you have delayed half of the timeout, on average should be 0.5 timing value
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 0.5, places=1)
 
         time.sleep(0.01)
-        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 1.0, places=1)
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 1.5, places=1)
 
+        time.sleep(0.01)
+        self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 2.0, places=1)
 
     def test_real_data_to_vector(self):
         config = {"obs": [

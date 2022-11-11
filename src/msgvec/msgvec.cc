@@ -498,7 +498,7 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
                 for (size_t i = 0; i < num_timing_points; i++) {
                     auto history_index = i;
                     float expectedTime = 1e9 * obs["timeout"].get<float>() * (i + 1);
-                    obsVector[curpos + i] = std::clamp((cur_time - m_obsHistoryTimestamps[index][history_index] - expectedTime / 2) / expectedTime, -1.0f, 1.0f);
+                    obsVector[curpos + i] = std::clamp((cur_time - m_obsHistoryTimestamps[index][history_index]) / expectedTime, 0.0f, 2.0f);
                 }
 
                 curpos += num_timing_points;
