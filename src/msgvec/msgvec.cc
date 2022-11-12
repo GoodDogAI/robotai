@@ -433,6 +433,16 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             m_actVectorReady[act_index] = true;
             processed = true;
         }
+        else if (act["type"] == "relative_msg" && message_matches(reader, act)) {
+            float rawValue = get_dotted_value(reader, act["path"]).as<float>();
+            
+            float newValue = transform_msg_to_vec(act["transform"], rawValue - m_relativeActValues[act_index]);
+            m_actVector[act_index] = newValue;
+            
+            m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
+            m_actVectorReady[act_index] = true;
+            processed = true;
+        }
 
         act_index++;
     }

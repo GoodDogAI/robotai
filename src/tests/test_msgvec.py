@@ -12,12 +12,12 @@ from src.messaging import new_message
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
-
-
-class TestMsgVec(unittest.TestCase):
+class MsgVecBaseTest(unittest.TestCase):
     def assertMsgProcessed(self, input_result):
         self.assertTrue(input_result["msg_processed"])
-    
+
+
+class TestMsgVec(MsgVecBaseTest):
     def test_init(self):
         config = {"obs": [], "act": []}
         PyMsgVec(config, PyMessageTimingMode.REPLAY)
@@ -2227,7 +2227,7 @@ class TestMsgVec(unittest.TestCase):
           
 
 
-class TestMsgVecRelative(unittest.TestCase):
+class TestMsgVecRelative(MsgVecBaseTest):
     def test_relative_basic(self):
         config = {"obs": [], "act": [
             {
@@ -2356,3 +2356,89 @@ class TestMsgVecRelative(unittest.TestCase):
 
         result = msgvec.get_action_command(np.array([-100.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+
+    def test_relative_replay(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-45.0, 45.0],
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        test_params = [
+            (45, 1),
+            (-45, -1),
+            (46, 1),
+            (-46, -1),
+            (0, 1),
+            (45 / 2, 0.5),
+            (45 / 2, 0.0)]
+
+        for msg, vec in test_params:
+            print(f"test: {msg} -> {vec}")
+            event = log.Event.new_message()
+            event.init("headCommand")
+            event.headCommand.yawAngle = msg
+            self.assertMsgProcessed(msgvec.input(event))
+            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
+            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+
+        # Feed in a message that doesn't exist in the config
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        self.assertFalse(msgvec.input(event)["msg_processed"])
+
+    def test_relative_replay_smaller_range(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        test_params = [
+            (0, 0),
+            (5, 1),
+            (10, 1),
+            (12.5, 0.5),
+            (12.5, 0.0)]
+
+        for msg, vec in test_params:
+            print(f"test: {msg} -> {vec}")
+            event = log.Event.new_message()
+            event.init("headCommand")
+            event.headCommand.yawAngle = msg
+            self.assertMsgProcessed(msgvec.input(event))
+            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
+            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+
+        # Feed in a message that doesn't exist in the config
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        self.assertFalse(msgvec.input(event)["msg_processed"])
+
+        
