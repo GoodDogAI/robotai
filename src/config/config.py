@@ -151,7 +151,8 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "odriveFeedback.leftMotor.vel",
-                    "index": -3,
+                    "index": -5,
+                    "timing_index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "identity",
@@ -171,7 +172,8 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "odriveFeedback.rightMotor.vel",
-                    "index": -3,
+                    "index": -5,
+                    "timing_index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "identity",
@@ -208,7 +210,8 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "headFeedback.pitchAngle",
-                    "index": -3,
+                    "index": -5,
+                    "timing_index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -232,7 +235,8 @@ MODEL_CONFIGS = dotdict({
                 { 
                     "type": "msg",
                     "path": "headFeedback.yawAngle",
-                    "index": -3,
+                    "index": -5,
+                    "timing_index": -1,
                     "timeout": 0.125,
                     "transform": {
                         "type": "rescale",
@@ -257,6 +261,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "accelerometer.acceleration.v.0",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
@@ -269,6 +274,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "accelerometer.acceleration.v.1",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
@@ -281,6 +287,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "accelerometer.acceleration.v.2",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
@@ -293,6 +300,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "gyroscope.gyro.v.0",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
@@ -305,6 +313,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "gyroscope.gyro.v.1",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",
@@ -317,6 +326,7 @@ MODEL_CONFIGS = dotdict({
                     "type": "msg",
                     "path": "gyroscope.gyro.v.2",
                     "index": -30,
+                    "timing_index": -1,
                     "timeout": 0.01,
                     "transform": {
                         "type": "rescale",

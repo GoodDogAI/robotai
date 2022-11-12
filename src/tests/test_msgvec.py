@@ -2422,7 +2422,13 @@ class TestMsgVecRelative(MsgVecBaseTest):
             (5, 1),
             (10, 1),
             (12.5, 0.5),
-            (12.5, 0.0)]
+            (12.5, 0.0),
+            (-5, -1),
+            (-10, -1),
+            (-12.5, -0.5),
+            (-12.5, 0.0),
+            (0, 1)
+            ]
 
         for msg, vec in test_params:
             print(f"test: {msg} -> {vec}")
@@ -2440,5 +2446,85 @@ class TestMsgVecRelative(MsgVecBaseTest):
         event.voltage.type = "mainBattery"
 
         self.assertFalse(msgvec.input(event)["msg_processed"])
+
+    def test_relative_replay_initial(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 20.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        test_params = [
+            (20, 0),
+            (25, 1),
+            (25, 0),
+            (22.5, -0.5),
+            ]
+
+        for msg, vec in test_params:
+            print(f"test: {msg} -> {vec}")
+            event = log.Event.new_message()
+            event.init("headCommand")
+            event.headCommand.yawAngle = msg
+            self.assertMsgProcessed(msgvec.input(event))
+            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
+            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+
+        # Feed in a message that doesn't exist in the config
+        event = log.Event.new_message()
+        event.init("voltage")
+        event.voltage.volts = 13.5
+        event.voltage.type = "mainBattery"
+
+        self.assertFalse(msgvec.input(event)["msg_processed"])
+
+    def test_relative_invalid_config1(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 200.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+        ]}
+
+        with self.assertRaises(RuntimeError):
+            msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+    def test_relative_invalid_config2(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-1.0, -3.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+        ]}
+
+        with self.assertRaises(RuntimeError):
+            msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+      
 
         

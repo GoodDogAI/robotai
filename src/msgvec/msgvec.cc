@@ -249,6 +249,11 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                 if (!act.contains("range") || !act["range"].is_array() || act["range"].size() != 2) {
                     throw std::runtime_error("relative_msg must have min/max range");
                 }
+
+                if (act["initial"].get<float>() < act["range"][0].get<float>() || act["initial"].get<float>() > act["range"][1].get<float>()) {
+                    throw std::runtime_error("relative_msg initial value must be within range");
+                }
+
                 m_relativeActValues.push_back(act["initial"].get<float>());
             }
             else {
