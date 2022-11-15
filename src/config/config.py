@@ -40,6 +40,7 @@ DEVICE_CONFIG = dotdict({
 
     "SENSOR_REALSENSE_D455": 1,
     "SENSOR_REALSENSE_D435I": 2,
+    "SENSOR_SIMPLEBGC_ICM2060X": 3,
 
     "SENSOR_TYPE_ACCELEROMETER": 1,
     "SENSOR_TYPE_GYRO": 2,
@@ -138,7 +139,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-test1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run66.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run67.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {
@@ -385,6 +386,291 @@ MODEL_CONFIGS = dotdict({
                         "type": "rescale",
                         "vec_range": [-1, 1],
                         "msg_range": [-45.0, 45.0],
+                    },
+                },
+            ],
+
+            "rew": {
+                "base": "reward",
+
+                "override": {
+                    "positive_reward": 10.0,
+                    "positive_reward_timeout": 2.0,
+
+                    "negative_reward": -15.0,
+                    "negative_reward_timeout": 2.0,
+                }
+            },
+
+            "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.300,
+            },
+
+            "done": {
+                "mode": "on_reward_override",
+            }
+        }
+     },
+
+    "basic-brain-relative": {
+        "type": "brain",
+
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run68.zip",
+        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
+
+        "models": {
+            "vision": "yolov7-tiny-s53",
+            "reward": "yolov7-tiny-prioritize_centered_nms",
+        },
+
+        "msgvec": {
+            "obs": [
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.vel",
+                    "index": -5,
+                    "timing_index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.leftMotor.current",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.rightMotor.vel",
+                    "index": -5,
+                    "timing_index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "odriveFeedback.rightMotor.current",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "identity",
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "voltage.volts",
+                    "index": -1,
+                    "timeout": 0.125,
+                    "filter": {
+                        "field": "voltage.type",
+                        "op": "eq",
+                        "value": "mainBattery",
+                    },
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 15],
+                        "vec_range": [-1, 1],
+                    }
+                },
+                
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchAngle",
+                    "index": -5,
+                    "timing_index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.pitchMotorPower",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.yawAngle",
+                    "index": -5,
+                    "timing_index": -1,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-45.0, 45.0],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headFeedback.yawMotorPower",
+                    "index": -3,
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [0, 1],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.0",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.1",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "accelerometer.acceleration.v.2",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-20, 20],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.0",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.1",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "gyroscope.gyro.v.2",
+                    "index": -30,
+                    "timing_index": -1,
+                    "timeout": 0.01,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-2, 2],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "vision",
+                    "size": 17003,
+                    "timeout": 0.100,
+                    "index": [-1, -2],
+                }
+            ],
+
+            "act": [
+                {
+                    "type": "relative_msg",
+                    "path": "odriveCommand.desiredVelocityLeft",
+                    "initial": 0.0,
+                    "range": [-1.0, 1.0],
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-0.15, 0.15],
+                    },
+                },
+
+                {
+                    "type": "relative_msg",
+                    "path": "odriveCommand.desiredVelocityRight",
+                    "initial": 0.0,
+                    "range": [-1.0, 1.0],
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-0.15, 0.15],
+                    },
+                },
+
+                { 
+                    "type": "relative_msg",
+                    "path": "headCommand.pitchAngle",
+                    "initial": 0.0,
+                    "range": [-45.0, 45.0],
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-10.0, 10.0],
+                    },
+                },
+
+                { 
+                    "type": "relative_msg",
+                    "path": "headCommand.yawAngle",
+                    "initial": 0.0,
+                    "range": [-45.0, 45.0],
+                    "timeout": 0.125,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-10.0, 10.0],
                     },
                 },
             ],

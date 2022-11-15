@@ -372,6 +372,23 @@ int main(int argc, char **argv)
         auto words = capnp::messageToFlatArray(pmsg);
         auto bytes = words.asBytes();
         pm.send("simpleBGCFeedback", bytes.begin(), bytes.size());
+
+        // Publish a gyroscope message
+        MessageBuilder gmsg;
+        auto gevent = gmsg.initEvent(true);
+        auto gyro = event.initGyroscope();
+        gyro.setVersion(1);
+        gyro.setTimestamp(motion_frame.get_timestamp());
+        gyro.setSensor(SENSOR_SIMPLEBGC_ICM2060X);
+        gyro.setType(SENSOR_TYPE_GYRO);
+
+        auto gyrodata = gyro.initGyro();
+        gyrodata.setV({vec.x, vec.y, vec.z});
+        gyrodata.setStatus(true);
+
+        auto words = capnp::messageToFlatArray(msg);
+        auto bytes = words.asBytes();
+        pm.send("gyroscope", bytes.begin(), bytes.size());
       }
       else if (msg->command_id == CMD_GET_ANGLES_EXT)
       {
