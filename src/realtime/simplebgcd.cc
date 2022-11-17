@@ -262,7 +262,7 @@ static void bgc_command_processor(SimpleBGC &bgc) {
 
 int main(int argc, char **argv)
 {
-  PubMaster pm{{"simpleBGCFeedback"}};
+  PubMaster pm{{"simpleBGCFeedback", "simpleBGCSensors"}};
   Serial port{SIMPLEBGC_SERIAL_PORT, SIMPLEBGC_BAUD_RATE};
   SimpleBGC bgc{port};
 
@@ -391,9 +391,9 @@ int main(int argc, char **argv)
                        });
         gyrodata.setStatus(true);
         
-        // auto gwords = capnp::messageToFlatArray(gmsg);
-        // auto gbytes = gwords.asBytes();
-        // pm.send("gyroscope", gbytes.begin(), gbytes.size());
+        auto gwords = capnp::messageToFlatArray(gmsg);
+        auto gbytes = gwords.asBytes();
+        pm.send("simpleBGCSensors", gbytes.begin(), gbytes.size());
 
         // Publish an accelerometer message
         MessageBuilder amsg;
@@ -413,11 +413,11 @@ int main(int argc, char **argv)
                         });
         acceldata.setStatus(true);
 
-        fmt::print("bgc gyro {} {} {}\n", gyrodata.getV()[0], gyrodata.getV()[1], gyrodata.getV()[2]);
+        // fmt::print("bgc gyro {} {} {}\n", gyrodata.getV()[0], gyrodata.getV()[1], gyrodata.getV()[2]);
 
-        // auto awords = capnp::messageToFlatArray(amsg);
-        // auto abytes = awords.asBytes();
-        // pm.send("accelerometer", abytes.begin(), abytes.size());
+        auto awords = capnp::messageToFlatArray(amsg);
+        auto abytes = awords.asBytes();
+        pm.send("simpleBGCSensors", abytes.begin(), abytes.size());
       }
       else if (msg->command_id == CMD_GET_ANGLES_EXT)
       {

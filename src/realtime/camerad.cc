@@ -172,7 +172,7 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2:
 
             auto words = capnp::messageToFlatArray(msg);
             auto bytes = words.asBytes();
-            pm.send("gyroscope", bytes.begin(), bytes.size());
+            pm.send("cameraSensors", bytes.begin(), bytes.size());
 
             //fmt::print("camera gyro {} {} {}\n", vec.x, vec.y, vec.z);
         } else if (motion_frame.get_profile().stream_type() == RS2_STREAM_ACCEL) {
@@ -188,7 +188,7 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2:
 
             auto words = capnp::messageToFlatArray(msg);
             auto bytes = words.asBytes();
-            pm.send("accelerometer", bytes.begin(), bytes.size());
+            pm.send("cameraSensors", bytes.begin(), bytes.size());
 
             //fmt::print("camera accel {} {} {}\n", vec.x, vec.y, vec.z);
         }
@@ -331,7 +331,7 @@ void depth_sensor_thread(VisionIpcServer &vipc_server, PubMaster &pm, rs2::depth
 
 int main(int argc, char *argv[])
 {
-    PubMaster pm{ {"headCameraState", "depthCameraState", "gyroscope", "accelerometer"} };
+    PubMaster pm{ {"headCameraState", "depthCameraState", "cameraSensors"} };
     VisionIpcServer vipc_server{ "camerad" };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.create_buffers(VISION_STREAM_HEAD_DEPTH, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
