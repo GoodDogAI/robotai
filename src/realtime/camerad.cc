@@ -173,6 +173,8 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2:
             auto words = capnp::messageToFlatArray(msg);
             auto bytes = words.asBytes();
             pm.send("gyroscope", bytes.begin(), bytes.size());
+
+            //fmt::print("camera gyro {} {} {}\n", vec.x, vec.y, vec.z);
         } else if (motion_frame.get_profile().stream_type() == RS2_STREAM_ACCEL) {
             auto accel = event.initAccelerometer();
             accel.setVersion(1);
@@ -187,6 +189,8 @@ void motion_sensor_thread(PubMaster &pm, rs2::motion_sensor &motion_sensor, rs2:
             auto words = capnp::messageToFlatArray(msg);
             auto bytes = words.asBytes();
             pm.send("accelerometer", bytes.begin(), bytes.size());
+
+            //fmt::print("camera accel {} {} {}\n", vec.x, vec.y, vec.z);
         }
     }
 

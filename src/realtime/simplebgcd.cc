@@ -376,19 +376,48 @@ int main(int argc, char **argv)
         // Publish a gyroscope message
         MessageBuilder gmsg;
         auto gevent = gmsg.initEvent(true);
-        auto gyro = event.initGyroscope();
+        auto gyro = gevent.initGyroscope();
         gyro.setVersion(1);
-        gyro.setTimestamp(motion_frame.get_timestamp());
+        gyro.setTimestamp(-1);
         gyro.setSensor(SENSOR_SIMPLEBGC_ICM2060X);
         gyro.setType(SENSOR_TYPE_GYRO);
 
         auto gyrodata = gyro.initGyro();
-        gyrodata.setV({vec.x, vec.y, vec.z});
+        // Base Units are  0,06103701895 degree/sec, convert to radians
+        constexpr float gyro_radians_per_sec = 0.06103701895f * M_PI / 180.0f;
+        gyrodata.setV({realtime_data->gyro_roll * gyro_radians_per_sec,
+                       realtime_data->gyro_yaw * gyro_radians_per_sec,
+                       realtime_data->gyro_pitch * gyro_radians_per_sec,
+                       });
         gyrodata.setStatus(true);
+        
+        // auto gwords = capnp::messageToFlatArray(gmsg);
+        // auto gbytes = gwords.asBytes();
+        // pm.send("gyroscope", gbytes.begin(), gbytes.size());
 
-        auto words = capnp::messageToFlatArray(msg);
-        auto bytes = words.asBytes();
-        pm.send("gyroscope", bytes.begin(), bytes.size());
+        // Publish an accelerometer message
+        MessageBuilder amsg;
+        auto aevent = amsg.initEvent(true);
+        auto accel = aevent.initAccelerometer();
+        accel.setVersion(1);
+        accel.setTimestamp(-1);
+        accel.setSensor(SENSOR_SIMPLEBGC_ICM2060X);
+        accel.setType(SENSOR_TYPE_ACCELEROMETER);
+
+        auto acceldata = accel.initAcceleration();
+        // Base units are 1/512 g
+        constexpr float accel_m2_per_sec = 1.0f / 512.0f * 9.80665f;
+        acceldata.setV({-realtime_data->acc_roll * accel_m2_per_sec,
+                        -realtime_data->acc_yaw * accel_m2_per_sec,
+                        -realtime_data->acc_pitch * accel_m2_per_sec,
+                        });
+        acceldata.setStatus(true);
+
+        fmt::print("bgc gyro {} {} {}\n", gyrodata.getV()[0], gyrodata.getV()[1], gyrodata.getV()[2]);
+
+        // auto awords = capnp::messageToFlatArray(amsg);
+        // auto abytes = awords.asBytes();
+        // pm.send("accelerometer", abytes.begin(), abytes.size());
       }
       else if (msg->command_id == CMD_GET_ANGLES_EXT)
       {
