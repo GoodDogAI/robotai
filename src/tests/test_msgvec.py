@@ -2526,5 +2526,61 @@ class TestMsgVecRelative(MsgVecBaseTest):
         with self.assertRaises(RuntimeError):
             msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
       
+    def test_relative_manual_override(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "initial": 0.0,
+                "range": [-1.0, 1.0],
+                "timeout": 0.125,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-0.15, 0.15],
+                },
+            },
+        ],
+           "appcontrol": {
+                "mode": "steering_override_v1",
+                "timeout": 0.125,
+            },}
 
+        realtime_msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+        replay_msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        realtime_msgvec.input(msg)
+
+        result = realtime_msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        for msg in result:
+            replay_msgvec.input(msg)
+
+        print(replay_msgvec.get_act_vector())
+        
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        realtime_msgvec.input(msg)
+
+        result = realtime_msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        for msg in result:
+            replay_msgvec.input(msg)
+
+        print(replay_msgvec.get_act_vector())
+
+        # The problem in this test is the mismatch of ranges in the training data
+        # For example, in typical control, outputing a maximum value of 1.0 (and 1.0 is the max because we have a tanh activation function) 
+        # that will increase your velocity by 0.15 units in the message itself.
+        # However, you may do something like issue a manual override, which immediately sets the velocity from 0.0 to 1.0
+        # What happens is that there is no way to represent this overflow in the network, because it saturates at 1
+        # With a tanh activation, the gradient shrinks to 0 out past 1.0, so it wouldn't do any good
+        
+        # Option 1: Change the ranges to allow for 1.0 or -1.0 to basically do a full range transform
+        #  You could then penalize outputting anything too extreme
+        # Option 2: Maybe keep some internal saturation counter, and output 1.0's for a few frames afterwards after a saturation
         
