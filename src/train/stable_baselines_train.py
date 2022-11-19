@@ -21,6 +21,7 @@ from src.models.stable_baselines3.env import MsgVecEnv
 from src.models.stable_baselines3.feature_extractor import MsgVecNormalizeFeatureExtractor
 from src.models.stable_baselines3.buffers import HostReplayBuffer
 
+import src.train.reward_modifiers as reward_modifiers
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.train.rldataset import MsgVecDataset
@@ -37,18 +38,20 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [X] Delta on actions
 # - [X] Record estimated target entropy in training
 # - [X] What happens if msgvec actions are greater than 1.0, does the gradient explode? No, because we look at the gradient of tanh, not its inverse
+# - [ ] Dome test runs with reward modifiers, and adjusting the reward to be less vision oriented
 
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-relative"]
-    msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
-    cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
     buffer_size = 50_000
     batch_size = 512
+    reward_modifier_fn = "default_reward_modifier"
     validation_runname = "alphalog-4425c446"  
     validation_buffer_size = 10_000
     num_updates = round(buffer_size * 10 / batch_size)
 
+    msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
+    cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config, getattr(reward_modifiers, reward_modifier_fn))
     env = MsgVecEnv(msgvec)
     obs_means = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
     obs_stds = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
@@ -56,7 +59,7 @@ if __name__ == "__main__":
     reward_std = 0.0
 
     model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=2.60,
+                target_entropy=2.66,
                 learning_rate=1e-4,
                 # use_sde=True,
                 # sde_sample_freq=100,
@@ -95,6 +98,7 @@ if __name__ == "__main__":
         "learning_rate": model.learning_rate,
         "validation_runname": validation_runname,
         "validation_buffer_size": validation_buffer_size,
+        "reward_modifier_fn": reward_modifier_fn,
     }
 
     if model.target_entropy is not None:
