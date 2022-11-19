@@ -28,7 +28,7 @@ def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tupl
 
     velDif = state["lastRightVelocity"] - state["lastLeftVelocity"]
     if velDif < 0:
-        mod = _clamp(-velDif, -1.0, 0.0)
+        mod = _clamp(velDif, -1.0, 0.0)
     
     return mod, state
 
