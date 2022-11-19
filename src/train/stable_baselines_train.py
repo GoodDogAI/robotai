@@ -34,12 +34,12 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [X] Normalize observations
 # - [ ] Fill the buffer in a separate process
 # - [X] Normalize rewards
-# - [ ] Delta on actions
+# - [X] Delta on actions
 # - [X] Record estimated target entropy in training
 # - [X] What happens if msgvec actions are greater than 1.0, does the gradient explode? No, because we look at the gradient of tanh, not its inverse
 
 if __name__ == "__main__":
-    brain_config = MODEL_CONFIGS["basic-brain-test1"]
+    brain_config = MODEL_CONFIGS["basic-brain-relative"]
     msgvec = PyMsgVec(brain_config["msgvec"], PyMessageTimingMode.REPLAY)
     cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR), brain_config)
     log_dir = "/home/jake/robotai/_sb3_logs/"
@@ -56,8 +56,10 @@ if __name__ == "__main__":
     reward_std = 0.0
 
     model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=2.0,
+                target_entropy=2.60,
                 learning_rate=1e-4,
+                # use_sde=True,
+                # sde_sample_freq=100,
                 policy_kwargs={
                     "features_extractor_class": MsgVecNormalizeFeatureExtractor,
                     "features_extractor_kwargs": {

@@ -416,7 +416,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-relative": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run68.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run70.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {
@@ -631,7 +631,7 @@ MODEL_CONFIGS = dotdict({
                     "transform": {
                         "type": "rescale",
                         "vec_range": [-1, 1],
-                        "msg_range": [-0.15, 0.15],
+                        "msg_range": [-2, 2],
                     },
                 },
 
@@ -644,7 +644,7 @@ MODEL_CONFIGS = dotdict({
                     "transform": {
                         "type": "rescale",
                         "vec_range": [-1, 1],
-                        "msg_range": [-0.15, 0.15],
+                        "msg_range": [-2, 2],
                     },
                 },
 
@@ -657,7 +657,7 @@ MODEL_CONFIGS = dotdict({
                     "transform": {
                         "type": "rescale",
                         "vec_range": [-1, 1],
-                        "msg_range": [-10.0, 10.0],
+                        "msg_range": [-90, 90],
                     },
                 },
 
@@ -670,7 +670,7 @@ MODEL_CONFIGS = dotdict({
                     "transform": {
                         "type": "rescale",
                         "vec_range": [-1, 1],
-                        "msg_range": [-10.0, 10.0],
+                        "msg_range": [-90, 90],
                     },
                 },
             ],
