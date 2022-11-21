@@ -59,7 +59,8 @@ if __name__ == "__main__":
     reward_std = 0.0
 
     model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=2.66,
+                #target_entropy=2.66,
+                ent_coef=0.75,
                 learning_rate=1e-4,
                 # use_sde=True,
                 # sde_sample_freq=100,

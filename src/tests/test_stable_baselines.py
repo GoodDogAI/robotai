@@ -12,7 +12,7 @@ class StableBaselinesRLTests(unittest.TestCase):
     def test_pytorch_params(self):
         cache = MsgVecDataset(os.path.join(HOST_CONFIG.RECORD_DIR, "unittest"), MODEL_CONFIGS["basic-brain-test1"])
 
-        datapoint = next(cache.generate_samples())
+        datapoint = next(cache.generate_dataset())
         obs = torch.from_numpy(datapoint["obs"]).to("cuda")
         obs = torch.unsqueeze(obs, 0)
 

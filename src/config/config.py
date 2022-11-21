@@ -51,7 +51,7 @@ HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_BRAIN_CONFIG": "basic-brain-test1",
+    "DEFAULT_BRAIN_CONFIG": "basic-brain-relative",
     "DEFAULT_REWARD_CONFIG": "yolov7-tiny-prioritize_centered_nms",
 
     "DEFAULT_DECODE_GPU_ID": 0,
@@ -79,7 +79,7 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
+        "intermediate_layer": "/vision_model/model.59/Concat_output_0", # Another option to try could be onnx::Conv_254
         "intermediate_slice": 53,
     },
 
@@ -93,7 +93,7 @@ MODEL_CONFIGS = dotdict({
         # In current situations, the image will be cropped to the nearest multiple of the stride
         "dimension_stride": 32,
 
-        "intermediate_layer": ["onnx::Conv_351", "onnx::Conv_379", "onnx::Conv_365"], 
+        "intermediate_layer": ["/vision_model/model.74/act/LeakyRelu_output_0", "/vision_model/model.75/act/LeakyRelu_output_0", "/vision_model/model.76/act/LeakyRelu_output_0"], 
         "intermediate_slice": 53,
     },
 
@@ -416,7 +416,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-relative": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run70.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run78.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {

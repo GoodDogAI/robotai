@@ -21,7 +21,7 @@ class TestModelLoaderTRT(unittest.TestCase):
             # In current situations, the image will be cropped to the nearest multiple of the stride
             "dimension_stride": 32,
 
-            "intermediate_layer": "input.219", # Another option to try could be onnx::Conv_254
+            "intermediate_layer": "/vision_model/model.59/Concat_output_0", # Another option to try could be onnx::Conv_254
             "intermediate_slice": 53,
         }
 
@@ -35,7 +35,7 @@ class TestModelLoaderTRT(unittest.TestCase):
             # In current situations, the image will be cropped to the nearest multiple of the stride
             "dimension_stride": 32,
 
-            "intermediate_layer": ["onnx::Conv_351", "onnx::Conv_379", "onnx::Conv_365"], 
+            "intermediate_layer": ["/vision_model/model.74/act/LeakyRelu_output_0", "/vision_model/model.75/act/LeakyRelu_output_0", "/vision_model/model.76/act/LeakyRelu_output_0"], 
             "intermediate_slice": 53,
         }
 
@@ -68,7 +68,7 @@ class TestModelLoaderTRT(unittest.TestCase):
         self.sampleBrainConfig = {
              "type": "brain",
 
-            "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip",
+            "checkpoint": "/home/jake/robotai/_checkpoints/unittest/basic-brain-test1-sb3-run66-working.zip",
             "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
             "models": {
@@ -219,12 +219,6 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_stable_baselines_actor(self):
         onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)
-        create_and_validate_trt(onnx_path, skip_cache=True)
-
-    def test_stable_baselines_normalized_actor(self):
-        config = copy.deepcopy(self.sampleBrainConfig)
-        config["checkpoint"] = "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run55.zip"
-        onnx_path = create_and_validate_onnx(config, skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
 
     def test_model_fullname(self):
