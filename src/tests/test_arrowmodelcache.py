@@ -11,6 +11,7 @@ from src.messaging import new_message
 from src.train.modelloader import model_fullname
 from src.train.arrowcache import ArrowModelCache
 from src.train.rldataset import MsgVecDataset
+from src.train.reward_modifiers import reward_modifier_penalize_move_backwards
 from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 class TestArrowModelCache(unittest.TestCase):
@@ -206,6 +207,11 @@ class TestMsgVecDataset(unittest.TestCase):
                 print("-----------------")
                 self.assertTrue(last_done)
                 
+            # Make sure the datatypes line up
+            self.assertTrue(isinstance(entry["done"], bool))
+            self.assertTrue(isinstance(entry["reward_override"], bool))
+            self.assertTrue(isinstance(entry["reward"], float))
+
             last_override = entry["reward_override"]
             last_done = entry["done"]
 
@@ -296,7 +302,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             cache.vision_cache = MagicMock()
             cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
             cache.reward_cache = MagicMock()
-            cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+            cache.reward_cache.get.return_value = 0.0
 
             # Messages get ready
             msg = new_message("odriveFeedback")
@@ -338,7 +344,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             cache.vision_cache = MagicMock()
             cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
             cache.reward_cache = MagicMock()
-            cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+            cache.reward_cache.get.return_value = 0.0
 
             # Messages get ready
             msg = new_message("odriveFeedback")
@@ -379,7 +385,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     cache.vision_cache = MagicMock()
                     cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
                     cache.reward_cache = MagicMock()
-                    cache.reward_cache.get.return_value = np.zeros((1), dtype=np.float32)
+                    cache.reward_cache.get.return_value = 0.0
 
                     # Messages get ready
                     msg = new_message("odriveFeedback")
@@ -409,3 +415,91 @@ class ManualTestMsgVecDataset(unittest.TestCase):
 
                     samples = list(cache.generate_dataset())
                     self.assertEqual(len(samples), expected)
+
+    def test_reward_modifier(self):
+        def constant_reward_modifier(evt, state):
+            return 5.0, state
+
+        with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
+            cache = MsgVecDataset(td, self.brain_config, constant_reward_modifier)
+            cache.vision_cache = MagicMock()
+            cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+            cache.reward_cache = MagicMock()
+            cache.reward_cache.get.return_value = 0.0
+
+            # Messages get ready
+            msg = new_message("odriveFeedback")
+            msg.write(f)
+            
+            msg = new_message("headFeedback")
+            msg.write(f)
+            
+            # Inference occurs
+            msg = new_message("modelInference")
+            msg.write(f)
+
+            f.flush()
+            self.assertEqual(list(cache.generate_dataset()), [])
+
+            # Action vector gets written out
+            msg = new_message("odriveCommand")
+            msg.write(f)
+            
+            # Still blank because you need two datapoints to make a valid log
+            f.flush()
+            self.assertEqual(list(cache.generate_dataset()), [])
+
+            msg = new_message("modelInference")
+            msg.write(f)
+            msg = new_message("odriveCommand")
+            msg.write(f)
+
+            samples = list(cache.generate_dataset())
+            self.assertEqual(len(samples), 1)
+
+            print(samples[0])
+            self.assertEqual(samples[0]["reward"], 5.0)
+
+    def test_reward_modifier_penalize_backwards(self):
+        with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
+            cache = MsgVecDataset(td, self.brain_config, reward_modifier_penalize_move_backwards)
+            cache.vision_cache = MagicMock()
+            cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+            cache.reward_cache = MagicMock()
+            cache.reward_cache.get.return_value = 0.0
+
+            # Messages get ready
+            msg = new_message("odriveFeedback")
+            msg.odriveFeedback.leftMotor.vel = 1.0
+            msg.odriveFeedback.rightMotor.vel = -1.0
+            
+            msg.write(f)
+            
+            msg = new_message("headFeedback")
+            msg.write(f)
+            
+            # Inference occurs
+            msg = new_message("modelInference")
+            msg.write(f)
+
+            f.flush()
+            self.assertEqual(list(cache.generate_dataset()), [])
+
+            # Action vector gets written out
+            msg = new_message("odriveCommand")
+            msg.write(f)
+            
+            # Still blank because you need two datapoints to make a valid log
+            f.flush()
+            self.assertEqual(list(cache.generate_dataset()), [])
+
+            msg = new_message("modelInference")
+            msg.write(f)
+            msg = new_message("odriveCommand")
+            msg.write(f)
+
+            samples = list(cache.generate_dataset())
+            self.assertEqual(len(samples), 1)
+
+            print(samples[0])
+            self.assertEqual(samples[0]["reward"], -1.0)

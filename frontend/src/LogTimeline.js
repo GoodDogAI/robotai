@@ -103,6 +103,11 @@ export function LogTimeline(props) {
         return <div className="timeline">No logs</div>;
     }
 
+    if (logIndex >= data.length) {
+        setLogIndex(data.length - 1);
+        return <div className="timeline">No logs</div>;
+    }
+
     const filteredData = data.filter((log) => !filteredOut.has(log.which));
 
     const Row = ({ index, style }) => {

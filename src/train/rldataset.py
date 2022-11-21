@@ -14,16 +14,18 @@ from src.logutil import LogHashes, LogSummary
 from src.train.modelloader import model_fullname
 from src.train.arrowcache import ArrowModelCache
 from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
-
+from src.train.reward_modifiers import RewardModifierFunc, default_reward_modifier
 
 
 # This class will read in log entries and actually create
 # the obs, act, reward, done tuples that will be used for RL training.
 # It relies on the ArrowModelCache for filling in vision intermediates and rewards
 class MsgVecDataset():
-    def __init__(self, dir: str, brain_model_config: Dict) -> None:
+    def __init__(self, dir: str, brain_model_config: Dict, reward_modifer: RewardModifierFunc=default_reward_modifier) -> None:
         self.dir = dir
         self.brain_config = brain_model_config
+        self.reward_modifier = reward_modifer
+
         self.brain_fullname = model_fullname(brain_model_config)
 
         self.vision_cache = ArrowModelCache(dir, MODEL_CONFIGS[self.brain_config["models"]["vision"]])
@@ -83,6 +85,8 @@ class MsgVecDataset():
         last_timeout = PyTimeoutResult.MESSAGES_NOT_READY
         last_log_mono_time = None
         last_reward_was_override = False
+        last_reward_modifier = 0.0
+        last_reward_modifier_state = {}
 
         cur_packet = {}
 
@@ -91,11 +95,13 @@ class MsgVecDataset():
                 raise RuntimeError(f"Log files are not in order in {group_runname}")
 
             status = msgvec.input(evt.as_builder())
+            last_reward_modifier, last_reward_modifier_state = self.reward_modifier(evt, last_reward_modifier_state) 
 
             if status["act_ready"]:
                 cur_packet["act"] = msgvec.get_act_vector()
 
                 if "obs" in cur_packet and "act" in cur_packet and "reward" in cur_packet and "done" in cur_packet:
+                    cur_packet["reward"] += last_reward_modifier
                     raw_data.append(cur_packet)
                     cur_packet = {}
 
