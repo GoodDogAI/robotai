@@ -106,7 +106,7 @@ static void msgvec_reader(kj::MutexGuarded<MsgVec> &msgvec_guard) {
   for (const auto& it : services) {
     std::string name {it.name};
 
-    if (!it.should_log || name == "brainCommands" || name == "brainValidation" || endsWith(name, "EncodeData"))
+    if (!it.should_log || name == "brainValidation" || endsWith(name, "EncodeData"))
         continue;
 
     fmt::print("braind {} (on port {})\n", it.name, it.port);
@@ -255,6 +255,16 @@ int main(int argc, char *argv[])
     // Feed in an empty vision frame, since we aren't calculating anything yet
     std::vector<float> vision_tmp(msgvec->vision_size(), 0.0f);
     msgvec->input_vision(vision_tmp.data(), 0);
+
+    // Send all zero action command, this helps initialize the system in case any action messages
+    // are also in the observation vector
+    std::vector<float> act(msgvec->act_size(), 0.0f);
+    auto messages = msgvec->get_action_command(act.data());
+
+    for (auto &msgdata : messages) {
+        auto bytes = msgdata.asBytes();
+        pm.send("brainCommands", bytes.begin(), bytes.size());
+    }
 
     if (std::chrono::steady_clock::now() - start_sync_time > std::chrono::seconds(5)) {
         fmt::print(stderr, "Failed to sync vision and msgvec, check timeout values in MsgVec configuration\n");
