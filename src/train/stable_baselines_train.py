@@ -41,11 +41,11 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [ ] Dome test runs with reward modifiers, and adjusting the reward to be less vision oriented
 
 if __name__ == "__main__":
-    brain_config = MODEL_CONFIGS["basic-brain-relative"]
+    brain_config = MODEL_CONFIGS["basic-brain-test1"]
     log_dir = "/home/jake/robotai/_sb3_logs/"
     buffer_size = 50_000
     batch_size = 512
-    reward_modifier_fn = "default_reward_modifier"
+    reward_modifier_fn = "reward_modifier_penalize_move_backwards"
     validation_runname = "alphalog-4425c446"  
     validation_buffer_size = 10_000
     num_updates = round(buffer_size * 10 / batch_size)

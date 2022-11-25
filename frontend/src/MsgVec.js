@@ -21,6 +21,18 @@ function parseVecConfig(config) {
                     which: obs.path,
                 })
             }
+
+            let timingCount = 0;
+
+            if (obs.hasOwnProperty("timing_index")) 
+                timingCount = Math.abs(obs.timing_index);
+
+            for( let i = 0; i < timingCount; i++) {
+                result.push({
+                    baseIndex: baseIndex,
+                    which: "timing",
+                })
+            }
         }
 
         baseIndex += 1;

@@ -26,9 +26,15 @@ def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tupl
 
     mod = 0.0
 
-    velDif = state["lastRightVelocity"] - state["lastLeftVelocity"]
-    if velDif < 0:
-        mod = _clamp(velDif, -1.0, 0.0)
+    # Discourage moving backwards
+    if "lastLeftVelocity" in state and "lastRightVelocity" in state:
+        velDif = state["lastRightVelocity"] - state["lastLeftVelocity"]
+        if velDif < 0:
+            mod += _clamp(velDif, -1.0, 0.0)
+
+    # Discourage high motor values
+    # mod -= _clamp(abs(state["lastLeftVelocity"]), 0.0, 1.0) * 0.1
+    # mod -= _clamp(abs(state["lastRightVelocity"]), 0.0, 1.0) * 0.1
     
     return mod, state
 

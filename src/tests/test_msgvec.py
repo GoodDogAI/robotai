@@ -2074,6 +2074,41 @@ class TestMsgVec(MsgVecBaseTest):
         time.sleep(0.01)
         self.assertAlmostEqual(msgvec.get_obs_vector_raw()[1], 2.0, places=1)
 
+    def test_obs_and_action(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "odriveFeedback.leftMotor.vel",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": [{
+                "type": "msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME) 
+
+        msg = new_message("odriveFeedback")
+        msg.odriveFeedback.leftMotor.vel = 12.0
+        print(msgvec.input(msg))
+
+        actions = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        print(msgvec.input(actions[0]))
+
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12.0])
+
     def test_real_data_to_vector(self):
         config = {"obs": [
                 { 

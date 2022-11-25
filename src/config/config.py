@@ -51,7 +51,7 @@ HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_BRAIN_CONFIG": "basic-brain-relative",
+    "DEFAULT_BRAIN_CONFIG": "basic-brain-test1",
     "DEFAULT_REWARD_CONFIG": "yolov7-tiny-prioritize_centered_nms",
 
     "DEFAULT_DECODE_GPU_ID": 0,
@@ -131,7 +131,7 @@ MODEL_CONFIGS = dotdict({
                 "refrigerator": 0.5,
                 "book": 0.1,
             },
-            "reward_scale": 0.10,
+            "reward_scale": 0.01,
             "center_epsilon": 0.1,  
         }
     },
@@ -416,7 +416,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-relative": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run78.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run84.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {
