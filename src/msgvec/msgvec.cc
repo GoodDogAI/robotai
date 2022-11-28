@@ -352,6 +352,8 @@ static bool message_matches(const capnp::DynamicStruct::Reader &msg, const json 
                 }
             } else if (filter_value.getType() == capnp::DynamicValue::Type::TEXT) {
                 return filter_value.as<capnp::Text>() == obs["filter"]["value"];
+            } else if (filter_value.getType() == capnp::DynamicValue::Type::INT) {
+                return filter_value.as<uint64_t>() == obs["filter"]["value"];
             } else {
                 std::cerr << "Unknown type for field " << filter_field << std::endl;
                 return false;

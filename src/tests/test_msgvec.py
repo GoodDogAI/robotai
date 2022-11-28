@@ -194,6 +194,38 @@ class TestMsgVec(MsgVecBaseTest):
         _sendAndAssert(-1000.0, -1.0)
         _sendAndAssert(1000.0, 1.0)
 
+    def test_input_filter_wrong_type(self):
+        config = {"obs": [
+            { 
+                "type": "msg",
+                "path": "gyroscope.gyro.v.1",
+                "index": -1,
+                "timeout": 0.01,
+                "filter": {
+                    "field": "gyroscope.sensor",
+                    "op": "eq",
+                    "value": 1, 
+                },
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [-2, 2],
+                    "vec_range": [-1, 1],
+                },
+            },
+        ], "act": []}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+
+        self.assertEqual(msgvec.obs_size(), 1)
+        msg = new_message("gyroscope")
+        msg.gyroscope.init("gyro")
+        msg.gyroscope.sensor = 1
+        msg.gyroscope.gyro.init("v", 3)
+        msg.gyroscope.gyro.v = [1, 2, 3]
+        result = msgvec.input(msg)
+        self.assertTrue(result["msg_processed"])
+
+        print(msgvec.get_obs_vector_raw())
+
     def test_input_reader(self):
         config = {"obs": [
             {

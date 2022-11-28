@@ -267,7 +267,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -285,7 +285,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -303,7 +303,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -321,7 +321,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -339,7 +339,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -357,7 +357,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -574,7 +574,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -592,7 +592,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -610,7 +610,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -628,7 +628,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -646,7 +646,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
@@ -664,7 +664,7 @@ MODEL_CONFIGS = dotdict({
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": "1", # 1 is the intel realsense
+                        "value": 1, # 1 is the intel realsense
                     },
                     "transform": {
                         "type": "rescale",
