@@ -38,7 +38,8 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [X] Delta on actions
 # - [X] Record estimated target entropy in training
 # - [X] What happens if msgvec actions are greater than 1.0, does the gradient explode? No, because we look at the gradient of tanh, not its inverse
-# - [ ] Dome test runs with reward modifiers, and adjusting the reward to be less vision oriented
+# - [X] Do test runs with reward modifiers, and adjusting the reward to be less vision oriented
+# - [ ] Balance out the manual reward and punishments so that they have roughly equal weight
 
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-test1"]
@@ -59,8 +60,8 @@ if __name__ == "__main__":
     reward_std = 0.0
 
     model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                #target_entropy=2.66,
-                ent_coef=0.75,
+                target_entropy=2.5,
+                #ent_coef=0.75,
                 learning_rate=1e-4,
                 # use_sde=True,
                 # sde_sample_freq=100,
@@ -109,12 +110,6 @@ if __name__ == "__main__":
         hparam_dict["ent_coef"] = "auto" if model.ent_coef == "auto" else float(model.ent_coef)
 
 
-    logger.record("hparams", HParam(hparam_dict=hparam_dict, metric_dict={
-        "train/actor_loss": 0,
-        "train/critic_loss": 0,
-        "validation/act_var": 0,
-    }))
-
     # Copy the current file to the log directory, as a reference
     with open(__file__, "r") as f:
         with open(os.path.join(log_dir, run_name, "train_script.py"), "w") as f2:
@@ -131,12 +126,24 @@ if __name__ == "__main__":
     # Read through the whole dataset, calculating statistics, and filling the training replay buffer
     buffer = model.replay_buffer
     samples_added = 0
+    num_episodes = 0
+    num_positive_rewards = 0
+    num_negative_rewards = 0
       
     for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
             buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
         samples_added += 1
+
+        if entry["done"]:
+            num_episodes += 1
+
+        if entry["reward_override"]:
+            if entry["reward"] >= 0:
+                num_positive_rewards += 1
+            else:
+                num_negative_rewards += 1
 
         if samples_added == 1:
             obs_means.copy_(torch.from_numpy(entry["obs"]).cuda())
@@ -158,6 +165,20 @@ if __name__ == "__main__":
     buffer.normalize_reward(reward_mean, reward_std)
 
     print(f"Read {samples_added} dataset samples")
+    print(f"Contains {num_episodes} episodes")
+    print(f"Contains {num_positive_rewards} positive rewards")
+    print(f"Contains {num_negative_rewards} negative rewards")
+
+    hparam_dict["num_samples"] = samples_added
+    hparam_dict["num_episodes"] = num_episodes
+    hparam_dict["num_positive_rewards"] = num_positive_rewards
+    hparam_dict["num_negative_rewards"] = num_negative_rewards
+
+    logger.record("hparams", HParam(hparam_dict=hparam_dict, metric_dict={
+        "train/actor_loss": 0,
+        "train/critic_loss": 0,
+        "validation/act_var": 0,
+    }))
 
     # Fill the validation replay buffer
     validation_buffer = ReplayBuffer(buffer_size=validation_buffer_size,
@@ -182,12 +203,22 @@ if __name__ == "__main__":
         perturbed_acts = []
         for i in range(0, validation_buffer.size() - batch_size, batch_size):
             obs = torch.from_numpy(validation_buffer.observations[i:i+batch_size, 0]).to(model.device)
-            validation_acts.append(model.actor(obs, deterministic=True).detach().cpu())
+            replay_act = torch.from_numpy(validation_buffer.actions[i:i+batch_size, 0]).to(model.device)
+            actor_act = model.actor(obs, deterministic=True).detach()
+            validation_acts.append(actor_act.cpu())
 
             # Perturb the observations and see how much the output changes
             perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * obs_stds * 0.1
             perturbed_acts.append(model.actor(perturbed_obs, deterministic=True).detach().cpu())
             logger.record_mean("validation/perturbed_act_diff_mean", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])).item())
+
+            q_replay = model.critic(obs, replay_act)
+            q_actor = model.critic(obs, actor_act)
+            for q_r, q_a in zip(q_replay, q_actor):
+                logger.record_mean("validation/q_diff_mean", torch.mean(q_a - q_r).detach().cpu().item())
+
+                if i == 0:
+                    logger.record_mean(f"validation/q_mean", torch.mean(q_r).item())
 
         # Calculate and report statistics against the validation buffer
         validation_acts = torch.concat(validation_acts)

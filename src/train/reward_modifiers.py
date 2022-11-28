@@ -20,6 +20,8 @@ def _clamp(val: float, min: float, max: float) -> float:
 
 # In this first version, we penalize moving backwards
 def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tuple[float, Dict]:
+    PENALIZE_BACKWARDS_SCALE = 0.1
+
     if msg.which() == "odriveFeedback":
         state["lastLeftVelocity"] = msg.odriveFeedback.leftMotor.vel
         state["lastRightVelocity"] = msg.odriveFeedback.rightMotor.vel
@@ -30,7 +32,7 @@ def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tupl
     if "lastLeftVelocity" in state and "lastRightVelocity" in state:
         velDif = state["lastRightVelocity"] - state["lastLeftVelocity"]
         if velDif < 0:
-            mod += _clamp(velDif, -1.0, 0.0)
+            mod += _clamp(velDif, -1.0, 0.0) * PENALIZE_BACKWARDS_SCALE
 
     # Discourage high motor values
     # mod -= _clamp(abs(state["lastLeftVelocity"]), 0.0, 1.0) * 0.1
