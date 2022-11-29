@@ -20,7 +20,7 @@ def _clamp(val: float, min: float, max: float) -> float:
 
 # In this first version, we penalize moving backwards
 def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tuple[float, Dict]:
-    PENALIZE_BACKWARDS_SCALE = 0.1
+    PENALIZE_BACKWARDS_SCALE = 0.02
 
     if msg.which() == "odriveFeedback":
         state["lastLeftVelocity"] = msg.odriveFeedback.leftMotor.vel

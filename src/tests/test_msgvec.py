@@ -2141,6 +2141,54 @@ class TestMsgVec(MsgVecBaseTest):
 
         self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [12.0])
 
+    def test_obs_and_action_replay(self):
+        config = {"obs":  [
+            {
+                "type": "msg",
+                "path": "odriveFeedback.leftMotor.vel",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },
+        ], "act": [{
+                "type": "msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "msg_range": [0, 100],
+                    "vec_range": [0, 100],
+                }
+            },]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY) 
+
+        msg = new_message("odriveFeedback")
+        msg.odriveFeedback.leftMotor.vel = 1.0
+        self.assertEqual(msgvec.input(msg), {'msg_processed': True, 'act_ready': False})
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 2.0
+        self.assertEqual(msgvec.input(msg), {'msg_processed': True, 'act_ready': True})
+
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [1.0])
+        self.assertEqual(msgvec.get_act_vector().tolist(), [2.0])
+
+        msg = new_message("odriveFeedback")
+        msg.odriveFeedback.leftMotor.vel = 3.0
+        self.assertEqual(msgvec.input(msg), {'msg_processed': True, 'act_ready': False})
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 4.0
+        self.assertEqual(msgvec.input(msg), {'msg_processed': True, 'act_ready': True})
+
+        self.assertEqual(msgvec.get_obs_vector_raw().tolist(), [3.0])
+        self.assertEqual(msgvec.get_act_vector().tolist(), [4.0])
+
     def test_real_data_to_vector(self):
         config = {"obs": [
                 { 

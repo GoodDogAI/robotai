@@ -88,6 +88,8 @@ class MsgVecDataset():
         last_reward_modifier = 0.0
         last_reward_modifier_state = {}
 
+        last_printed_time = 0
+
         cur_packet = {}
 
         for evt in self._sort_log_group_messages(log_group):
@@ -96,6 +98,11 @@ class MsgVecDataset():
 
             status = msgvec.input(evt.as_builder())
             last_reward_modifier, last_reward_modifier_state = self.reward_modifier(evt, last_reward_modifier_state) 
+
+            if evt.which() in ["headCommand"]:
+                #print(f"Processing {evt.which()} delay of {(evt.logMonoTime - last_printed_time) / 1e6}ms, {status}")
+                last_printed_time = evt.logMonoTime
+
 
             if status["act_ready"]:
                 cur_packet["act"] = msgvec.get_act_vector()
@@ -122,9 +129,9 @@ class MsgVecDataset():
                 if timeout == PyTimeoutResult.MESSAGES_NOT_READY:
                     if last_timeout == PyTimeoutResult.MESSAGES_PARTIALLY_READY or last_timeout == PyTimeoutResult.MESSAGES_ALL_READY:
                         # We got a timeout after messages were ready, so probably this batch is not good anymore
-                        break
-                    else:
                         msgvec._debug_print_timing()
+                        continue
+                    else:
                         continue
                 elif timeout == PyTimeoutResult.MESSAGES_PARTIALLY_READY and last_timeout == PyTimeoutResult.MESSAGES_ALL_READY:
                     # We got a timeout after messages were ready, so probably this batch is not good anymore

@@ -139,7 +139,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-test1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run92.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run100.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
 
         "models": {
@@ -255,6 +255,55 @@ MODEL_CONFIGS = dotdict({
                         "type": "rescale",
                         "msg_range": [0, 1],
                         "vec_range": [-1, 1],
+                    },
+                },
+
+                # These messages provide feedback on the last few commands send to the motors, as there is some delay between a desired action and its effect
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.desiredVelocityLeft",
+                    "index": -5,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-0.5, 0.5],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.desiredVelocityRight",
+                    "index": -5,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-0.5, 0.5],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "index": -5,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "index": -5,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
                     },
                 },
 
