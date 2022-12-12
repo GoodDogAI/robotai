@@ -2740,32 +2740,68 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "path": "headCommand.yawAngle",
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
-                "choices": [-10.0, -5.0, -1.0, 0, 1.0, 5.0, 10.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
                 "timeout": 0.01,
                 "transform": {
-                    "type": "rescale",
-                    "vec_range": [-1, 1],
-                    "msg_range": [-5.0, 5.0],
+                    "type": "identity",
                 },
             },
 
         ]}
         msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
 
-        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(msgvec.act_size(), 7)
+
+        result = msgvec.get_action_command(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+        print(result)
 
-        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
-        self.assertEqual(result[0].headCommand.yawAngle, 5.0)
-
-        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
-        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
-
-        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
-        self.assertEqual(result[0].headCommand.yawAngle, -5.0)
-
-        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -10.0)
+        print(result)
 
-        result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
-        self.assertEqual(result[0].headCommand.yawAngle, -7.5)
+        result = msgvec.get_action_command(np.array([0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -15.0)
+        print(result)
+
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -25.0)
+        print(result)
+
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -35.0)
+        print(result)
+
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+        print(result)
+
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+        print(result)
+
+    def test_discrete_transform(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-0.15, 0.15],
+                },
+            },
+
+        ]}
+
+        # There is no sense to transform anything in a discrete msg, because the vector values are just used to pick a discrete choice from a list
+        # and not to manipulate a continuous value
+        with self.assertRaises(RuntimeError):
+            msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+

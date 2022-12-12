@@ -233,7 +233,6 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
 
     for (auto &act: m_config["act"]) {
         if (act["type"] == "msg" || act["type"] == "relative_msg" || act["type"] == "discrete_msg") {
-
             KJ_IF_MAYBE(msgEnumerant, get_event_which(act["path"])) {
                 act["_msgEnumerant"] = msgEnumerant->getIndex();
             } else {
@@ -279,18 +278,14 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                     throw std::runtime_error("discrete_msg must have at least 2 relative choices");
                 }
 
-                // All choices must be unique floats
-                std::set<float> choices;
-                for (auto &choice: act["choices"]) {
-                    if (!choice.is_number()) {
-                        throw std::runtime_error("discrete_msg choices must be numbers");
-                    }
+                // All choices must be numbers
+                if (!std::all_of(act["choices"].begin(), act["choices"].end(), [](const auto &choice) { return choice.is_number(); })) {
+                    throw std::runtime_error("discrete_msg choices must be numbers");
+                }
 
-                    if (choices.find(choice.get<float>()) != choices.end()) {
-                        throw std::runtime_error("discrete_msg choices must be unique");
-                    }
-
-                    choices.insert(choice.get<float>());
+                // The transform must be an identity, because all choices are discrete now
+                if (act["transform"] != "identity") {
+                    throw std::runtime_error("discrete_msg transform must be identity");
                 }
 
                 m_actSize += act["choices"].size();
@@ -692,7 +687,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
 std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
     std::map<std::string, MessageBuilder> msgs;
-    size_t act_index = 0;
+    size_t act_index = 0, act_vector_index = 0;
 
     if (m_timingMode == MessageTimingMode::REPLAY) {
         throw std::logic_error("Cannot get action commands in replay mode");
@@ -705,6 +700,8 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
         && appCtrl.getAppControl().getMotionState() != cereal::AppControl::MotionState::NO_OVERRIDE) {
        return _get_appcontrol_overrides();
     }
+
+    size_t max_vector_index = std::distance(actVector, std::max_element(actVector, actVector + m_actSize));
 
     for (auto &act : m_config["act"]) {
         std::string event_type {get_event_type(act["path"])};
@@ -725,10 +722,21 @@ std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actV
 
         if (act["type"] == "msg") {       
             set_dotted_value(dyn, act["path"], actValue);
+            act_vector_index++;
         }
         else if (act["type"] == "relative_msg") {
             m_relativeActValues[act_index] = std::clamp(m_relativeActValues[act_index] + actValue, act["range"][0].get<float>(), act["range"][1].get<float>());
             set_dotted_value(dyn, act["path"], m_relativeActValues[act_index]);
+            act_vector_index++;
+        }
+        else if (act["type"] == "discrete_msg") {
+            if (max_vector_index >= act_vector_index && max_vector_index < act_vector_index + act["choices"].size()) {
+                actValue = act["choices"][max_vector_index - act_vector_index].get<float>();
+                m_relativeActValues[act_index] = std::clamp(m_relativeActValues[act_index] + actValue, act["range"][0].get<float>(), act["range"][1].get<float>());
+            }
+
+            set_dotted_value(dyn, act["path"], m_relativeActValues[act_index]);
+            act_vector_index += act["choices"].size();
         }
         else {
             throw std::runtime_error("Unknown action type");
