@@ -2805,3 +2805,46 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
         with self.assertRaises(RuntimeError):
             msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
 
+    def test_discrete_multiple_actions(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.pitchAngle",
+                "initial": 5.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0, -1, 1],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+            {
+                "type": "discrete_msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0, -2, -1, 1, 2],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+        self.assertEqual(msgvec.act_size(), 8)
+
+        result = msgvec.get_action_command(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.pitchAngle, 5.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, 0.0)
+        
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, 0.0)
+
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, -2.0)
+

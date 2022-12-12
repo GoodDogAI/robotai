@@ -284,7 +284,7 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                 }
 
                 // The transform must be an identity, because all choices are discrete now
-                if (act["transform"] != "identity") {
+                if (act["transform"]["type"] != "identity") {
                     throw std::runtime_error("discrete_msg transform must be identity");
                 }
 
