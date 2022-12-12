@@ -2732,3 +2732,40 @@ class TestMsgVecRelative(MsgVecBaseTest):
         #  You could then penalize outputting anything too extreme
         # Option 2: Maybe keep some internal saturation counter, and output 1.0's for a few frames afterwards after a saturation
         
+class TestMsgVecDiscrete(MsgVecBaseTest):
+    def test_discrete_basic(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "choices": [-10.0, -5.0, -1.0, 0, 1.0, 5.0, 10.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 5.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, 0.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -5.0)
+
+        result = msgvec.get_action_command(np.array([-1.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -10.0)
+
+        result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.yawAngle, -7.5)

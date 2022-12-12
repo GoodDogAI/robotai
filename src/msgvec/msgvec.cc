@@ -232,8 +232,7 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
     std::set<std::string> actTypes;
 
     for (auto &act: m_config["act"]) {
-        if (act["type"] == "msg" || act["type"] == "relative_msg") {
-            m_actSize += 1;
+        if (act["type"] == "msg" || act["type"] == "relative_msg" || act["type"] == "discrete_msg") {
 
             KJ_IF_MAYBE(msgEnumerant, get_event_which(act["path"])) {
                 act["_msgEnumerant"] = msgEnumerant->getIndex();
@@ -243,7 +242,11 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
 
             verify_transform(act["transform"]);
 
-            if (act["type"] == "relative_msg") {
+            if (act["type"] == "msg") {
+                m_actSize += 1;
+                m_relativeActValues.push_back(0.0f);
+            }
+            else if (act["type"] == "relative_msg") {
                 if (!act.contains("initial") || !act["initial"].is_number()) {
                     throw std::runtime_error("relative_msg must have initial value");
                 }
@@ -256,10 +259,42 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                     throw std::runtime_error("relative_msg initial value must be within range");
                 }
 
+                m_actSize += 1;
                 m_relativeActValues.push_back(act["initial"].get<float>());
             }
-            else {
-                m_relativeActValues.push_back(0.0f);
+            else if (act["type"] == "discrete_msg") {
+                if (!act.contains("initial") || !act["initial"].is_number()) {
+                    throw std::runtime_error("discrete_msg must have initial value");
+                }
+
+                if (!act.contains("range") || !act["range"].is_array() || act["range"].size() != 2) {
+                    throw std::runtime_error("discrete_msg must have min/max range");
+                }
+
+                if (act["initial"].get<float>() < act["range"][0].get<float>() || act["initial"].get<float>() > act["range"][1].get<float>()) {
+                    throw std::runtime_error("discrete_msg initial value must be within range");
+                }
+
+                if (!act.contains("choices") || !act["choices"].is_array() || act["choices"].size() < 2) {
+                    throw std::runtime_error("discrete_msg must have at least 2 relative choices");
+                }
+
+                // All choices must be unique floats
+                std::set<float> choices;
+                for (auto &choice: act["choices"]) {
+                    if (!choice.is_number()) {
+                        throw std::runtime_error("discrete_msg choices must be numbers");
+                    }
+
+                    if (choices.find(choice.get<float>()) != choices.end()) {
+                        throw std::runtime_error("discrete_msg choices must be unique");
+                    }
+
+                    choices.insert(choice.get<float>());
+                }
+
+                m_actSize += act["choices"].size();
+                m_relativeActValues.push_back(act["initial"].get<float>());
             }
         }
         else {
