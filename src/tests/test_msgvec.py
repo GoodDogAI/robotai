@@ -2379,6 +2379,39 @@ class TestMsgVecRelative(MsgVecBaseTest):
         result = msgvec.get_action_command(np.array([0.5], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -7.5)
 
+    def test_relative_all_same_type(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+
+            {
+                "type": "msg",
+                "path": "headCommand.pitchAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "rescale",
+                    "vec_range": [-1, 1],
+                    "msg_range": [-5.0, 5.0],
+                },
+            },
+
+        ]}
+
+        with self.assertRaises(RuntimeError):
+            msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
     def test_relative_initial(self):
         config = {"obs": [], "act": [
             {

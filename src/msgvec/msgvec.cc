@@ -229,6 +229,8 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
     m_actSize = 0;
     // Also verify that all action paths are unique
     std::set<std::string> actPaths;
+    std::set<std::string> actTypes;
+
     for (auto &act: m_config["act"]) {
         if (act["type"] == "msg" || act["type"] == "relative_msg") {
             m_actSize += 1;
@@ -268,7 +270,13 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
             throw std::runtime_error("msgvec: action paths must be unique");
         }
 
+        // Action types must all be the same
+        if (actTypes.size() > 0 && actTypes.find(act["type"]) == actTypes.end()) {
+            throw std::runtime_error("msgvec: action types must be the same");
+        }
+
         actPaths.insert(act["path"]);
+        actTypes.insert(act["type"]);
     }
 
     m_actVector = std::vector<float>(m_actSize, 0.0f);
