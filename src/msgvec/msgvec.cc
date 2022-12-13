@@ -451,11 +451,6 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     bool processed = false;
     size_t obs_index = 0;
 
-    //print the actVector
-    for (bool r : m_actVectorReady) {
-        std::cout << r << " ";
-    }
-    std::cout << std::endl;
 
     m_lastMsgLogMonoTime = reader.get("logMonoTime").as<uint64_t>();
 
@@ -486,8 +481,8 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
         }
         else if (act["type"] == "relative_msg" && message_matches(reader, act)) {
             float rawValue = get_dotted_value(reader, act["path"]).as<float>();
-            
             float newValue = transform_msg_to_vec(act["transform"], rawValue - m_relativeActValues[act_index]);
+
             m_actVector[act_index] = newValue;
             
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
@@ -499,12 +494,35 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             float newValue = transform_msg_to_vec(act["transform"], rawValue - m_relativeActValues[act_index]);
 
             // Now, add to the probabilities of the discrete actions, based on which one we're closest to
-            size_t closestIndex = std::distance(act["choices"].begin(), std::min_element(act["choices"].begin(), act["choices"].end(), [newValue](const json &a, const json &b) {
-                return std::abs(newValue - a.get<float>()) < std::abs(newValue - b.get<float>());
-            }));
+            size_t closestIndex, secondClosestIndex;
+            float closestDistance, secondClosestDistance; 
+            closestDistance = secondClosestDistance = std::numeric_limits<float>::max();
 
-            m_actVector[closestIndex] = 1.0f;
+            for (size_t i = 0; i < act["choices"].size(); i++) {
+                float distance = std::abs(act["choices"][i].get<float>() - newValue);
+
+                if (distance < closestDistance) {
+                    secondClosestIndex = closestIndex;
+                    secondClosestDistance = closestDistance;
+
+                    closestIndex = i;
+                    closestDistance = distance;
+                }
+                else if (distance < secondClosestDistance) {
+                    secondClosestIndex = i;
+                    secondClosestDistance = distance;
+                }
+            }
+
+            // Add the probability, split proportionally between the closest two indexes
+            float totalDistance = closestDistance + secondClosestDistance;
+            float closestProportion = (totalDistance - closestDistance) / totalDistance;
+            float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
+            
+            m_actVector[closestIndex] += closestProportion;
+            m_actVector[secondClosestIndex] += secondClosestProportion;
          
+            m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
             m_actVectorReady[act_index] = true;
             processed = true;
         }

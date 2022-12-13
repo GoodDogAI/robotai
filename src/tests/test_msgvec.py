@@ -2882,6 +2882,40 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
-    def test_replay_multimsg(self):
-        raise NotImplementedError()
+        msg = new_message("headCommand")
+        msg.headCommand.yawAngle = 10.0
+        print(msgvec.input(msg))
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    def test_replay_midway(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.act_size(), 7)
+
+        msg = new_message("headCommand")
+        msg.headCommand.yawAngle = 0.5
+        msgvec.input(msg)
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [0.5, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0])
+
+        msg = new_message("headCommand")
+        msg.headCommand.yawAngle = 0.5
+        msgvec.input(msg)
+
+        # Zero change from previous
+        self.assertEqual(msgvec.get_act_vector().tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
