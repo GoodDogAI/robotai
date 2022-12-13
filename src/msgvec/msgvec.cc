@@ -310,7 +310,7 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
     }
 
     m_actVector = std::vector<float>(m_actSize, 0.0f);
-    m_actVectorReady = std::vector<bool>(m_actSize, false);
+    m_actVectorReady = std::vector<bool>(m_config["act"].size(), false);
 }
 
 static capnp::DynamicValue::Reader get_dotted_value(const capnp::DynamicStruct::Reader &root, std::string dottedPath) {
@@ -451,6 +451,12 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     bool processed = false;
     size_t obs_index = 0;
 
+    //print the actVector
+    for (bool r : m_actVectorReady) {
+        std::cout << r << " ";
+    }
+    std::cout << std::endl;
+
     m_lastMsgLogMonoTime = reader.get("logMonoTime").as<uint64_t>();
 
     for (auto &obs : m_config["obs"]) {
@@ -485,6 +491,20 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             m_actVector[act_index] = newValue;
             
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
+            m_actVectorReady[act_index] = true;
+            processed = true;
+        }
+        else if (act["type"] == "discrete_msg" && message_matches(reader, act)) {
+            float rawValue = get_dotted_value(reader, act["path"]).as<float>();
+            float newValue = transform_msg_to_vec(act["transform"], rawValue - m_relativeActValues[act_index]);
+
+            // Now, add to the probabilities of the discrete actions, based on which one we're closest to
+            size_t closestIndex = std::distance(act["choices"].begin(), std::min_element(act["choices"].begin(), act["choices"].end(), [newValue](const json &a, const json &b) {
+                return std::abs(newValue - a.get<float>()) < std::abs(newValue - b.get<float>());
+            }));
+
+            m_actVector[closestIndex] = 1.0f;
+         
             m_actVectorReady[act_index] = true;
             processed = true;
         }
@@ -606,8 +626,6 @@ MsgVec::TimeoutResult MsgVec::get_obs_vector(float *obsVector) {
         index++;
     }
 
-    // Reset the action vector ready messages
-    m_actVectorReady = std::vector<bool>(m_actSize, false);
 
     return timestamps_valid;
 }
@@ -618,7 +636,15 @@ bool MsgVec::get_act_vector(float *actVector) {
     }
 
     std::copy(m_actVector.begin(), m_actVector.end(), actVector);
-    return std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+    bool wasAllReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+
+    // Reset the action vector ready messages
+    if (wasAllReady) {
+        m_actVectorReady = std::vector<bool>(m_config["act"].size(), false);
+        m_actVector = std::vector<float>(m_actSize, 0.0f);
+    }
+
+    return wasAllReady;
 }
 
 bool MsgVec::get_reward(float *reward) {

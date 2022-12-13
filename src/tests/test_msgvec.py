@@ -843,8 +843,9 @@ class TestMsgVec(MsgVecBaseTest):
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertMsgProcessed(msgvec.input(event))
-            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
-            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+            act = msgvec.get_act_vector()
+            self.assertEqual(act.dtype, np.float32)
+            self.assertAlmostEqual(act[0], vec)
 
         # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
@@ -1765,7 +1766,7 @@ class TestMsgVec(MsgVecBaseTest):
         msg = new_message("voltage")
         self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": False})
 
-        self.assertEqual(msgvec.get_obs_vector_raw(), [0.0])
+        self.assertEqual(msgvec.get_act_vector(), [0.0])
 
         msg = new_message("headCommand")
         self.assertEqual(msgvec.input(msg), {"msg_processed": True, "act_ready": True})
@@ -2537,8 +2538,9 @@ class TestMsgVecRelative(MsgVecBaseTest):
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertMsgProcessed(msgvec.input(event))
-            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
-            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+            act = msgvec.get_act_vector()
+            self.assertEqual(act.dtype, np.float32)
+            self.assertAlmostEqual(act[0], vec)
 
         # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
@@ -2584,8 +2586,9 @@ class TestMsgVecRelative(MsgVecBaseTest):
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertMsgProcessed(msgvec.input(event))
-            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
-            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+            act = msgvec.get_act_vector()
+            self.assertEqual(act.dtype, np.float32)
+            self.assertAlmostEqual(act[0], vec)
 
         # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
@@ -2625,8 +2628,9 @@ class TestMsgVecRelative(MsgVecBaseTest):
             event.init("headCommand")
             event.headCommand.yawAngle = msg
             self.assertMsgProcessed(msgvec.input(event))
-            self.assertEqual(msgvec.get_act_vector().dtype, np.float32)
-            self.assertAlmostEqual(msgvec.get_act_vector()[0], vec)
+            act = msgvec.get_act_vector()
+            self.assertEqual(act.dtype, np.float32)
+            self.assertAlmostEqual(act[0], vec)
 
         # Feed in a message that doesn't exist in the config
         event = log.Event.new_message()
@@ -2847,4 +2851,34 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
         result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
         self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, -2.0)
+
+    def test_replay_basic(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.act_size(), 7)
+
+        msg = new_message("headCommand")
+        msg.headCommand.yawAngle = 0.0
+        print(msgvec.input(msg))
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+        msg = new_message("headCommand")
+        msg.headCommand.yawAngle = 10.0
+        print(msgvec.input(msg))
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
