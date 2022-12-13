@@ -470,7 +470,7 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     }
     
     // Do the same for the actions
-    size_t act_index = 0;
+    size_t act_index = 0, act_vector_index = 0;
 
     for (auto &act : m_config["act"]) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
@@ -534,14 +534,14 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
                 float closestProportion = (totalDistance - closestDistance) / totalDistance;
                 float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
                 
-                m_actVector[closestIndex] += closestProportion;
-                m_actVector[secondClosestIndex] += secondClosestProportion;
+                m_actVector[act_vector_index + closestIndex] += closestProportion;
+                m_actVector[act_vector_index + secondClosestIndex] += secondClosestProportion;
             }
             else if (newValue < minChoice) {
-                m_actVector[minChoiceIndex] += 1.0f;
+                m_actVector[act_vector_index + minChoiceIndex] += 1.0f;
             }
             else if (newValue > maxChoice) {
-                m_actVector[maxChoiceIndex] += 1.0f;
+                m_actVector[act_vector_index + maxChoiceIndex] += 1.0f;
             }
          
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
@@ -550,6 +550,7 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
         }
 
         act_index++;
+        act_vector_index += act["choices"].size();
     }
 
     bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
