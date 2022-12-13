@@ -503,3 +503,6 @@ class ManualTestMsgVecDataset(unittest.TestCase):
 
             print(samples[0])
             self.assertEqual(samples[0]["reward"], -1.0)
+
+    def test_discrete_messages_replay(self):
+        raise NotImplementedError()

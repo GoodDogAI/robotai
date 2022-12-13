@@ -2882,3 +2882,6 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
 
+    def test_replay_multimsg(self):
+        raise NotImplementedError()
+
