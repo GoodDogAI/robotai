@@ -498,6 +498,10 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             float closestDistance, secondClosestDistance; 
             closestDistance = secondClosestDistance = std::numeric_limits<float>::max();
 
+            size_t minChoiceIndex, maxChoiceIndex;
+            float minChoice = std::numeric_limits<float>::max();
+            float maxChoice = std::numeric_limits<float>::min();
+
             for (size_t i = 0; i < act["choices"].size(); i++) {
                 float distance = std::abs(act["choices"][i].get<float>() - newValue);
 
@@ -512,15 +516,33 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
                     secondClosestIndex = i;
                     secondClosestDistance = distance;
                 }
+
+                if (act["choices"][i].get<float>() < minChoice) {
+                    minChoice = act["choices"][i].get<float>();
+                    minChoiceIndex = i;
+                }
+
+                if (act["choices"][i].get<float>() > maxChoice) {
+                    maxChoice = act["choices"][i].get<float>();
+                    maxChoiceIndex = i;
+                }
             }
 
             // Add the probability, split proportionally between the closest two indexes
-            float totalDistance = closestDistance + secondClosestDistance;
-            float closestProportion = (totalDistance - closestDistance) / totalDistance;
-            float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
-            
-            m_actVector[closestIndex] += closestProportion;
-            m_actVector[secondClosestIndex] += secondClosestProportion;
+            if (newValue >= minChoice && newValue <= maxChoice) {
+                float totalDistance = closestDistance + secondClosestDistance;
+                float closestProportion = (totalDistance - closestDistance) / totalDistance;
+                float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
+                
+                m_actVector[closestIndex] += closestProportion;
+                m_actVector[secondClosestIndex] += secondClosestProportion;
+            }
+            else if (newValue < minChoice) {
+                m_actVector[minChoiceIndex] += 1.0f;
+            }
+            else if (newValue > maxChoice) {
+                m_actVector[maxChoiceIndex] += 1.0f;
+            }
          
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
             m_actVectorReady[act_index] = true;
