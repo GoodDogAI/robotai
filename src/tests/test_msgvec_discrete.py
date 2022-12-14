@@ -364,3 +364,13 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
         msgvec.input(msg)
 
         self.assertEqual(msgvec.get_act_vector().tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+        msg = new_message("headCommand")
+        msg.headCommand.pitchAngle = -2.5
+        msgvec.input(msg)
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 0
+        msgvec.input(msg)
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [0.25, 0.25, 0.0, 0.0, 0.0, 0.0, 0.5])

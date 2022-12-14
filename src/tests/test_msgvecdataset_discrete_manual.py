@@ -18,7 +18,7 @@ from src.config import HOST_CONFIG, MODEL_CONFIGS
 
 class ManualTestMsgVecDataset(unittest.TestCase):
     def setUp(self) -> None:
-        self. brain_config = {
+        self.brain_config = {
             "type": "brain",
 
             "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-0.zip",
@@ -67,7 +67,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                         "path": "odriveCommand.desiredVelocityLeft",
                         "initial": 0.0,
                         "range": [-0.5, 0.5],
-                        "choices": [0, -.1, 0.1],
+                        "choices": [-0.1, 0.1],
                         "timeout": 0.125,
                         "transform": {
                             "type": "identity",
@@ -78,7 +78,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                         "path": "odriveCommand.desiredVelocityRight",
                         "initial": 0.0,
                         "range": [-0.5, 0.5],
-                        "choices": [0, -.1, 0.1],
+                        "choices": [-0.1, 0.1],
                         "timeout": 0.125,
                         "transform": {
                             "type": "identity",
@@ -135,19 +135,33 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             # Action vector gets written out
             msg = new_message("odriveCommand")
             msg.write(f)
-            
-            # Still blank because you need two datapoints to make a valid log
-            f.flush()
-            self.assertEqual(list(cache.generate_dataset()), [])
 
+            msg = new_message("modelInference")
+            msg.write(f)
+            msg = new_message("odriveCommand")
+            msg.odriveCommand.desiredVelocityLeft = 0.1
+            msg.write(f)
+
+            msg = new_message("modelInference")
+            msg.write(f)
+            msg = new_message("odriveCommand")
+            msg.odriveCommand.desiredVelocityLeft = 0.0
+            msg.odriveCommand.desiredVelocityRight = 0.1
+            msg.write(f)
+            
+
+            # The last output is always discarded, because you need to "next_obs" in most RL algorithms
             msg = new_message("modelInference")
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.write(f)
 
-            samples = list(cache.generate_dataset())
-            self.assertEqual(len(samples), 1)
 
-            print(samples[0])
+            samples = list(cache.generate_dataset(shuffle_within_group=False))
+            self.assertEqual(len(samples), 3)
+
+            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0])
+            np.testing.assert_almost_equal(samples[1]["act"].tolist(), [0, 0, 1, 0, 0])
+            np.testing.assert_almost_equal(samples[2]["act"].tolist(), [0, 0.5, 0, 0, 0.5])
 
         
