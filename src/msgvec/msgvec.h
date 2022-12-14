@@ -78,6 +78,7 @@ class MsgVec {
         MessageTimingMode m_timingMode;
         uint64_t m_lastMsgLogMonoTime;
         size_t m_obsSize, m_actSize;
+        size_t m_discreteActUpdates;
         std::vector<float> m_actVector;
         std::vector<bool> m_actVectorReady;
         std::vector<float> m_relativeActValues;

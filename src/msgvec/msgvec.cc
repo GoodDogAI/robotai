@@ -154,7 +154,7 @@ static kj::Maybe<capnp::StructSchema::Field> get_event_which(const std::string &
 }
 
 MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode):
- m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0), m_lastRewardOverride(0.0), m_lastRewardOverrideMonoTime(0) {
+ m_config(json::parse(jsonConfig)), m_timingMode(timingMode), m_lastMsgLogMonoTime(0), m_obsSize(0), m_actSize(0), m_visionSize(0), m_lastRewardOverride(0.0), m_lastRewardOverrideMonoTime(0), m_discreteActUpdates(0) {
 
     if (!m_config.contains("obs") || !m_config.contains("act")) {
         throw std::runtime_error("Must have obs and act sections");
@@ -481,7 +481,6 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     
     // Do the same for the actions
     size_t act_index = 0, act_vector_index = 1; //Set to 1 to skip the zero action
-    size_t total_actions = m_config["act"].size();
 
     for (auto &act : m_config["act"]) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
@@ -541,19 +540,26 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             }
 
             // Add the probability, split proportionally between the closest two indexes
-            if (newValue >= minChoice && newValue <= maxChoice) {
+            if (newValue == 0.0f) {
+                // On a zero change, we don't want to add any probability to any of the choices
+                // If all actions were zero, then we will set the zero probability to 1.0 at the end
+            }
+            else if (newValue >= minChoice && newValue <= maxChoice) {
                 float totalDistance = closestDistance + secondClosestDistance;
                 float closestProportion = (totalDistance - closestDistance) / totalDistance;
                 float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
                 
-                m_actVector[act_vector_index + closestIndex] += closestProportion / total_actions;
-                m_actVector[act_vector_index + secondClosestIndex] += secondClosestProportion / total_actions;
+                m_actVector[act_vector_index + closestIndex] += closestProportion;
+                m_actVector[act_vector_index + secondClosestIndex] += secondClosestProportion;
+                m_discreteActUpdates++;
             }
             else if (newValue < minChoice) {
-                m_actVector[act_vector_index + minChoiceIndex] += 1.0f / total_actions;
+                m_actVector[act_vector_index + minChoiceIndex] += 1.0f;
+                m_discreteActUpdates++;
             }
             else if (newValue > maxChoice) {
-                m_actVector[act_vector_index + maxChoiceIndex] += 1.0f / total_actions;
+                m_actVector[act_vector_index + maxChoiceIndex] += 1.0f;
+                m_discreteActUpdates++;
             }
          
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
@@ -688,13 +694,33 @@ bool MsgVec::get_act_vector(float *actVector) {
         throw std::logic_error("Cannot get action vector in realtime mode");
     }
 
-    std::copy(m_actVector.begin(), m_actVector.end(), actVector);
+    const bool discrete_mode = m_config["act"].size() > 0 && m_config["act"][0]["type"] == "discrete_msg";
+
+    if (discrete_mode) {
+        if (m_discreteActUpdates == 0) {
+            actVector[0] = 1.0f;
+
+            for (size_t i = 1; i < m_actSize; i++) {
+                actVector[i] = 0.0f;
+            }
+        }
+        else {
+            for (size_t i = 0; i < m_actSize; i++) {
+                actVector[i] = m_actVector[i] / m_discreteActUpdates;
+            }
+        }
+    }
+    else {
+        std::copy(m_actVector.begin(), m_actVector.end(), actVector);
+    }
+
     bool wasAllReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
 
     // Reset the action vector ready messages
     if (wasAllReady) {
         m_actVectorReady = std::vector<bool>(m_config["act"].size(), false);
         m_actVector = std::vector<float>(m_actSize, 0.0f);
+        m_discreteActUpdates = 0;
     }
 
     return wasAllReady;
