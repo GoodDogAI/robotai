@@ -283,6 +283,11 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
                     throw std::runtime_error("discrete_msg choices must be numbers");
                 }
 
+                // No choices should be zero, that's handled automatically by the first choice
+                if (std::any_of(act["choices"].begin(), act["choices"].end(), [](const json &choice) { return choice.get<float>() == 0.0f; })) {
+                    throw std::runtime_error("discrete_msg choices must not be zero, that's handled by the special zero-action");
+                }
+
                 // The transform must be an identity, because all choices are discrete now
                 if (act["transform"]["type"] != "identity") {
                     throw std::runtime_error("discrete_msg transform must be identity");
@@ -307,6 +312,11 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
 
         actPaths.insert(act["path"]);
         actTypes.insert(act["type"]);
+    }
+
+    if (actTypes.size() > 0 && *actTypes.begin() == "discrete_msg") {
+        // If we have discrete_msg actions, we need to add a zero-action
+        m_actSize += 1;
     }
 
     m_actVector = std::vector<float>(m_actSize, 0.0f);
@@ -471,6 +481,7 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     
     // Do the same for the actions
     size_t act_index = 0, act_vector_index = 0;
+    size_t total_actions = m_config["act"].size();
 
     for (auto &act : m_config["act"]) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
@@ -534,14 +545,14 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
                 float closestProportion = (totalDistance - closestDistance) / totalDistance;
                 float secondClosestProportion = (totalDistance - secondClosestDistance) / totalDistance;
                 
-                m_actVector[act_vector_index + closestIndex] += closestProportion;
-                m_actVector[act_vector_index + secondClosestIndex] += secondClosestProportion;
+                m_actVector[act_vector_index + closestIndex] += closestProportion / total_actions;
+                m_actVector[act_vector_index + secondClosestIndex] += secondClosestProportion / total_actions;
             }
             else if (newValue < minChoice) {
-                m_actVector[act_vector_index + minChoiceIndex] += 1.0f;
+                m_actVector[act_vector_index + minChoiceIndex] += 1.0f / total_actions;
             }
             else if (newValue > maxChoice) {
-                m_actVector[act_vector_index + maxChoiceIndex] += 1.0f;
+                m_actVector[act_vector_index + maxChoiceIndex] += 1.0f / total_actions;
             }
          
             m_relativeActValues[act_index] = std::clamp(rawValue, act["range"][0].get<float>(), act["range"][1].get<float>());
