@@ -480,7 +480,7 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
     }
     
     // Do the same for the actions
-    size_t act_index = 0, act_vector_index = 0;
+    size_t act_index = 0, act_vector_index = 1; //Set to 1 to skip the zero action
     size_t total_actions = m_config["act"].size();
 
     for (auto &act : m_config["act"]) {
@@ -505,9 +505,10 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
             float newValue = transform_msg_to_vec(act["transform"], rawValue - m_relativeActValues[act_index]);
 
             // Now, add to the probabilities of the discrete actions, based on which one we're closest to
-            size_t closestIndex, secondClosestIndex;
+            ssize_t closestIndex = -act_vector_index, secondClosestIndex;
             float closestDistance, secondClosestDistance; 
-            closestDistance = secondClosestDistance = std::numeric_limits<float>::max();
+            closestDistance = std::abs(newValue);
+            secondClosestDistance = std::numeric_limits<float>::max();
 
             size_t minChoiceIndex, maxChoiceIndex;
             float minChoice = std::numeric_limits<float>::max();
@@ -765,7 +766,8 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
 std::vector<kj::Array<capnp::word>> MsgVec::get_action_command(const float *actVector) {
     std::map<std::string, MessageBuilder> msgs;
-    size_t act_index = 0, act_vector_index = 0;
+    size_t act_index = 0;
+    size_t act_vector_index = 1; // Set to 1, since the first field is used for the zero action
 
     if (m_timingMode == MessageTimingMode::REPLAY) {
         throw std::logic_error("Cannot get action commands in replay mode");

@@ -73,8 +73,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "path": "headCommand.yawAngle",
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
-                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "choices": [-10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
                 "timeout": 0.01,
                 "transform": {
                     "type": "rescale",
@@ -98,7 +97,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 5.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0, -1, 1],
+                "choices": [-1, 1],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -110,7 +109,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0, -2, -1, 1, 2],
+                "choices": [-2, -1, 1, 2],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -119,19 +118,23 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         ]}
         msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
-        self.assertEqual(msgvec.act_size(), 8)
+        self.assertEqual(msgvec.act_size(), 7)
 
-        result = msgvec.get_action_command(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        result = msgvec.get_action_command(np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.pitchAngle, 5.0)
         self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, 0.0)
         
-        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
         self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, 0.0)
 
-        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0], dtype=np.float32))
+        result = msgvec.get_action_command(np.array([0.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
-        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, -2.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, -1.0)
+
+        result = msgvec.get_action_command(np.array([10.0, 1.0, 0.0, 0.0, 2.0, 0.0, 0.0], dtype=np.float32))
+        self.assertEqual(result[0].headCommand.pitchAngle, 4.0)
+        self.assertEqual(result[1].odriveCommand.desiredVelocityLeft, -1.0)
 
     def test_replay_basic(self):
         config = {"obs": [], "act": [
@@ -140,8 +143,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "path": "headCommand.yawAngle",
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
-                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "choices": [-10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -177,7 +179,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "choices": [-10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -220,7 +222,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0.0, -10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
+                "choices": [-10.0, -5.0, -1.0, 1.0, 5.0, 10.0],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -241,7 +243,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-    def test_discrete_multiple_replay(self):
+    def test_discrete_multiple_replay_zero(self):
         config = {"obs": [], "act": [
             {
                 "type": "discrete_msg",
@@ -249,7 +251,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 5.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0, -1, 1],
+                "choices": [-1, 1],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -261,7 +263,7 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
                 "initial": 0.0,
                 "range": [-45.0, 45.0],
                 # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
-                "choices": [0, -2, -1, 1, 2],
+                "choices": [-2, -1, 1, 2],
                 "timeout": 0.01,
                 "transform": {
                     "type": "identity",
@@ -270,7 +272,48 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         ]}
         msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
-        self.assertEqual(msgvec.act_size(), 8)
+        self.assertEqual(msgvec.act_size(), 7)
+
+        msg = new_message("headCommand")
+        msg.headCommand.pitchAngle = -2.0
+        msgvec.input(msg)
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 0.0
+        msgvec.input(msg)
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    def test_discrete_multiple_replay(self):
+        config = {"obs": [], "act": [
+            {
+                "type": "discrete_msg",
+                "path": "headCommand.pitchAngle",
+                "initial": 5.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [-1, 1],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+            {
+                "type": "discrete_msg",
+                "path": "odriveCommand.desiredVelocityLeft",
+                "initial": 0.0,
+                "range": [-45.0, 45.0],
+                # It's a good idea to have zero be the first element, so an all-zero action vector is a no-op
+                "choices": [-2, -1, 1, 2],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                },
+            },
+
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REPLAY)
+        self.assertEqual(msgvec.act_size(), 7)
 
         msg = new_message("headCommand")
         msg.headCommand.pitchAngle = -2.0
@@ -280,4 +323,4 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
         msg.odriveCommand.desiredVelocityLeft = -2.0
         msgvec.input(msg)
 
-        self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+        self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 0.5, 0.0, 0.5, 0.0, 0.0, 0.0])
