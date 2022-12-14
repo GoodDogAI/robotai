@@ -284,6 +284,36 @@ class TestMsgVecDiscrete(MsgVecBaseTest):
 
         self.assertEqual(msgvec.get_act_vector().tolist(), [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
+        msg = new_message("headCommand")
+        msg.headCommand.pitchAngle = -2.0
+        msgvec.input(msg)
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 0.0
+        msgvec.input(msg)
+
+        self.assertEqual(msgvec.get_act_vector().tolist(), [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+        msg = new_message("headCommand")
+        msg.headCommand.pitchAngle = -2.0
+        msgvec.input(msg)
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 0.1
+        msgvec.input(msg)
+
+        np.testing.assert_almost_equal(msgvec.get_act_vector().tolist(), [0.9, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0])
+
+        msg = new_message("headCommand")
+        msg.headCommand.pitchAngle = -2.0
+        msgvec.input(msg)
+
+        msg = new_message("odriveCommand")
+        msg.odriveCommand.desiredVelocityLeft = 1.0
+        msgvec.input(msg)
+
+        np.testing.assert_almost_equal(msgvec.get_act_vector().tolist(), [0.1, 0.0, 0.0, 0.0, 0.0, 0.9, 0.0])
+
     def test_discrete_multiple_replay(self):
         config = {"obs": [], "act": [
             {
