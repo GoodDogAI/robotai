@@ -7,6 +7,7 @@ import itertools
 
 from unittest.mock import MagicMock
 
+from src.msgvec.pymsgvec import PyMsgVec, PyTimeoutResult, PyMessageTimingMode
 from src.messaging import new_message
 from src.train.modelloader import model_fullname
 from src.train.arrowcache import ArrowModelCache
@@ -34,7 +35,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     { 
                         "type": "msg",
                         "path": "odriveFeedback.leftMotor.vel",
-                        "index": -3,
+                        "index": -1,
                         "timeout": 0.125,
                         "transform": {
                             "type": "identity",
@@ -44,7 +45,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     { 
                         "type": "msg",
                         "path": "headFeedback.yawAngle",
-                        "index": -3,
+                        "index": -1,
                         "timeout": 0.125,
                         "transform": {
                             "type": "rescale",
@@ -55,7 +56,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
 
                     {
                         "type": "vision",
-                        "size": 17003,
+                        "size": 10,
                         "timeout": 0.100,
                         "index": -1,
                     }
@@ -114,7 +115,7 @@ class ManualTestMsgVecDataset(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
             cache = MsgVecDataset(td, self.brain_config)
             cache.vision_cache = MagicMock()
-            cache.vision_cache.get.return_value = np.zeros((17003), dtype=np.float32)
+            cache.vision_cache.get.return_value = np.zeros((10), dtype=np.float32)
             cache.reward_cache = MagicMock()
             cache.reward_cache.get.return_value = 0.0
 
@@ -164,4 +165,53 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             np.testing.assert_almost_equal(samples[1]["act"].tolist(), [0, 0, 1, 0, 0])
             np.testing.assert_almost_equal(samples[2]["act"].tolist(), [0, 0.5, 0, 0, 0.5])
 
-        
+    def test_discrete_messages_backforth(self):
+        msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REALTIME)
+
+        inputs = [
+            "odriveFeedback",
+            "headFeedback",
+            "vision",
+
+            "odriveFeedback",
+            "headFeedback",
+            "vision",
+        ]
+
+        # Tests cycling between msgvec and the logs
+
+        with tempfile.TemporaryDirectory() as td, open(os.path.join(td, "test.log"), "w") as f:
+            cache = MsgVecDataset(td, self.brain_config)
+            cache.vision_cache = MagicMock()
+            cache.vision_cache.get.return_value = np.zeros((10), dtype=np.float32)
+            cache.reward_cache = MagicMock()
+            cache.reward_cache.get.return_value = 0.0
+
+            for inp in inputs:
+                if inp == "vision":
+                    msgvec.input_vision(np.arange(0, 10, dtype=np.float32), 1)
+                    rdy, _ = msgvec.get_obs_vector()
+                    self.assertEqual(rdy, PyTimeoutResult.MESSAGES_ALL_READY)
+
+                    msg = new_message("modelInference")
+                    msg.write(f)
+
+                    for act in msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)):
+                        act.as_builder().write(f)
+                        print(msgvec.input(act))
+                else:
+                    msg = new_message(inp)
+                    msg.write(f)
+                    print(msgvec.input(msg))
+
+            f.flush()
+            samples = list(cache.generate_dataset(shuffle_within_group=False))
+            self.assertEqual(len(samples), 1)
+
+            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0])
+
+    def test_discrete_messages_override_controls(self):
+        raise NotImplementedError("TODO: Test adding override controls, and make it nice so that overrides in discrete mode just modify the biggest error target at a time")
+
+
+            
