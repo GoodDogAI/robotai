@@ -109,8 +109,7 @@ class V4LCamera {
                 throw std::runtime_error("Failed to map buffer");
             }
 
-            fmt::print(stderr, "Queried buffer {} at {} with length: {}\n", i, localbuf.planes[0].data, v4l_buf.length);
-
+            fmt::print(stderr, "Queried buffer {} at {} with length: {}\n", i, fmt::ptr(localbuf.planes[0].data), v4l_buf.length);
 
             bufs.push_back(localbuf);
         }
@@ -125,7 +124,7 @@ class V4LCamera {
         }
 
         // Turn on streaming
-        v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+        v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     }
 
