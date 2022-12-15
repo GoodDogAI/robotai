@@ -98,6 +98,7 @@ class V4LCamera {
 
             NVVisionBuf localbuf = NVVisionBuf(v4l_buf.length, i);
 
+            localbuf.planes[0].fd = fd;
             localbuf.planes[0].data =
                     reinterpret_cast<uint8_t *>(mmap(NULL /* start anywhere */,
                             v4l_buf.length,
@@ -128,7 +129,27 @@ class V4LCamera {
         checked_v4l2_ioctl(fd, VIDIOC_STREAMON, &buf_type);
     }
 
-    void get_frame() {
+   ~V4LCamera() {
+        // Turn off streaming
+        v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        checked_v4l2_ioctl(fd, VIDIOC_STREAMOFF, &buf_type);
+
+        v4l2_close(fd);
+    }
+
+    struct FrameRequeueDeleter {
+        void operator()(NVVisionBuf* b) { 
+            v4l2_buffer v4l_buf = {0};
+            v4l_buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            v4l_buf.memory = V4L2_MEMORY_MMAP;
+            v4l_buf.index = b->index;
+            checked_v4l2_ioctl(b->planes[0].fd, VIDIOC_QBUF, &v4l_buf);
+
+            b->is_queued = true;
+        }
+    };
+
+    std::unique_ptr<NVVisionBuf, FrameRequeueDeleter> get_frame() {
         fd_set fds = {0};
         struct timeval tv;
         int r;
@@ -161,11 +182,10 @@ class V4LCamera {
 
         fmt::print(stderr, "Got frame {}\n", v4l_buf.index);
 
+        NVVisionBuf* buf = &bufs[v4l_buf.index];
+        buf->is_queued = false;
 
-    }
-
-    ~V4LCamera() {
-        v4l2_close(fd);
+        return std::unique_ptr<NVVisionBuf, FrameRequeueDeleter>(buf);
     }
 
     private:
@@ -188,7 +208,7 @@ int main(int argc, char *argv[])
     size_t count = 0;
 
     while (!do_exit) {
-       camera.get_frame();
+       auto frame = camera.get_frame();
        count++;
 
        if (count > 50) {
