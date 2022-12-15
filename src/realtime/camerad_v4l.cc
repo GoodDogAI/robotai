@@ -72,8 +72,7 @@ class V4LCamera {
 
         checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
 
-        // TODO Adjust the framerate, might need to do a manual frameskip for example
-
+        
         // Request the buffers
         struct v4l2_requestbuffers reqbuf = {
             .count = NUM_BUFFERS,
@@ -198,7 +197,7 @@ int main(int argc, char *argv[])
 {
     PubMaster pm{ {"headCameraState"} };
     VisionIpcServer vipc_server{ "camerad" };
-    V4LCamera camera{ "/dev/video0", 1920, 1080 };
+    V4LCamera camera{ "/dev/video0", CAMERA_WIDTH, CAMERA_HEIGHT };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.start_listener();
 
@@ -206,15 +205,57 @@ int main(int argc, char *argv[])
 
     // Wait for the frame, the dequeue the buffer, process it, and requeue it
     size_t count = 0;
+    auto start = std::chrono::steady_clock::now();
 
-    while (!do_exit) {
-       auto frame = camera.get_frame();
-       count++;
+    while (!do_exit)
+    {
+        auto frame = camera.get_frame();
+        count++;
 
-       if (count > 50) {
-           break;
-       }
+        // TODO Calculate the frame skip properly
+        if (count % 3 == 0)
+        {
+            auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_COLOR);
+
+            // Send the frame via vision IPC
+            VisionIpcBufExtra extra{
+                0, // TODO
+                static_cast<uint64_t>(0), // TODO
+                0,
+            };
+            cur_yuv_buf->set_frame_id(0); // TODO
+
+            uint8_t *yuyv_data = (uint8_t *)frame->planes[0].data;
+
+            int32_t color_frame_width = CAMERA_WIDTH;
+            int32_t color_frame_height = CAMERA_HEIGHT;
+            int32_t color_frame_stride = CAMERA_WIDTH * 2;
+
+            for (uint32_t row = 0; row < color_frame_height / 2; row++)
+            {
+                for (uint32_t col = 0; col < color_frame_width / 2; col++)
+                {
+                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = yuyv_data[(row * 2) * color_frame_stride + col * 4];
+                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = yuyv_data[(row * 2) * color_frame_stride + col * 4 + 2];
+                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4];
+                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 2];
+
+                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
+                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
+                }
+            }
+
+            vipc_server.send(cur_yuv_buf, &extra);
+        }
+
+        if (count > 500)
+        {
+            break;
+        }
     }
+
+    auto end = std::chrono::steady_clock::now();
+    fmt::print("Processed {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
 
     return EXIT_SUCCESS;
 }
