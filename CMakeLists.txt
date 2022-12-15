@@ -354,6 +354,7 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
 
     add_executable(camerad_v4l 
         src/realtime/camerad_v4l.cc 
+        src/realtime/nvvisionbuf.cc
         ${MASTER_CONFIG_H}
     )
     target_link_libraries(
