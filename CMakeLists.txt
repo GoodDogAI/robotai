@@ -351,12 +351,27 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     )
 
     catch_discover_tests(encoderd_tests)
+
+    add_executable(camerad_v4l 
+        src/realtime/camerad_v4l.cc 
+        ${MASTER_CONFIG_H}
+    )
+    target_link_libraries(
+        camerad_v4l 
+        PRIVATE 
+            fmt::fmt
+            argparse::argparse
+            ${CEREAL_LIBRARIES}
+            zmq
+            v4l2
+            CapnProto::capnp
+    )
 endif()
 
 if(${realsense2_FOUND})
-    add_executable(camerad src/realtime/camerad.cc ${MASTER_CONFIG_H})
+    add_executable(camerad_realsense src/realtime/camerad_realsense.cc ${MASTER_CONFIG_H})
     target_link_libraries(
-        camerad
+        camerad_realsense
         PRIVATE
             fmt::fmt
             ${CEREAL_LIBRARIES}
