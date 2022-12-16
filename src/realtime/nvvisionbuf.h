@@ -39,6 +39,9 @@ class NVVisionBuf {
   const uint32_t index;    
   bool is_queued;
 
+  uint32_t frame_id;
+  struct timeval frame_time;
+
   // Single plane for just storing output data
   NVVisionBuf(uint32_t size, uint32_t index);   
 
