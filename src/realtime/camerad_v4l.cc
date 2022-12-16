@@ -55,7 +55,7 @@ class V4LCamera {
             throw std::runtime_error("Device does not support V4L2_CAP_VIDEO_CAPTURE");
         }
 
-        fmt::print(stderr, "Opened video device: {} with driver {}\n", reinterpret_cast<char *>(caps.card), reinterpret_cast<char *>(caps.driver));
+        fmt::print(stderr, "Opened video device: {} with driver {} and caps {:x}\n", reinterpret_cast<char *>(caps.card), reinterpret_cast<char *>(caps.driver), caps.capabilities);
 
         // Set the capture format
         struct v4l2_format fmt_in = {
@@ -178,11 +178,11 @@ class V4LCamera {
         v4l_buf.memory = V4L2_MEMORY_MMAP;
 
         checked_v4l2_ioctl(fd, VIDIOC_DQBUF, &v4l_buf);
-
-        fmt::print(stderr, "Got frame {}\n", v4l_buf.index);
-
+        
         NVVisionBuf* buf = &bufs[v4l_buf.index];
         buf->is_queued = false;
+        buf->frame_id = v4l_buf.sequence;
+        buf->frame_time = v4l_buf.timestamp;
 
         return std::unique_ptr<NVVisionBuf, FrameRequeueDeleter>(buf);
     }
@@ -207,10 +207,15 @@ int main(int argc, char *argv[])
     size_t count = 0;
     auto start = std::chrono::steady_clock::now();
 
+    std::unique_ptr<uint8_t[]> temp_buf = std::make_unique<uint8_t[]>(CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+
+
     while (!do_exit)
     {
         auto frame = camera.get_frame();
         count++;
+
+        uint32_t frame_id = static_cast<uint32_t>(count / 3);
 
         // TODO Calculate the frame skip properly
         if (count % 3 == 0)
@@ -219,43 +224,43 @@ int main(int argc, char *argv[])
 
             // Send the frame via vision IPC
             VisionIpcBufExtra extra{
-                0, // TODO
-                static_cast<uint64_t>(0), // TODO
-                0,
+                frame_id, 
+                static_cast<uint64_t>(frame->frame_time.tv_sec * 1'000'000'000ULL + frame->frame_time.tv_usec * 1'000ULL),
+                static_cast<uint64_t>(frame->frame_time.tv_sec * 1'000'000'000ULL + frame->frame_time.tv_usec * 1'000ULL),
             };
-            cur_yuv_buf->set_frame_id(0); // TODO
+            cur_yuv_buf->set_frame_id(frame_id); 
 
-            uint8_t *yuyv_data = (uint8_t *)frame->planes[0].data;
+            uint8_t *uyvy_data = frame->planes[0].data;
+            const uint32_t color_frame_stride = CAMERA_WIDTH * 2;
 
-            int32_t color_frame_width = CAMERA_WIDTH;
-            int32_t color_frame_height = CAMERA_HEIGHT;
-            int32_t color_frame_stride = CAMERA_WIDTH * 2;
+            // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
+            // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
+            std::copy(uyvy_data, uyvy_data + CAMERA_WIDTH * CAMERA_HEIGHT * 2, temp_buf.get());
 
-            for (uint32_t row = 0; row < color_frame_height / 2; row++)
-            {
-                for (uint32_t col = 0; col < color_frame_width / 2; col++)
-                {
-                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = yuyv_data[(row * 2) * color_frame_stride + col * 4];
-                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = yuyv_data[(row * 2) * color_frame_stride + col * 4 + 2];
-                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4];
-                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 2];
+            for(uint32_t row = 0; row < CAMERA_HEIGHT / 2; row++) {
+                for (uint32_t col = 0; col < CAMERA_WIDTH / 2; col++) {
+                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 1];
+                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 3];
+                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 1];
+                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 3];
 
-                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 1] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 1]) / 2;
-                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (yuyv_data[(row * 2) * color_frame_stride + col * 4 + 3] + yuyv_data[(row * 2 + 1) * color_frame_stride + col * 4 + 3]) / 2;
+                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 0] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 0]) / 2;
+                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 2] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 2]) / 2;
                 }
             }
 
             vipc_server.send(cur_yuv_buf, &extra);
-        }
 
-        if (count > 500)
-        {
-            break;
+            if (frame_id % 100 == 0)
+            {
+                auto end = std::chrono::steady_clock::now();
+                fmt::print("Processed {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
+            }
         }
     }
 
     auto end = std::chrono::steady_clock::now();
-    fmt::print("Processed {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
+    fmt::print("Finished processing {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
 
     return EXIT_SUCCESS;
 }
