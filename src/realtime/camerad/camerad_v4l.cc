@@ -18,6 +18,7 @@
 #include <libv4l2.h>
 
 #include "nvvisionbuf.h"
+#include "camerad/NvBufSurface.h"
 
 #include "cereal/messaging/messaging.h"
 #include "cereal/visionipc/visionbuf.h"
@@ -28,10 +29,8 @@
 #include "config.h"
 
 #define CAMERA_BUFFER_COUNT 30
-#define SENSOR_TYPE_REALSENSE_D455 0x01
 
-// Allow waiting longer for initial camera frames
-#define WAIT_FOR_FRAME_TIMEOUT_MS 10'000
+
 
 ExitHandler do_exit;
 
@@ -193,6 +192,12 @@ class V4LCamera {
         std::vector<NVVisionBuf> bufs;
 };
 
+// TODOs
+// - Use the provided NVIDIA format converter and scaler to take the full 1920x1080 image and scale it down to the CAMERA_WIDTH/HEIGHT
+// (otherwise you are losing pixels to cropping)
+// - Check on how the buffers are being created/destroyed, MMAPPING vs userbuffers
+// - We get full-range Y data from the sensors now, but it will need to be rescaled, or else the video encoder needs to be configured to accept that
+
 int main(int argc, char *argv[])
 {
     PubMaster pm{ {"headCameraState"} };
@@ -209,6 +214,10 @@ int main(int argc, char *argv[])
 
     std::unique_ptr<uint8_t[]> temp_buf = std::make_unique<uint8_t[]>(CAMERA_WIDTH * CAMERA_HEIGHT * 2);
 
+    // For determining the color space, we were tracking the yuv ranges
+    uint8_t min_y = 255, max_y = 0;
+    uint8_t min_u = 255, max_u = 0;
+    uint8_t min_v = 255, max_v = 0;
 
     while (!do_exit)
     {
@@ -237,6 +246,20 @@ int main(int argc, char *argv[])
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
             std::copy(uyvy_data, uyvy_data + CAMERA_WIDTH * CAMERA_HEIGHT * 2, temp_buf.get());
 
+     
+
+            for (uint32_t i = 0; i < CAMERA_WIDTH * CAMERA_HEIGHT * 2; i += 4) {
+                min_y = std::min(min_y, temp_buf[i + 1]);
+                max_y = std::max(max_y, temp_buf[i + 1]);
+                min_y = std::min(min_y, temp_buf[i + 3]);
+                max_y = std::max(max_y, temp_buf[i + 3]);
+
+                min_u = std::min(min_u, temp_buf[i]);
+                max_u = std::max(max_u, temp_buf[i]);
+                min_v = std::min(min_v, temp_buf[i + 2]);
+                max_v = std::max(max_v, temp_buf[i + 2]);
+            }
+
             for(uint32_t row = 0; row < CAMERA_HEIGHT / 2; row++) {
                 for (uint32_t col = 0; col < CAMERA_WIDTH / 2; col++) {
                     cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 1];
@@ -261,6 +284,9 @@ int main(int argc, char *argv[])
 
     auto end = std::chrono::steady_clock::now();
     fmt::print("Finished processing {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
+
+    // Print the YUV ranges
+    fmt::print("YUV ranges: Y {} {}, U {} {}, V {} {}\n", min_y, max_y, min_u, max_u, min_v, max_v);
 
     return EXIT_SUCCESS;
 }

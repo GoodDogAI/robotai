@@ -353,10 +353,13 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
     catch_discover_tests(encoderd_tests)
 
     add_executable(camerad_v4l 
-        src/realtime/camerad_v4l.cc 
+        src/realtime/camerad/camerad_v4l.cc 
+        src/realtime/camerad/NvBufSurface.cpp
         src/realtime/nvvisionbuf.cc
         ${MASTER_CONFIG_H}
     )
+    target_include_directories(camerad_v4l PRIVATE ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS} src/realtime)
+    target_link_directories(camerad_v4l PRIVATE "/usr/lib/aarch64-linux-gnu/tegra")
     target_link_libraries(
         camerad_v4l 
         PRIVATE 
@@ -364,13 +367,15 @@ if(EXISTS ${JETSON_MULTIMEDIA_API_INCLUDE_DIRS})
             argparse::argparse
             ${CEREAL_LIBRARIES}
             zmq
+            nvbufsurface
+            nvbufsurftransform
             v4l2
             CapnProto::capnp
     )
 endif()
 
 if(${realsense2_FOUND})
-    add_executable(camerad_realsense src/realtime/camerad_realsense.cc ${MASTER_CONFIG_H})
+    add_executable(camerad_realsense src/realtime/camerad/camerad_realsense.cc ${MASTER_CONFIG_H})
     target_link_libraries(
         camerad_realsense
         PRIVATE
