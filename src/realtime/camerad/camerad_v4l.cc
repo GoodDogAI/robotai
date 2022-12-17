@@ -207,7 +207,7 @@ class NVFormatConverter {
             .colorFormat = in_fmt,
             .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
             .memType = NVBUF_MEM_SURFACE_ARRAY,
-            .memtag = NvBufSurfaceTag_CAMERA,
+            .memtag = NvBufSurfaceTag_VIDEO_CONVERT,
         };
         
         src_fmt_bytes_per_pixel = {2};
@@ -225,7 +225,7 @@ class NVFormatConverter {
             .colorFormat = out_fmt,
             .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
             .memType = NVBUF_MEM_SURFACE_ARRAY,
-            .memtag = NvBufSurfaceTag_CAMERA,
+            .memtag = NvBufSurfaceTag_VIDEO_CONVERT,
         };
 
         dest_fmt_bytes_per_pixel = {1, 2};
@@ -255,6 +255,8 @@ class NVFormatConverter {
 
         config_params = {};
         NvBufSurfTransformSetSessionParams (&config_params);
+
+        fmt::print(stderr, "NVFormatConverter initialized, compute mode {:x}\n", (uint32_t)config_params.compute_mode);
        
     }
 
@@ -275,12 +277,17 @@ class NVFormatConverter {
     void convert(uint8_t *in_buf, VisionBuf *out_buf) {
         int ret;
 
+        // Setup the input buffer
         NvBufSurface *in_nvbuf_surf = 0;
         ret = NvBufSurfaceFromFd(in_dmabuf_fd, (void**)(&in_nvbuf_surf));
         if (ret)
         {
             throw std::runtime_error("Failed to get input buffer surface");
         }
+
+        // fmt::print("inp num_filled: {}, width {}, height {}, pitch{}\n", in_nvbuf_surf->numFilled, 
+        //            in_nvbuf_surf->surfaceList->width, in_nvbuf_surf->surfaceList->height, 
+        //            in_nvbuf_surf->surfaceList->pitch);
         
         ret = NvBufSurfaceMap(in_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
@@ -294,9 +301,16 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to sync input buffer surface");
         }
 
+        // Load the data into that buffer
+        // std::copy(in_buf, in_buf + input_params.width * input_params.height * src_fmt_bytes_per_pixel[0], 
+        //           (uint8_t*)in_nvbuf_surf->surfaceList->mappedAddr.addr[0]);
+        ret = Raw2NvBufSurface(in_buf, 0, 0, input_params.width, input_params.height, in_nvbuf_surf);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to copy input buffer");
+        }
 
-        // TODO Copy stuff
-
+        // Sync that back to device memory
         ret = NvBufSurfaceSyncForDevice(in_nvbuf_surf, 0, 0);
         if (ret)
         {
@@ -309,11 +323,64 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to unmap input buffer surface");
         }
 
-
+        // Perform the transform itself
         ret = NvBufSurf::NvTransform(&transform_params, in_dmabuf_fd, out_dmabuf_fd);
         if (ret)
         {
             throw std::runtime_error("Failed to transform buffer");
+        }
+
+
+        // Setup the output buffer for plane 0
+        NvBufSurface *out_nvbuf_surf = 0;
+        ret = NvBufSurfaceFromFd(out_dmabuf_fd, (void**)(&out_nvbuf_surf));
+        if (ret)
+        {
+            throw std::runtime_error("Failed to get output buffer surface");
+        }
+
+        fmt::print("out num_filled: {}, width {}, height {}, pitch{}\n", out_nvbuf_surf->numFilled, 
+            out_nvbuf_surf->surfaceList->width, out_nvbuf_surf->surfaceList->height, 
+            out_nvbuf_surf->surfaceList->pitch);
+
+        fmt::print("out num planes {}\n", out_nvbuf_surf->surfaceList->planeParams.num_planes);
+        fmt::print("out plane 0 width {} height {} pitch {}\n", out_nvbuf_surf->surfaceList->planeParams.width[0], 
+            out_nvbuf_surf->surfaceList->planeParams.height[0], out_nvbuf_surf->surfaceList->planeParams.pitch[0]);
+        fmt::print("out plane 1 width {} height {} pitch {}\n", out_nvbuf_surf->surfaceList->planeParams.width[1], 
+            out_nvbuf_surf->surfaceList->planeParams.height[1], out_nvbuf_surf->surfaceList->planeParams.pitch[1]);
+
+        ret = NvBufSurfaceMap(out_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to map output buffer surface");
+        }
+        
+        ret = NvBufSurfaceSyncForCpu(out_nvbuf_surf, 0, 0);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to sync output buffer surface");
+        }
+
+        // Copy out plane 0 (Y)
+        // std::copy((uint8_t*)out_nvbuf_surf->surfaceList->mappedAddr.addr[0],
+        //           (uint8_t*)out_nvbuf_surf->surfaceList->mappedAddr.addr[0] + output_params.width * output_params.height * dest_fmt_bytes_per_pixel[0],
+        //            out_buf->y);
+        ret = NvBufSurface2Raw(out_nvbuf_surf, 0, 0, output_params.width, output_params.height, out_buf->y);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to copy output buffer");
+        }
+
+        ret = NvBufSurface2Raw(out_nvbuf_surf, 0, 1, output_params.width / 2, output_params.height / 2, out_buf->uv);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to copy output buffer");
+        }
+
+        ret = NvBufSurfaceUnMap(out_nvbuf_surf, 0, 0);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to unmap output buffer surface");
         }
     }
 
@@ -326,7 +393,6 @@ class NVFormatConverter {
         NvBufSurfTransformConfigParams config_params;
         std::vector<int> src_fmt_bytes_per_pixel;
         std::vector<int> dest_fmt_bytes_per_pixel;
-        //NvBufSurfTransformSyncObj_t syncobj;
 };
 
 // TODOs
@@ -368,7 +434,7 @@ int main(int argc, char *argv[])
         uint32_t frame_id = static_cast<uint32_t>(count / 3);
 
         // TODO Calculate the frame skip properly
-        if (count % 3 == 0)
+        if (count % 2 == 0)
         {
             auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_COLOR);
 
