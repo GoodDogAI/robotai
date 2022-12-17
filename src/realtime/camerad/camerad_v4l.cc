@@ -29,8 +29,8 @@
 #include "config.h"
 
 #define CAMERA_BUFFER_COUNT 30
-
-
+#define CAPTURE_WIDTH 1920
+#define CAPTURE_HEIGHT 1080
 
 ExitHandler do_exit;
 
@@ -135,6 +135,9 @@ class V4LCamera {
         v4l2_close(fd);
     }
 
+    V4LCamera(const V4LCamera&) = delete;
+    V4LCamera& operator=(const V4LCamera&) = delete;
+
     struct FrameRequeueDeleter {
         void operator()(NVVisionBuf* b) { 
             v4l2_buffer v4l_buf = {0};
@@ -192,6 +195,140 @@ class V4LCamera {
         std::vector<NVVisionBuf> bufs;
 };
 
+class NVFormatConverter {
+    public:
+    NVFormatConverter(uint32_t in_width, uint32_t in_height, NvBufSurfaceColorFormat in_fmt, 
+                      uint32_t out_width, uint32_t out_height, NvBufSurfaceColorFormat out_fmt) {
+        int ret;
+
+        input_params = {
+            .width = in_width,
+            .height = in_height,
+            .colorFormat = in_fmt,
+            .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
+            .memType = NVBUF_MEM_SURFACE_ARRAY,
+            .memtag = NvBufSurfaceTag_CAMERA,
+        };
+        
+        src_fmt_bytes_per_pixel = {2};
+
+
+        ret = NvBufSurf::NvAllocate(&input_params, 1, &in_dmabuf_fd);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to allocate input buffer");
+        }
+
+        output_params = {
+            .width = out_width,
+            .height = out_height,
+            .colorFormat = out_fmt,
+            .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
+            .memType = NVBUF_MEM_SURFACE_ARRAY,
+            .memtag = NvBufSurfaceTag_CAMERA,
+        };
+
+        dest_fmt_bytes_per_pixel = {1, 2};
+
+        ret = NvBufSurf::NvAllocate(&output_params, 1, &out_dmabuf_fd);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to allocate output buffer");
+        }
+
+        transform_params = {
+            .src_width = in_width,
+            .src_height = in_height,
+            .src_top = 0,
+            .src_left = 0,
+
+            .dst_width = out_width,
+            .dst_height = out_height,
+            .dst_top = 0,
+            .dst_left = 0,
+
+            .flag = NVBUFSURF_TRANSFORM_FILTER,
+
+            .flip = NvBufSurfTransform_None,
+            .filter = NvBufSurfTransformInter_Bilinear,
+        };
+
+        config_params = {};
+        NvBufSurfTransformSetSessionParams (&config_params);
+       
+    }
+
+    ~NVFormatConverter() {
+        if (in_dmabuf_fd != -1)
+        {
+            NvBufSurf::NvDestroy(in_dmabuf_fd);
+        }
+
+        if (out_dmabuf_fd != -1)
+        {
+            NvBufSurf::NvDestroy(out_dmabuf_fd);
+        }
+    }
+
+
+    // Converts from arbitrary input location to a NV12 VisionIPC Buf
+    void convert(uint8_t *in_buf, VisionBuf *out_buf) {
+        int ret;
+
+        NvBufSurface *in_nvbuf_surf = 0;
+        ret = NvBufSurfaceFromFd(in_dmabuf_fd, (void**)(&in_nvbuf_surf));
+        if (ret)
+        {
+            throw std::runtime_error("Failed to get input buffer surface");
+        }
+        
+        ret = NvBufSurfaceMap(in_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to map input buffer surface");
+        }
+        
+        ret = NvBufSurfaceSyncForCpu(in_nvbuf_surf, 0, 0);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to sync input buffer surface");
+        }
+
+
+        // TODO Copy stuff
+
+        ret = NvBufSurfaceSyncForDevice(in_nvbuf_surf, 0, 0);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to sync input buffer surface");
+        }
+
+        ret = NvBufSurfaceUnMap(in_nvbuf_surf, 0, 0);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to unmap input buffer surface");
+        }
+
+
+        ret = NvBufSurf::NvTransform(&transform_params, in_dmabuf_fd, out_dmabuf_fd);
+        if (ret)
+        {
+            throw std::runtime_error("Failed to transform buffer");
+        }
+    }
+
+    private:
+        int in_dmabuf_fd;
+        int out_dmabuf_fd;
+        NvBufSurf::NvCommonAllocateParams input_params;
+        NvBufSurf::NvCommonAllocateParams output_params;
+        NvBufSurf::NvCommonTransformParams transform_params;
+        NvBufSurfTransformConfigParams config_params;
+        std::vector<int> src_fmt_bytes_per_pixel;
+        std::vector<int> dest_fmt_bytes_per_pixel;
+        //NvBufSurfTransformSyncObj_t syncobj;
+};
+
 // TODOs
 // - Use the provided NVIDIA format converter and scaler to take the full 1920x1080 image and scale it down to the CAMERA_WIDTH/HEIGHT
 // (otherwise you are losing pixels to cropping)
@@ -202,11 +339,15 @@ int main(int argc, char *argv[])
 {
     PubMaster pm{ {"headCameraState"} };
     VisionIpcServer vipc_server{ "camerad" };
-    V4LCamera camera{ "/dev/video0", CAMERA_WIDTH, CAMERA_HEIGHT };
+    V4LCamera camera{ "/dev/video0", CAPTURE_WIDTH, CAPTURE_HEIGHT };
+    NVFormatConverter converter{ CAPTURE_WIDTH, CAPTURE_HEIGHT, NVBUF_COLOR_FORMAT_UYVY,
+                                 CAMERA_WIDTH, CAMERA_HEIGHT, NVBUF_COLOR_FORMAT_NV12 };
     vipc_server.create_buffers(VISION_STREAM_HEAD_COLOR, CAMERA_BUFFER_COUNT, false, CAMERA_WIDTH, CAMERA_HEIGHT);
     vipc_server.start_listener();
 
     fmt::print(stderr, "Ready to start streaming\n");
+
+
 
     // Wait for the frame, the dequeue the buffer, process it, and requeue it
     size_t count = 0;
@@ -231,6 +372,10 @@ int main(int argc, char *argv[])
         {
             auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_COLOR);
 
+            if (cur_yuv_buf == nullptr || frame == nullptr) {
+                throw std::runtime_error("Failed to get frame buffer");
+            }
+
             // Send the frame via vision IPC
             VisionIpcBufExtra extra{
                 frame_id, 
@@ -240,37 +385,38 @@ int main(int argc, char *argv[])
             cur_yuv_buf->set_frame_id(frame_id); 
 
             uint8_t *uyvy_data = frame->planes[0].data;
-            const uint32_t color_frame_stride = CAMERA_WIDTH * 2;
+            //const uint32_t color_frame_stride = CAMERA_WIDTH * 2;
 
             // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
             std::copy(uyvy_data, uyvy_data + CAMERA_WIDTH * CAMERA_HEIGHT * 2, temp_buf.get());
 
+            converter.convert(temp_buf.get(), cur_yuv_buf);
      
 
-            for (uint32_t i = 0; i < CAMERA_WIDTH * CAMERA_HEIGHT * 2; i += 4) {
-                min_y = std::min(min_y, temp_buf[i + 1]);
-                max_y = std::max(max_y, temp_buf[i + 1]);
-                min_y = std::min(min_y, temp_buf[i + 3]);
-                max_y = std::max(max_y, temp_buf[i + 3]);
+            // for (uint32_t i = 0; i < CAMERA_WIDTH * CAMERA_HEIGHT * 2; i += 4) {
+            //     min_y = std::min(min_y, temp_buf[i + 1]);
+            //     max_y = std::max(max_y, temp_buf[i + 1]);
+            //     min_y = std::min(min_y, temp_buf[i + 3]);
+            //     max_y = std::max(max_y, temp_buf[i + 3]);
 
-                min_u = std::min(min_u, temp_buf[i]);
-                max_u = std::max(max_u, temp_buf[i]);
-                min_v = std::min(min_v, temp_buf[i + 2]);
-                max_v = std::max(max_v, temp_buf[i + 2]);
-            }
+            //     min_u = std::min(min_u, temp_buf[i]);
+            //     max_u = std::max(max_u, temp_buf[i]);
+            //     min_v = std::min(min_v, temp_buf[i + 2]);
+            //     max_v = std::max(max_v, temp_buf[i + 2]);
+            // }
 
-            for(uint32_t row = 0; row < CAMERA_HEIGHT / 2; row++) {
-                for (uint32_t col = 0; col < CAMERA_WIDTH / 2; col++) {
-                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 1];
-                    cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 3];
-                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 1];
-                    cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 3];
+            // for(uint32_t row = 0; row < CAMERA_HEIGHT / 2; row++) {
+            //     for (uint32_t col = 0; col < CAMERA_WIDTH / 2; col++) {
+            //         cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 1];
+            //         cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 3];
+            //         cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 1];
+            //         cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 3];
 
-                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 0] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 0]) / 2;
-                    cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 2] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 2]) / 2;
-                }
-            }
+            //         cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 0] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 0]) / 2;
+            //         cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 2] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 2]) / 2;
+            //     }
+            // }
 
             vipc_server.send(cur_yuv_buf, &extra);
 
