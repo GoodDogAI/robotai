@@ -301,9 +301,12 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to sync input buffer surface");
         }
 
+        // fmt::print("in num planes {}\n", in_nvbuf_surf->surfaceList->planeParams.num_planes);
+        // fmt::print("in plane 0 width {} height {} pitch {} bpp {}\n", in_nvbuf_surf->surfaceList->planeParams.width[0], 
+        //     in_nvbuf_surf->surfaceList->planeParams.height[0], in_nvbuf_surf->surfaceList->planeParams.pitch[0],
+        //     in_nvbuf_surf->surfaceList->planeParams.bytesPerPix[0]);
+
         // Load the data into that buffer
-        // std::copy(in_buf, in_buf + input_params.width * input_params.height * src_fmt_bytes_per_pixel[0], 
-        //           (uint8_t*)in_nvbuf_surf->surfaceList->mappedAddr.addr[0]);
         ret = Raw2NvBufSurface(in_buf, 0, 0, input_params.width, input_params.height, in_nvbuf_surf);
         if (ret)
         {
@@ -339,15 +342,17 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to get output buffer surface");
         }
 
-        fmt::print("out num_filled: {}, width {}, height {}, pitch{}\n", out_nvbuf_surf->numFilled, 
-            out_nvbuf_surf->surfaceList->width, out_nvbuf_surf->surfaceList->height, 
-            out_nvbuf_surf->surfaceList->pitch);
+        // fmt::print("out num_filled: {}, width {}, height {}, pitch{}\n", out_nvbuf_surf->numFilled, 
+        //     out_nvbuf_surf->surfaceList->width, out_nvbuf_surf->surfaceList->height, 
+        //     out_nvbuf_surf->surfaceList->pitch);
 
-        fmt::print("out num planes {}\n", out_nvbuf_surf->surfaceList->planeParams.num_planes);
-        fmt::print("out plane 0 width {} height {} pitch {}\n", out_nvbuf_surf->surfaceList->planeParams.width[0], 
-            out_nvbuf_surf->surfaceList->planeParams.height[0], out_nvbuf_surf->surfaceList->planeParams.pitch[0]);
-        fmt::print("out plane 1 width {} height {} pitch {}\n", out_nvbuf_surf->surfaceList->planeParams.width[1], 
-            out_nvbuf_surf->surfaceList->planeParams.height[1], out_nvbuf_surf->surfaceList->planeParams.pitch[1]);
+        // fmt::print("out num planes {}\n", out_nvbuf_surf->surfaceList->planeParams.num_planes);
+        // fmt::print("out plane 0 width {} height {} pitch {} bpp {}\n", out_nvbuf_surf->surfaceList->planeParams.width[0], 
+        //     out_nvbuf_surf->surfaceList->planeParams.height[0], out_nvbuf_surf->surfaceList->planeParams.pitch[0],
+        //     out_nvbuf_surf->surfaceList->planeParams.bytesPerPix[0]);
+        // fmt::print("out plane 1 width {} height {} pitch {} bpp {}\n", out_nvbuf_surf->surfaceList->planeParams.width[1], 
+        //     out_nvbuf_surf->surfaceList->planeParams.height[1], out_nvbuf_surf->surfaceList->planeParams.pitch[1],
+        //     out_nvbuf_surf->surfaceList->planeParams.bytesPerPix[1]);
 
         ret = NvBufSurfaceMap(out_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
@@ -419,7 +424,7 @@ int main(int argc, char *argv[])
     size_t count = 0;
     auto start = std::chrono::steady_clock::now();
 
-    std::unique_ptr<uint8_t[]> temp_buf = std::make_unique<uint8_t[]>(CAMERA_WIDTH * CAMERA_HEIGHT * 2);
+    std::unique_ptr<uint8_t[]> temp_buf = std::make_unique<uint8_t[]>(CAPTURE_WIDTH * CAPTURE_HEIGHT * 2);
 
     // For determining the color space, we were tracking the yuv ranges
     uint8_t min_y = 255, max_y = 0;
@@ -455,10 +460,12 @@ int main(int argc, char *argv[])
 
             // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
-            std::copy(uyvy_data, uyvy_data + CAMERA_WIDTH * CAMERA_HEIGHT * 2, temp_buf.get());
+
+            // REALLY SHULD BE CAPTURE_WIDTH/HEIGHT but it doesn't work?
+            std::copy(uyvy_data, uyvy_data + CAPTURE_WIDTH * CAPTURE_HEIGHT * 2, temp_buf.get());
 
             converter.convert(temp_buf.get(), cur_yuv_buf);
-     
+        
 
             // for (uint32_t i = 0; i < CAMERA_WIDTH * CAMERA_HEIGHT * 2; i += 4) {
             //     min_y = std::min(min_y, temp_buf[i + 1]);
