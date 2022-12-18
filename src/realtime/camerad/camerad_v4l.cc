@@ -205,7 +205,7 @@ class NVFormatConverter {
             .width = in_width,
             .height = in_height,
             .colorFormat = in_fmt,
-            .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
+            .layout = NVBUF_LAYOUT_PITCH,
             .memType = NVBUF_MEM_SURFACE_ARRAY,
             .memtag = NvBufSurfaceTag_VIDEO_CONVERT,
         };
@@ -223,7 +223,7 @@ class NVFormatConverter {
             .width = out_width,
             .height = out_height,
             .colorFormat = out_fmt,
-            .layout = NVBUF_LAYOUT_BLOCK_LINEAR,
+            .layout = NVBUF_LAYOUT_PITCH,
             .memType = NVBUF_MEM_SURFACE_ARRAY,
             .memtag = NvBufSurfaceTag_VIDEO_CONVERT,
         };
@@ -277,6 +277,8 @@ class NVFormatConverter {
     void convert(uint8_t *in_buf, VisionBuf *out_buf) {
         int ret;
 
+        auto start = std::chrono::steady_clock::now();
+
         // Setup the input buffer
         NvBufSurface *in_nvbuf_surf = 0;
         ret = NvBufSurfaceFromFd(in_dmabuf_fd, (void**)(&in_nvbuf_surf));
@@ -284,11 +286,11 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to get input buffer surface");
         }
-
         // fmt::print("inp num_filled: {}, width {}, height {}, pitch{}\n", in_nvbuf_surf->numFilled, 
         //            in_nvbuf_surf->surfaceList->width, in_nvbuf_surf->surfaceList->height, 
         //            in_nvbuf_surf->surfaceList->pitch);
         
+
         ret = NvBufSurfaceMap(in_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
         {
@@ -301,6 +303,11 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to sync input buffer surface");
         }
 
+        fmt::print("took {} to get input surface map and sync it\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
+
+        start = std::chrono::steady_clock::now();
+
+      
         // fmt::print("in num planes {}\n", in_nvbuf_surf->surfaceList->planeParams.num_planes);
         // fmt::print("in plane 0 width {} height {} pitch {} bpp {}\n", in_nvbuf_surf->surfaceList->planeParams.width[0], 
         //     in_nvbuf_surf->surfaceList->planeParams.height[0], in_nvbuf_surf->surfaceList->planeParams.pitch[0],
@@ -312,6 +319,10 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to copy input buffer");
         }
+
+        fmt::print("took {} to copy input buffer\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
+
+        start = std::chrono::steady_clock::now();
 
         // Sync that back to device memory
         ret = NvBufSurfaceSyncForDevice(in_nvbuf_surf, 0, 0);
@@ -326,13 +337,18 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to unmap input buffer surface");
         }
 
+        fmt::print("took {} to sync and unmap input buffer\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
+
         // Perform the transform itself
+        start = std::chrono::steady_clock::now();
+
         ret = NvBufSurf::NvTransform(&transform_params, in_dmabuf_fd, out_dmabuf_fd);
         if (ret)
         {
             throw std::runtime_error("Failed to transform buffer");
         }
 
+        fmt::print(stderr, "NVFormatConverter::convert took {}\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count());
 
         // Setup the output buffer for plane 0
         NvBufSurface *out_nvbuf_surf = 0;
@@ -419,7 +435,6 @@ int main(int argc, char *argv[])
     fmt::print(stderr, "Ready to start streaming\n");
 
 
-
     // Wait for the frame, the dequeue the buffer, process it, and requeue it
     size_t count = 0;
     auto start = std::chrono::steady_clock::now();
@@ -456,38 +471,31 @@ int main(int argc, char *argv[])
             cur_yuv_buf->set_frame_id(frame_id); 
 
             uint8_t *uyvy_data = frame->planes[0].data;
-            //const uint32_t color_frame_stride = CAMERA_WIDTH * 2;
-
+           
             // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
 
-            // REALLY SHULD BE CAPTURE_WIDTH/HEIGHT but it doesn't work?
+            auto startc = std::chrono::steady_clock::now();
             std::copy(uyvy_data, uyvy_data + CAPTURE_WIDTH * CAPTURE_HEIGHT * 2, temp_buf.get());
-
+            auto convertc = std::chrono::steady_clock::now();
+            
             converter.convert(temp_buf.get(), cur_yuv_buf);
-        
+            auto endc = std::chrono::steady_clock::now();
+            fmt::print(stderr, "Getting data took {}, conversion took {}\n",  
+                std::chrono::duration_cast<std::chrono::microseconds>(convertc - startc),
+                std::chrono::duration_cast<std::chrono::microseconds>(endc - convertc)
+            );
+            // if (frame_id > 50) {
+            //     for (uint32_t i = 0; i < CAPTURE_WIDTH * CAPTURE_HEIGHT * 2; i += 4) {
+            //         min_y = std::min(min_y, temp_buf[i + 1]);
+            //         max_y = std::max(max_y, temp_buf[i + 1]);
+            //         min_y = std::min(min_y, temp_buf[i + 3]);
+            //         max_y = std::max(max_y, temp_buf[i + 3]);
 
-            // for (uint32_t i = 0; i < CAMERA_WIDTH * CAMERA_HEIGHT * 2; i += 4) {
-            //     min_y = std::min(min_y, temp_buf[i + 1]);
-            //     max_y = std::max(max_y, temp_buf[i + 1]);
-            //     min_y = std::min(min_y, temp_buf[i + 3]);
-            //     max_y = std::max(max_y, temp_buf[i + 3]);
-
-            //     min_u = std::min(min_u, temp_buf[i]);
-            //     max_u = std::max(max_u, temp_buf[i]);
-            //     min_v = std::min(min_v, temp_buf[i + 2]);
-            //     max_v = std::max(max_v, temp_buf[i + 2]);
-            // }
-
-            // for(uint32_t row = 0; row < CAMERA_HEIGHT / 2; row++) {
-            //     for (uint32_t col = 0; col < CAMERA_WIDTH / 2; col++) {
-            //         cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 1];
-            //         cur_yuv_buf->y[(row * 2) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2) * color_frame_stride + col * 4 + 3];
-            //         cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 1];
-            //         cur_yuv_buf->y[(row * 2 + 1) * cur_yuv_buf->stride + col * 2 + 1] = temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 3];
-
-            //         cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 0] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 0]) / 2;
-            //         cur_yuv_buf->uv[row * cur_yuv_buf->stride + col * 2 + 1] = (temp_buf[(row * 2) * color_frame_stride + col * 4 + 2] + temp_buf[(row * 2 + 1) * color_frame_stride + col * 4 + 2]) / 2;
+            //         min_u = std::min(min_u, temp_buf[i]);
+            //         max_u = std::max(max_u, temp_buf[i]);
+            //         min_v = std::min(min_v, temp_buf[i + 2]);
+            //         max_v = std::max(max_v, temp_buf[i + 2]);
             //     }
             // }
 
