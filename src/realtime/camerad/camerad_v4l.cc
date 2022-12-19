@@ -33,6 +33,7 @@ constexpr uint32_t CAMERA_BUFFER_COUNT = 20;
 constexpr uint32_t CAPTURE_WIDTH = 1920;
 constexpr uint32_t CAPTURE_HEIGHT = 1080;
 constexpr uint32_t CAPTURE_FPS = 30;
+constexpr uint32_t CAPTURE_SATURATION = 8;
 
 ExitHandler do_exit;
 
@@ -92,6 +93,14 @@ class V4LCamera {
         if (streamparm.parm.capture.timeperframe.numerator != 1 || streamparm.parm.capture.timeperframe.denominator != CAPTURE_FPS) {
             throw std::runtime_error("Failed to set desired FPS, check supported FPS with v4l2-ctl");
         }
+
+        // Set the camera saturation
+        struct v4l2_control ctrl_saturation = {
+            .id = V4L2_CID_SATURATION,
+            .value = CAPTURE_SATURATION,
+        };
+
+        checked_v4l2_ioctl(fd, VIDIOC_S_CTRL, &ctrl_saturation);
 
         // Request the buffers
         struct v4l2_requestbuffers reqbuf = {
@@ -453,16 +462,14 @@ int main(int argc, char *argv[])
            
             // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
-            auto startc = std::chrono::steady_clock::now();
             std::copy(uyvy_data, uyvy_data + CAPTURE_WIDTH * CAPTURE_HEIGHT * 2, temp_buf.get());
-            auto convertc = std::chrono::steady_clock::now();
-            
             converter.convert(temp_buf.get(), cur_yuv_buf);
-            auto endc = std::chrono::steady_clock::now();
-            fmt::print(stderr, "Getting data took {}, conversion took {}\n",  
-                std::chrono::duration_cast<std::chrono::microseconds>(convertc - startc),
-                std::chrono::duration_cast<std::chrono::microseconds>(endc - convertc)
-            );
+
+            // fmt::print(stderr, "Getting data took {}, conversion took {}\n",  
+            //     std::chrono::duration_cast<std::chrono::microseconds>(convertc - startc),
+            //     std::chrono::duration_cast<std::chrono::microseconds>(endc - convertc)
+            // );
+
             // if (frame_id > 50) {
             //     for (uint32_t i = 0; i < CAPTURE_WIDTH * CAPTURE_HEIGHT * 2; i += 4) {
             //         min_y = std::min(min_y, temp_buf[i + 1]);
