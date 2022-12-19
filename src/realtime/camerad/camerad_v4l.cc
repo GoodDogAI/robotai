@@ -277,8 +277,6 @@ class NVFormatConverter {
     void convert(uint8_t *in_buf, VisionBuf *out_buf) {
         int ret;
 
-        auto start = std::chrono::steady_clock::now();
-
         // Setup the input buffer
         NvBufSurface *in_nvbuf_surf = 0;
         ret = NvBufSurfaceFromFd(in_dmabuf_fd, (void**)(&in_nvbuf_surf));
@@ -290,7 +288,6 @@ class NVFormatConverter {
         //            in_nvbuf_surf->surfaceList->width, in_nvbuf_surf->surfaceList->height, 
         //            in_nvbuf_surf->surfaceList->pitch);
         
-
         ret = NvBufSurfaceMap(in_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
         {
@@ -303,11 +300,7 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to sync input buffer surface");
         }
 
-        fmt::print("took {} to get input surface map and sync it\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
-
-        start = std::chrono::steady_clock::now();
-
-      
+    
         // fmt::print("in num planes {}\n", in_nvbuf_surf->surfaceList->planeParams.num_planes);
         // fmt::print("in plane 0 width {} height {} pitch {} bpp {}\n", in_nvbuf_surf->surfaceList->planeParams.width[0], 
         //     in_nvbuf_surf->surfaceList->planeParams.height[0], in_nvbuf_surf->surfaceList->planeParams.pitch[0],
@@ -319,10 +312,6 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to copy input buffer");
         }
-
-        fmt::print("took {} to copy input buffer\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
-
-        start = std::chrono::steady_clock::now();
 
         // Sync that back to device memory
         ret = NvBufSurfaceSyncForDevice(in_nvbuf_surf, 0, 0);
@@ -337,18 +326,12 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to unmap input buffer surface");
         }
 
-        fmt::print("took {} to sync and unmap input buffer\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start));
-
         // Perform the transform itself
-        start = std::chrono::steady_clock::now();
-
         ret = NvBufSurf::NvTransform(&transform_params, in_dmabuf_fd, out_dmabuf_fd);
         if (ret)
         {
             throw std::runtime_error("Failed to transform buffer");
         }
-
-        fmt::print(stderr, "NVFormatConverter::convert took {}\n", std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count());
 
         // Setup the output buffer for plane 0
         NvBufSurface *out_nvbuf_surf = 0;
@@ -382,20 +365,16 @@ class NVFormatConverter {
             throw std::runtime_error("Failed to sync output buffer surface");
         }
 
-        // Copy out plane 0 (Y)
-        // std::copy((uint8_t*)out_nvbuf_surf->surfaceList->mappedAddr.addr[0],
-        //           (uint8_t*)out_nvbuf_surf->surfaceList->mappedAddr.addr[0] + output_params.width * output_params.height * dest_fmt_bytes_per_pixel[0],
-        //            out_buf->y);
         ret = NvBufSurface2Raw(out_nvbuf_surf, 0, 0, output_params.width, output_params.height, out_buf->y);
         if (ret)
         {
-            throw std::runtime_error("Failed to copy output buffer");
+            throw std::runtime_error("Failed to copy output buffer0");
         }
 
         ret = NvBufSurface2Raw(out_nvbuf_surf, 0, 1, output_params.width / 2, output_params.height / 2, out_buf->uv);
         if (ret)
         {
-            throw std::runtime_error("Failed to copy output buffer");
+            throw std::runtime_error("Failed to copy output buffer1");
         }
 
         ret = NvBufSurfaceUnMap(out_nvbuf_surf, 0, 0);
@@ -474,7 +453,6 @@ int main(int argc, char *argv[])
            
             // Not sure why, but there is a huge slowdown if the data isn't accessed from the device linearly
             // So, for now we just dump the data into a user buffer. We could perhaps let the kernel do this with a different buffer setup
-
             auto startc = std::chrono::steady_clock::now();
             std::copy(uyvy_data, uyvy_data + CAPTURE_WIDTH * CAPTURE_HEIGHT * 2, temp_buf.get());
             auto convertc = std::chrono::steady_clock::now();
