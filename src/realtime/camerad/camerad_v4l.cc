@@ -28,9 +28,11 @@
 #include "util.h"
 #include "config.h"
 
-#define CAMERA_BUFFER_COUNT 30
-#define CAPTURE_WIDTH 1920
-#define CAPTURE_HEIGHT 1080
+constexpr uint32_t CAMERA_BUFFER_COUNT = 20;
+
+constexpr uint32_t CAPTURE_WIDTH = 1920;
+constexpr uint32_t CAPTURE_HEIGHT = 1080;
+constexpr uint32_t CAPTURE_FPS = 30;
 
 ExitHandler do_exit;
 
@@ -71,7 +73,26 @@ class V4LCamera {
 
         checked_v4l2_ioctl(fd, VIDIOC_S_FMT, &fmt_in);
 
-        
+        v4l2_streamparm streamparm = {
+            .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
+            .parm = {
+                .output = {
+                    .timeperframe = {
+                        .numerator = 1,
+                        .denominator = static_cast<unsigned int>(CAPTURE_FPS),
+                    }
+                }
+            }
+        };
+        checked_v4l2_ioctl(fd, VIDIOC_S_PARM, &streamparm);
+
+        // Read back the FPS to make sure it was set correctly
+        checked_v4l2_ioctl(fd, VIDIOC_G_PARM, &streamparm);
+
+        if (streamparm.parm.capture.timeperframe.numerator != 1 || streamparm.parm.capture.timeperframe.denominator != CAPTURE_FPS) {
+            throw std::runtime_error("Failed to set desired FPS, check supported FPS with v4l2-ctl");
+        }
+
         // Request the buffers
         struct v4l2_requestbuffers reqbuf = {
             .count = NUM_BUFFERS,
@@ -272,6 +293,8 @@ class NVFormatConverter {
         }
     }
 
+    NVFormatConverter(const NVFormatConverter&) = delete;
+    NVFormatConverter& operator=(const NVFormatConverter&) = delete;
 
     // Converts from arbitrary input location to a NV12 VisionIPC Buf
     void convert(uint8_t *in_buf, VisionBuf *out_buf) {
@@ -284,10 +307,7 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to get input buffer surface");
         }
-        // fmt::print("inp num_filled: {}, width {}, height {}, pitch{}\n", in_nvbuf_surf->numFilled, 
-        //            in_nvbuf_surf->surfaceList->width, in_nvbuf_surf->surfaceList->height, 
-        //            in_nvbuf_surf->surfaceList->pitch);
-        
+
         ret = NvBufSurfaceMap(in_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
         {
@@ -299,12 +319,6 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to sync input buffer surface");
         }
-
-    
-        // fmt::print("in num planes {}\n", in_nvbuf_surf->surfaceList->planeParams.num_planes);
-        // fmt::print("in plane 0 width {} height {} pitch {} bpp {}\n", in_nvbuf_surf->surfaceList->planeParams.width[0], 
-        //     in_nvbuf_surf->surfaceList->planeParams.height[0], in_nvbuf_surf->surfaceList->planeParams.pitch[0],
-        //     in_nvbuf_surf->surfaceList->planeParams.bytesPerPix[0]);
 
         // Load the data into that buffer
         ret = Raw2NvBufSurface(in_buf, 0, 0, input_params.width, input_params.height, in_nvbuf_surf);
@@ -340,18 +354,6 @@ class NVFormatConverter {
         {
             throw std::runtime_error("Failed to get output buffer surface");
         }
-
-        // fmt::print("out num_filled: {}, width {}, height {}, pitch{}\n", out_nvbuf_surf->numFilled, 
-        //     out_nvbuf_surf->surfaceList->width, out_nvbuf_surf->surfaceList->height, 
-        //     out_nvbuf_surf->surfaceList->pitch);
-
-        // fmt::print("out num planes {}\n", out_nvbuf_surf->surfaceList->planeParams.num_planes);
-        // fmt::print("out plane 0 width {} height {} pitch {} bpp {}\n", out_nvbuf_surf->surfaceList->planeParams.width[0], 
-        //     out_nvbuf_surf->surfaceList->planeParams.height[0], out_nvbuf_surf->surfaceList->planeParams.pitch[0],
-        //     out_nvbuf_surf->surfaceList->planeParams.bytesPerPix[0]);
-        // fmt::print("out plane 1 width {} height {} pitch {} bpp {}\n", out_nvbuf_surf->surfaceList->planeParams.width[1], 
-        //     out_nvbuf_surf->surfaceList->planeParams.height[1], out_nvbuf_surf->surfaceList->planeParams.pitch[1],
-        //     out_nvbuf_surf->surfaceList->planeParams.bytesPerPix[1]);
 
         ret = NvBufSurfaceMap(out_nvbuf_surf, 0, 0, NVBUF_MAP_READ_WRITE);
         if (ret)
@@ -396,8 +398,6 @@ class NVFormatConverter {
 };
 
 // TODOs
-// - Use the provided NVIDIA format converter and scaler to take the full 1920x1080 image and scale it down to the CAMERA_WIDTH/HEIGHT
-// (otherwise you are losing pixels to cropping)
 // - Check on how the buffers are being created/destroyed, MMAPPING vs userbuffers
 // - We get full-range Y data from the sensors now, but it will need to be rescaled, or else the video encoder needs to be configured to accept that
 
@@ -413,9 +413,8 @@ int main(int argc, char *argv[])
 
     fmt::print(stderr, "Ready to start streaming\n");
 
-
     // Wait for the frame, the dequeue the buffer, process it, and requeue it
-    size_t count = 0;
+    size_t received_count = 0, processed_count = 0;
     auto start = std::chrono::steady_clock::now();
 
     std::unique_ptr<uint8_t[]> temp_buf = std::make_unique<uint8_t[]>(CAPTURE_WIDTH * CAPTURE_HEIGHT * 2);
@@ -425,15 +424,16 @@ int main(int argc, char *argv[])
     uint8_t min_u = 255, max_u = 0;
     uint8_t min_v = 255, max_v = 0;
 
+    static_assert(CAPTURE_FPS % CAMERA_FPS == 0, "CAPTURE_FPS must be a multiple of CAMERA_FPS");
+
     while (!do_exit)
     {
         auto frame = camera.get_frame();
-        count++;
+        received_count++;
 
-        uint32_t frame_id = static_cast<uint32_t>(count / 3);
+        uint32_t frame_id = static_cast<uint32_t>(received_count / (CAPTURE_FPS / CAMERA_FPS));
 
-        // TODO Calculate the frame skip properly
-        if (count % 2 == 0)
+        if (received_count % (CAPTURE_FPS / CAMERA_FPS) == 0)
         {
             auto cur_yuv_buf = vipc_server.get_buffer(VISION_STREAM_HEAD_COLOR);
 
@@ -479,19 +479,21 @@ int main(int argc, char *argv[])
 
             vipc_server.send(cur_yuv_buf, &extra);
 
+            processed_count++;
             if (frame_id % 100 == 0)
             {
                 auto end = std::chrono::steady_clock::now();
-                fmt::print("Processed {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
-            }
+                fmt::print("Processed {} frames, average FPS {:02f}\n", processed_count, processed_count / std::chrono::duration<double>(end - start).count());
+            }            
         }
     }
 
     auto end = std::chrono::steady_clock::now();
-    fmt::print("Finished processing {} frames, average FPS {:02f}\n", count, count / std::chrono::duration<double>(end - start).count());
+    fmt::print("Finished processing {} frames, average FPS {:02f}\n", processed_count, processed_count / std::chrono::duration<double>(end - start).count());
 
     // Print the YUV ranges
     fmt::print("YUV ranges: Y {} {}, U {} {}, V {} {}\n", min_y, max_y, min_u, max_u, min_v, max_v);
 
     return EXIT_SUCCESS;
 }
+
