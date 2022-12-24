@@ -211,7 +211,17 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0])
 
     def test_discrete_messages_override_controls(self):
-        raise NotImplementedError("TODO: Test adding override controls, and make it nice so that overrides in discrete mode just modify the biggest error target at a time")
+        msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REALTIME)
+
+        msg = new_message("appControl")
+        msg.appControl.connectionState = "connected"
+        msg.appControl.motionState = "manualControl"
+        msg.appControl.linearXOverride = 1.0
+        msgvec.input(msg)
+
+        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+
+        raise NotImplementedError("Still need to finish this")
 
 
             

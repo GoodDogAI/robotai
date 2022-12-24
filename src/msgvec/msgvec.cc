@@ -767,7 +767,6 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
     float cmd_right = (linearX + angularZ);
     odrive.setDesiredVelocityLeft(cmd_left);
     odrive.setDesiredVelocityRight(cmd_right);
-    overrides.push_back(capnp::messageToFlatArray(odriveMsg));
 
     MessageBuilder headMsg;
     auto headevt = headMsg.initEvent();
@@ -785,6 +784,70 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
         head.setPitchAngle(std::clamp(5.0f * linearX, -5.0f, 5.0f));
         head.setYawAngle(std::clamp(-100.0f * angularZ, -30.0f, 30.0f));
     }
+  
+    const bool discrete_mode = m_config["act"].size() > 0 && m_config["act"][0]["type"] == "discrete_msg";
+    json maxAct = nullptr;
+    float maxDiff = 0.0f;
+
+    if (discrete_mode) {
+        // In discrete mode, you only want to change one control at a time, the one with the biggest error from the current tracked amount
+        size_t act_index = 0;
+
+        for (const auto &act : m_config["act"]) {
+            const float relativeVal = m_relativeActValues[act_index];
+
+            if (act["path"] == "odriveCommand.desiredVelocityLeft") {
+                if (odrive.getDesiredVelocityLeft() - relativeVal > maxDiff) {
+                    maxAct = act;
+                    maxDiff = odrive.getDesiredVelocityLeft() - relativeVal;
+                }
+            }
+            else if (act["path"] == "odriveCommand.desiredVelocityRight") {
+                if (odrive.getDesiredVelocityRight() - relativeVal > maxDiff) {
+                    maxAct = act;
+                    maxDiff = odrive.getDesiredVelocityRight() - relativeVal;
+                }
+            }
+            else if (act["path"] == "headCommand.pitchAngle") {
+                if (head.getPitchAngle() - relativeVal > maxDiff) {
+                    maxAct = act;
+                    maxDiff = head.getPitchAngle() - relativeVal;
+                }
+            }
+            else if (act["path"] == "headCommand.yawAngle") {
+                if (head.getYawAngle() - relativeVal > maxDiff) {
+                    maxAct = act;
+                    maxDiff = head.getYawAngle() - relativeVal;
+                }
+            }
+
+            act_index++;
+        }
+
+        act_index = 0;
+        for (const auto &act : m_config["act"]) {
+            const float relativeVal = m_relativeActValues[act_index];
+
+            if (act == maxAct) {
+                // TODO: Only allow the closest diff to the actual choices
+            }
+            else if (act["path"] == "odriveCommand.desiredVelocityLeft") {
+                odrive.setDesiredVelocityLeft(relativeVal);
+            }
+            else if (act["path"] == "odriveCommand.desiredVelocityRight") {
+                odrive.setDesiredVelocityRight(relativeVal);
+            }
+            else if (act["path"] == "headCommand.pitchAngle") {
+                head.setPitchAngle(relativeVal);
+            }
+            else if (act["path"] == "headCommand.yawAngle") {
+                head.setYawAngle(relativeVal);
+            }
+            act_index++;
+        }
+    }
+
+    overrides.push_back(capnp::messageToFlatArray(odriveMsg));
     overrides.push_back(capnp::messageToFlatArray(headMsg));
 
     return overrides;
