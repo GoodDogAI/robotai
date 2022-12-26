@@ -277,9 +277,9 @@ class NVFormatConverter {
             .dst_top = 0,
             .dst_left = 0,
 
-            .flag = NVBUFSURF_TRANSFORM_FILTER,
+            .flag = static_cast<NvBufSurfTransform_Transform_Flag>(NVBUFSURF_TRANSFORM_FILTER | NVBUFSURF_TRANSFORM_FLIP),
 
-            .flip = NvBufSurfTransform_None,
+            .flip = NvBufSurfTransform_Rotate180,
             .filter = NvBufSurfTransformInter_Bilinear,
         };
 
