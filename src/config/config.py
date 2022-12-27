@@ -312,11 +312,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "accelerometer.acceleration.v.0",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -330,11 +330,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "accelerometer.acceleration.v.1",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -348,11 +348,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "accelerometer.acceleration.v.2",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -366,11 +366,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.0",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -384,11 +384,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.1",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -402,11 +402,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.2",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.125,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
