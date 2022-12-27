@@ -267,6 +267,7 @@ int main(int argc, char *argv[])
     }
 
     if (std::chrono::steady_clock::now() - start_sync_time > std::chrono::seconds(5)) {
+        msgvec->_debug_print_timing();
         fmt::print(stderr, "Failed to sync vision and msgvec, check timeout values in MsgVec configuration\n");
         return EXIT_FAILURE;
     }
