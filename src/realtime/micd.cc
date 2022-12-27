@@ -107,7 +107,11 @@ int main(int argc, char *argv[])
     fmt::print("Audio device {} successfully opened, with {} frames of size {}\n", AUDIO_DEVICE_NAME, frames, frame_size);
 
     int pcmreturn;
-    bool firstcheck = true;
+    int32_t first_check_frames = AUDIO_SAMPLE_RATE / frames;
+    int32_t first_check_nonzero = 0;
+    float first_check_min = std::numeric_limits<float>::infinity();
+    float first_check_max = -std::numeric_limits<float>::infinity();
+
     auto buf = kj::heapArray<int32_t>(frames * AUDIO_CHANNELS);
     auto ch0 = kj::heapArray<float>(frames);
 
@@ -141,26 +145,31 @@ int main(int argc, char *argv[])
         }
 
         // Assert that the first frame has correct looking data
-        if (firstcheck) {
-            firstcheck = false;
+        if (first_check_frames > 0) {
+            --first_check_frames;
 
-            auto count = std::count_if(ch0.begin(), ch0.end(), [](float s) { return s != 0.0f; });
-            fmt::print("Non zero count {}\n", count);
+            first_check_nonzero += std::count_if(ch0.begin(), ch0.end(), [](float s) { return s != 0.0f; });
 
             float min = *std::min_element(ch0.begin(), ch0.end());
             float max = *std::max_element(ch0.begin(), ch0.end());
-            
-            if (count < frames * 0.90) {
-                fmt::print(stderr, "microphone does not appear to be connected\n");    
-                return EXIT_FAILURE; 
-            }
 
-            if (min > -0.1f || max < 0.1f) {
-                fmt::print(stderr, "microphone samples appear very low valued, so it may not be plugged in\naborting early so you can check\n");    
-                return EXIT_FAILURE; 
+            first_check_min = std::min(first_check_min, min);
+            first_check_max = std::max(first_check_max, max);
+            
+            if (first_check_frames == 0) {
+                if (first_check_nonzero < frames * 0.90) {
+                    fmt::print(stderr, "microphone does not appear to be connected\n");    
+                    return EXIT_FAILURE; 
+                }
+
+                if (first_check_min > -0.05f || first_check_max < 0.01f) {
+                    fmt::print(stderr, "microphone samples appear very low valued, so it may not be plugged in\naborting early so you can check\n");  
+                    fmt::print(stderr, "min: {}, max: {}\n", first_check_min, first_check_max);
+                    return EXIT_FAILURE; 
+                }
             }
         }
-
+        
         //fmt::print("{} = {:032b} = {}\n", buf[0], buf[0], ch0[0]);
 
         MessageBuilder msg;
@@ -174,8 +183,6 @@ int main(int argc, char *argv[])
         auto bytes = words.asBytes();
         pm.send(service_name, bytes.begin(), bytes.size());
     }
-
-    fmt::print("Min sample: {}  Max sample: {}\n", minSample, maxSample);
 
     snd_pcm_drain(pcm_handle);
     snd_pcm_close(pcm_handle);
