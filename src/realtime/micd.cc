@@ -146,9 +146,17 @@ int main(int argc, char *argv[])
 
             auto count = std::count_if(ch0.begin(), ch0.end(), [](float s) { return s != 0.0f; });
             fmt::print("Non zero count {}\n", count);
+
+            float min = *std::min_element(ch0.begin(), ch0.end());
+            float max = *std::max_element(ch0.begin(), ch0.end());
             
             if (count < frames * 0.90) {
                 fmt::print(stderr, "microphone does not appear to be connected\n");    
+                return EXIT_FAILURE; 
+            }
+
+            if (min > -0.1f || max < 0.1f) {
+                fmt::print(stderr, "microphone samples appear very low valued, so it may not be plugged in\naborting early so you can check\n");    
                 return EXIT_FAILURE; 
             }
         }
@@ -166,6 +174,8 @@ int main(int argc, char *argv[])
         auto bytes = words.asBytes();
         pm.send(service_name, bytes.begin(), bytes.size());
     }
+
+    fmt::print("Min sample: {}  Max sample: {}\n", minSample, maxSample);
 
     snd_pcm_drain(pcm_handle);
     snd_pcm_close(pcm_handle);
