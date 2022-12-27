@@ -127,12 +127,12 @@ def get_procs(models: Dict[str,str]) -> List[ManagerProcess]:
         NativeProcess("encoderd", ["head_color", "--maxqp", str(DEVICE_CONFIG.ENCODER_HEAD_COLOR_QP)]),
         NativeProcess("loggerd"),
         NativeProcess("micd"),
-        # NativeProcess("odrived"),
-        # NativeProcess("simplebgcd"),
-        # NativeProcess("appcontrold"),
-        # NativeProcess("braind", ["--config", os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"),
-        #                          "--vision_model", models["vision"],
-        #                          "--brain_model", models["brain"]]),
+        NativeProcess("odrived"),
+        NativeProcess("simplebgcd"),
+        NativeProcess("appcontrold"),
+        NativeProcess("braind", ["--config", os.path.join(DEVICE_CONFIG.MODEL_STORAGE_PATH, "brain_config.json"),
+                                 "--vision_model", models["vision"],
+                                 "--brain_model", models["brain"]]),
     ]
 
 
