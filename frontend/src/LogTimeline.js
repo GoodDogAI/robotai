@@ -181,7 +181,7 @@ export function LogTimeline(props) {
                 <button type="button" onClick={() => setLogIndex(GetNextLogIndex(logIndex))} disabled={logIndex === data.length}>Next</button>
                 <button type="button" onClick={() => setLogIndex(Array(30).fill(0).reduce((index, _)  => GetNextLogIndex(index), logIndex))} disabled={logIndex === data.length}>+30</button>
             </div>
-            <h5><a href={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/video/`}>{logName}</a></h5>
+            <h5><a href={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/video/`}>{logName}</a> <a href={`${process.env.REACT_APP_BACKEND_URL}/logs/${logName}/audio/`}>(dl audio only)</a></h5>
             <div className="logFilter">
                 <LogFilter data={data} filteredOut={filteredOut} onFilterChanged={setFilteredOut}/>
             </div>

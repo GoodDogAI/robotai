@@ -82,3 +82,6 @@ xattr
 
 # For plotting logs to the tensorboard
 matplotlib
+
+# For debuggin sound streams from mic data
+soundfile

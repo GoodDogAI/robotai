@@ -7,6 +7,7 @@ import time
 import tempfile
 import hashlib
 import shutil
+import soundfile
 import numpy as np
 
 from typing import List, Literal
@@ -249,6 +250,29 @@ def get_reward_frame(logfile: str, frameid: int, lh: LogHashes = Depends(get_log
     img.save(img_data, format="PNG")
     response = Response(content=img_data.getvalue(), media_type="image/png")
     return response
+
+@router.get("/{logfile}/audio")
+def get_log_audio(logfile: str, lh: LogHashes = Depends(get_loghashes)):
+    if not lh.filename_exists(logfile):
+        raise HTTPException(status_code=404, detail="Log not found")
+
+    with tempfile.TemporaryDirectory() as td, open(os.path.join(lh.dir, logfile), "rb") as f:
+        events = log.Event.read_multiple(f)
+
+        samples = []
+
+        for i, evt in enumerate(events):
+            if evt.which() == "micData":
+                samples.append(evt.micData.data)
+
+        data = np.concatenate(samples)
+        print(data.shape)
+
+        # Use soundfile library to build a wav file
+        soundfile.write(os.path.join(td, "audio.wav"), data, 48000)
+       
+        with open(os.path.join(td, "audio.wav"), "rb") as f:
+            return Response(content=f.read(), media_type="audio/wav", headers={"Content-Disposition": f"attachment; filename={logfile}.wav"})  
 
 
 @router.get("/{logfile}/video")
