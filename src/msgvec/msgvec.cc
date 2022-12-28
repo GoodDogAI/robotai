@@ -314,7 +314,7 @@ MsgVec::MsgVec(const std::string &jsonConfig, const MessageTimingMode timingMode
         actTypes.insert(act["type"]);
     }
 
-    if (actTypes.size() > 0 && *actTypes.begin() == "discrete_msg") {
+    if (is_discrete_act()) {
         // If we have discrete_msg actions, we need to add a zero-action
         m_actSize += 1;
     }
@@ -443,6 +443,10 @@ static float transform_vec_to_msg(const json &transform, float vecValue) {
     } else {
         throw std::runtime_error("Unknown transform type: " + transformType);
     }
+}
+
+bool MsgVec::is_discrete_act() const {
+    return m_config["act"].size() > 0 && m_config["act"][0]["type"] == "discrete_msg";
 }
 
 MsgVec::InputResult MsgVec::input(const std::vector<uint8_t> &bytes) {
@@ -703,9 +707,7 @@ bool MsgVec::get_act_vector(float *actVector) {
         throw std::logic_error("Cannot get action vector in realtime mode");
     }
 
-    const bool discrete_mode = m_config["act"].size() > 0 && m_config["act"][0]["type"] == "discrete_msg";
-
-    if (discrete_mode) {
+    if (is_discrete_act()) {
         if (m_discreteActUpdates == 0) {
             actVector[0] = 1.0f;
 
@@ -862,7 +864,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
                         closestChoice = choice.get<float>();
                     }
                 }
-                
+
                 if (act["path"] == "odriveCommand.desiredVelocityLeft") {
                     odrive.setDesiredVelocityLeft(relativeVal + closestChoice);
                 }

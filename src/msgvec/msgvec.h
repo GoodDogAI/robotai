@@ -54,6 +54,7 @@ class MsgVec {
         size_t obs_size() const;
         size_t act_size() const;
         size_t vision_size() const;
+        bool is_discrete_act() const;
 
         // Writes out the current observation vector, given the most recent messages
         // Returns true if all observations match their timestamps

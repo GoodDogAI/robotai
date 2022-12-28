@@ -1,5 +1,6 @@
 import torch
 from src.models.stable_baselines3.sac import CustomSAC
+from stable_baselines3 import DQN
 
 class OnnxableActor(torch.nn.Module):
     def __init__(self, actor: torch.nn.Module):
@@ -11,6 +12,10 @@ class OnnxableActor(torch.nn.Module):
         #       way before using this. See `common.preprocessing.preprocess_obs`
         return self.actor(observation, deterministic=True)
 
-def load_stable_baselines3_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
+def load_stable_baselines3_sac_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
     sac = CustomSAC.load(checkpoint_zip)
     return OnnxableActor(sac.actor)
+
+def load_stable_baselines3_qdn_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
+    ppo = DQN.load(checkpoint_zip)
+    return OnnxableActor(ppo.actor)

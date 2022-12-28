@@ -15,6 +15,7 @@ from tqdm import tqdm
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.logger import configure, HParam, Figure
+from stable_baselines3 import PPO, DQN
 
 from src.models.stable_baselines3.sac import CustomSAC
 from src.models.stable_baselines3.env import MsgVecEnv
@@ -42,12 +43,12 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [ ] Balance out the manual reward and punishments so that they have roughly equal weight
 
 if __name__ == "__main__":
-    brain_config = MODEL_CONFIGS["basic-brain-test1"]
+    brain_config = MODEL_CONFIGS["basic-brain-discrete-1"]
     log_dir = "/home/jake/robotai/_sb3_logs/"
     buffer_size = 50_000
     batch_size = 512
     reward_modifier_fn = "reward_modifier_penalize_move_backwards"
-    validation_runname = "alphalog-4425c446"  
+    validation_runname = "alphalog-4dc23143"  
     validation_buffer_size = 10_000
     num_updates = round(buffer_size * 10 / batch_size)
 
@@ -59,12 +60,8 @@ if __name__ == "__main__":
     reward_mean = 0.0
     reward_std = 0.0
 
-    model = CustomSAC("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
-                target_entropy=2.1,
-                #ent_coef=0.75,
-                learning_rate=1e-4,
-                # use_sde=True,
-                # sde_sample_freq=100,
+    model = DQN("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
+                #learning_rate=1e-4,
                 policy_kwargs={
                     "features_extractor_class": MsgVecNormalizeFeatureExtractor,
                     "features_extractor_kwargs": {
@@ -103,10 +100,10 @@ if __name__ == "__main__":
         "reward_modifier_fn": reward_modifier_fn,
     }
 
-    if model.target_entropy is not None:
+    if hasattr(model, "target_entropy") and model.target_entropy is not None:
         hparam_dict["target_entropy"] = float(model.target_entropy)
 
-    if model.ent_coef is not None:
+    if hasattr(model, "ent_coef") and model.ent_coef is not None:
         hparam_dict["ent_coef"] = "auto" if model.ent_coef == "auto" else float(model.ent_coef)
 
 
@@ -132,7 +129,7 @@ if __name__ == "__main__":
       
     for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
-            buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+            buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
         samples_added += 1
 
@@ -186,7 +183,7 @@ if __name__ == "__main__":
     valgroup = next(g for g in cache.groups if g[0].get_runname() == validation_runname)
 
     for entry in cache.generate_log_group(valgroup, shuffle_within_group=False):
-        validation_buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+        validation_buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
 
     print(f"Added {validation_buffer.size()} samples to the validation buffer from {validation_runname}")
 
@@ -199,48 +196,48 @@ if __name__ == "__main__":
         logger.record("perf/gradient_time", gradient_end_time - step_start_time)
 
         # Run the actor against the entire validation buffer, and measure the variance of the actions
-        validation_acts = []
-        perturbed_acts = []
-        for i in range(0, validation_buffer.size() - batch_size, batch_size):
-            obs = torch.from_numpy(validation_buffer.observations[i:i+batch_size, 0]).to(model.device)
-            replay_act = torch.from_numpy(validation_buffer.actions[i:i+batch_size, 0]).to(model.device)
-            actor_act = model.actor(obs, deterministic=True).detach()
-            validation_acts.append(actor_act.cpu())
+        # validation_acts = []
+        # perturbed_acts = []
+        # for i in range(0, validation_buffer.size() - batch_size, batch_size):
+        #     obs = torch.from_numpy(validation_buffer.observations[i:i+batch_size, 0]).to(model.device)
+        #     replay_act = torch.from_numpy(validation_buffer.actions[i:i+batch_size, 0]).to(model.device)
+        #     actor_act = model.actor(obs, deterministic=True).detach()
+        #     validation_acts.append(actor_act.cpu())
 
-            # Perturb the observations and see how much the output changes
-            perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * obs_stds * 0.1
-            perturbed_acts.append(model.actor(perturbed_obs, deterministic=True).detach().cpu())
-            logger.record_mean("validation/perturbed_act_diff_mean", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])).item())
+        #     # Perturb the observations and see how much the output changes
+        #     perturbed_obs = obs + torch.randn_like(obs, device=obs.device) * obs_stds * 0.1
+        #     perturbed_acts.append(model.actor(perturbed_obs, deterministic=True).detach().cpu())
+        #     logger.record_mean("validation/perturbed_act_diff_mean", torch.mean(torch.abs(validation_acts[-1] - perturbed_acts[-1])).item())
 
-            q_replay = model.critic(obs, replay_act)
-            q_actor = model.critic(obs, actor_act)
-            for q_r, q_a in zip(q_replay, q_actor):
-                logger.record_mean("validation/q_diff_mean", torch.mean(q_a - q_r).detach().cpu().item())
+        #     q_replay = model.critic(obs, replay_act)
+        #     q_actor = model.critic(obs, actor_act)
+        #     for q_r, q_a in zip(q_replay, q_actor):
+        #         logger.record_mean("validation/q_diff_mean", torch.mean(q_a - q_r).detach().cpu().item())
 
-                if i == 0:
-                    logger.record_mean(f"validation/q_mean", torch.mean(q_r).item())
+        #         if i == 0:
+        #             logger.record_mean(f"validation/q_mean", torch.mean(q_r).item())
 
-        # Calculate and report statistics against the validation buffer
-        validation_acts = torch.concat(validation_acts)
-        validation_act_mean = torch.mean(validation_acts, axis=0)
-        validation_act_var = torch.var(validation_acts, axis=0)
-        for i, act in enumerate(brain_config["msgvec"]["act"]):
-            logger.record(f"validation/{act['path'].replace('.', '_')}_mean", validation_act_mean[i].item())
-            logger.record(f"validation/{act['path'].replace('.', '_')}_var", validation_act_var[i].item())
-            logger.record(f"validation/{act['path'].replace('.', '_')}_stddev", torch.sqrt(validation_act_var[i]).item())
-            logger.record(f"validation/{act['path'].replace('.', '_')}_hist", validation_acts[:, i])            
+        # # Calculate and report statistics against the validation buffer
+        # validation_acts = torch.concat(validation_acts)
+        # validation_act_mean = torch.mean(validation_acts, axis=0)
+        # validation_act_var = torch.var(validation_acts, axis=0)
+        # for i, act in enumerate(brain_config["msgvec"]["act"]):
+        #     logger.record(f"validation/{act['path'].replace('.', '_')}_mean", validation_act_mean[i].item())
+        #     logger.record(f"validation/{act['path'].replace('.', '_')}_var", validation_act_var[i].item())
+        #     logger.record(f"validation/{act['path'].replace('.', '_')}_stddev", torch.sqrt(validation_act_var[i]).item())
+        #     logger.record(f"validation/{act['path'].replace('.', '_')}_hist", validation_acts[:, i])            
 
-            figure = plt.figure()
-            figure.add_subplot().plot(validation_acts[:, i].numpy())
-            logger.record(f"trajectory/{act['path'].replace('.', '_')}", Figure(figure, close=True))
-            plt.close()
+        #     figure = plt.figure()
+        #     figure.add_subplot().plot(validation_acts[:, i].numpy())
+        #     logger.record(f"trajectory/{act['path'].replace('.', '_')}", Figure(figure, close=True))
+        #     plt.close()
 
 
-        logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
+        # logger.record(f"validation/act_var", torch.mean(validation_act_var).item())
 
         # Each step, replace 50% of the replay buffer with new samples
         for entry in itertools.islice(cache.sample_dataset(), buffer_size // 2):
-            buffer.add(obs=entry["obs"], action=entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+            buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
         
         refill_end_time = time.perf_counter()
@@ -250,5 +247,5 @@ if __name__ == "__main__":
         logger.dump(step=step)
 
         if step % 20 == 0:
-            model.save(f"/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-{run_name}.zip")
+            model.save(f"/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-{run_name}.zip")
             print("Model saved")

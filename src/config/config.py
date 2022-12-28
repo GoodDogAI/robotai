@@ -140,7 +140,7 @@ MODEL_CONFIGS = dotdict({
         "type": "brain",
 
         "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run100.zip",
-        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
+        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_sac_actor",
 
         "models": {
             "vision": "yolov7-tiny-s53",
@@ -492,11 +492,11 @@ MODEL_CONFIGS = dotdict({
         }
      },
 
-    "basic-brain-relative": {
+    "basic-brain-discrete-1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-test1-sb3-run84.zip",
-        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-run0.zip",
+        "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_dqn_actor",
 
         "models": {
             "vision": "yolov7-tiny-s53",
@@ -614,16 +614,65 @@ MODEL_CONFIGS = dotdict({
                     },
                 },
 
+                # These messages provide feedback on the last few commands send to the motors, as there is some delay between a desired action and its effect
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.desiredVelocityLeft",
+                    "index": -10,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-0.5, 0.5],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                {
+                    "type": "msg",
+                    "path": "odriveCommand.desiredVelocityRight",
+                    "index": -10,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "msg_range": [-0.5, 0.5],
+                        "vec_range": [-1, 1],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.pitchAngle",
+                    "index": -10,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+
+                { 
+                    "type": "msg",
+                    "path": "headCommand.yawAngle",
+                    "index": -10,
+                    "timeout": 0.15,
+                    "transform": {
+                        "type": "rescale",
+                        "vec_range": [-1, 1],
+                        "msg_range": [-45.0, 45.0],
+                    },
+                },
+
                 { 
                     "type": "msg",
                     "path": "accelerometer.acceleration.v.0",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -637,11 +686,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "accelerometer.acceleration.v.1",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -655,11 +704,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "accelerometer.acceleration.v.2",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "accelerometer.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -673,11 +722,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.0",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -691,11 +740,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.1",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -709,11 +758,11 @@ MODEL_CONFIGS = dotdict({
                     "path": "gyroscope.gyro.v.2",
                     "index": -30,
                     "timing_index": -1,
-                    "timeout": 0.01,
+                    "timeout": 0.050,
                     "filter": {
                         "field": "gyroscope.sensor",
                         "op": "eq",
-                        "value": 1, # 1 is the intel realsense
+                        "value": 3, # 3 is the sensor on the simplebgc head
                     },
                     "transform": {
                         "type": "rescale",
@@ -732,54 +781,50 @@ MODEL_CONFIGS = dotdict({
 
             "act": [
                 {
-                    "type": "relative_msg",
+                    "type": "discrete_msg",
                     "path": "odriveCommand.desiredVelocityLeft",
                     "initial": 0.0,
                     "range": [-1.0, 1.0],
+                    "choices": [-0.1, -0.05, 0.05, 0.1],
                     "timeout": 0.125,
                     "transform": {
-                        "type": "rescale",
-                        "vec_range": [-1, 1],
-                        "msg_range": [-2, 2],
+                        "type": "identity",
                     },
                 },
 
                 {
-                    "type": "relative_msg",
+                    "type": "discrete_msg",
                     "path": "odriveCommand.desiredVelocityRight",
                     "initial": 0.0,
                     "range": [-1.0, 1.0],
+                    "choices": [-0.1, -0.05, 0.05, 0.1],
                     "timeout": 0.125,
                     "transform": {
-                        "type": "rescale",
-                        "vec_range": [-1, 1],
-                        "msg_range": [-2, 2],
+                        "type": "identity",
                     },
                 },
 
                 { 
-                    "type": "relative_msg",
+                    "type": "discrete_msg",
                     "path": "headCommand.pitchAngle",
                     "initial": 0.0,
                     "range": [-45.0, 45.0],
+                    "choices": [-5.0, -1.0, 1.0, 5.0],
                     "timeout": 0.125,
                     "transform": {
-                        "type": "rescale",
-                        "vec_range": [-1, 1],
-                        "msg_range": [-90, 90],
+                        "type": "identity",
                     },
                 },
 
                 { 
-                    "type": "relative_msg",
+                    "type": "discrete_msg",
                     "path": "headCommand.yawAngle",
                     "initial": 0.0,
                     "range": [-45.0, 45.0],
+                    "choices": [-5.0, -1.0, 1.0, 5.0],
                     "timeout": 0.125,
                     "transform": {
-                        "type": "rescale",
-                        "vec_range": [-1, 1],
-                        "msg_range": [-90, 90],
+                        "type": "identity",
                     },
                 },
             ],

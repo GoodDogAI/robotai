@@ -49,6 +49,9 @@ cdef class PyMsgVec:
     def act_size(self):
         return self.c_msgvec.act_size()
 
+    def is_discrete_act(self):
+        return self.c_msgvec.is_discrete_act()
+
     def _debug_print_timing(self):
         self.c_msgvec._debug_print_timing()
 

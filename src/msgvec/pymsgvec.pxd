@@ -19,7 +19,8 @@ cdef extern from "msgvec.h":
         size_t obs_size()
         size_t act_size()
         size_t vision_size()
-        
+        bool is_discrete_act()
+
         InputResult input(const C_DynamicStruct.Reader &evt) except +
         InputResult input(const vector[uchar] &bytes) except +
 
