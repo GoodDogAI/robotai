@@ -450,11 +450,13 @@ int main(int argc, char *argv[])
                 throw std::runtime_error("Failed to get frame buffer");
             }
 
+            auto sof = static_cast<uint64_t>(frame->frame_time.tv_sec * 1'000'000'000ULL + frame->frame_time.tv_usec * 1'000ULL);
+
             // Send the frame via vision IPC
             VisionIpcBufExtra extra{
                 frame_id, 
-                static_cast<uint64_t>(frame->frame_time.tv_sec * 1'000'000'000ULL + frame->frame_time.tv_usec * 1'000ULL),
-                static_cast<uint64_t>(frame->frame_time.tv_sec * 1'000'000'000ULL + frame->frame_time.tv_usec * 1'000ULL),
+                sof,
+                sof,
             };
             cur_yuv_buf->set_frame_id(frame_id); 
 
@@ -470,21 +472,19 @@ int main(int argc, char *argv[])
             //     std::chrono::duration_cast<std::chrono::microseconds>(endc - convertc)
             // );
 
-            // if (frame_id > 50) {
-            //     for (uint32_t i = 0; i < CAPTURE_WIDTH * CAPTURE_HEIGHT * 2; i += 4) {
-            //         min_y = std::min(min_y, temp_buf[i + 1]);
-            //         max_y = std::max(max_y, temp_buf[i + 1]);
-            //         min_y = std::min(min_y, temp_buf[i + 3]);
-            //         max_y = std::max(max_y, temp_buf[i + 3]);
-
-            //         min_u = std::min(min_u, temp_buf[i]);
-            //         max_u = std::max(max_u, temp_buf[i]);
-            //         min_v = std::min(min_v, temp_buf[i + 2]);
-            //         max_v = std::max(max_v, temp_buf[i + 2]);
-            //     }
-            // }
-
             vipc_server.send(cur_yuv_buf, &extra);
+
+            MessageBuilder msg;
+            auto event = msg.initEvent(true);
+            auto cdat = event.initHeadCameraState();
+        
+            cdat.setFrameId(frame_id);
+            cdat.setTimestampSof(sof);
+
+            auto words = capnp::messageToFlatArray(msg);
+            auto bytes = words.asBytes();
+            pm.send("headCameraState", bytes.begin(), bytes.size());
+
 
             processed_count++;
             if (frame_id % 100 == 0)
