@@ -175,7 +175,7 @@ class LogServiceRealDataTests(unittest.TestCase):
         self.assertGreater(len(resp.content), 150_000_000)
 
     def test_msgvec(self):
-        test_log = "alphalog-478ab32e-2022-10-27-02_37.log"
+        test_log = "alphalog-4dc23143-2022-12-28-00_23.log"
 
         resp = self.client.get(f"/logs/{test_log}/msgvec/{HOST_CONFIG.DEFAULT_BRAIN_CONFIG}/120")
         self.assertEqual(resp.status_code, 200)

@@ -158,18 +158,26 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             # Action vector gets written out
             msg = new_message("odriveCommand")
             msg.write(f)
+            msg = new_message("headCommand")
+            msg.write(f)
 
+            # Another inference and action vector
             msg = new_message("modelInference")
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.odriveCommand.desiredVelocityLeft = 0.1
             msg.write(f)
+            msg = new_message("headCommand")
+            msg.write(f)
 
+            # One more
             msg = new_message("modelInference")
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.odriveCommand.desiredVelocityLeft = 0.0
             msg.odriveCommand.desiredVelocityRight = 0.1
+            msg.write(f)
+            msg = new_message("headCommand")
             msg.write(f)
             
 
@@ -178,14 +186,16 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             msg.write(f)
             msg = new_message("odriveCommand")
             msg.write(f)
+            msg = new_message("headCommand")
+            msg.write(f)
 
 
             samples = list(cache.generate_dataset(shuffle_within_group=False))
             self.assertEqual(len(samples), 3)
 
-            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0])
-            np.testing.assert_almost_equal(samples[1]["act"].tolist(), [0, 0, 1, 0, 0])
-            np.testing.assert_almost_equal(samples[2]["act"].tolist(), [0, 0.5, 0, 0, 0.5])
+            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0, 0, 0, 0, 0])
+            np.testing.assert_almost_equal(samples[1]["act"].tolist(), [0, 0, 1, 0, 0, 0, 0, 0, 0])
+            np.testing.assert_almost_equal(samples[2]["act"].tolist(), [0, 0.5, 0, 0, 0.5, 0, 0, 0, 0])
 
     def test_discrete_messages_backforth(self):
         msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REALTIME)
@@ -219,7 +229,9 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                     msg.write(f)
 
                     for act in msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)):
-                        act.as_builder().write(f)
+                        act = act.as_builder()
+                        act.logMonoTime = msg.logMonoTime + 1
+                        act.write(f)
                         print(msgvec.input(act))
                 else:
                     msg = new_message(inp)
@@ -230,69 +242,60 @@ class ManualTestMsgVecDataset(unittest.TestCase):
             samples = list(cache.generate_dataset(shuffle_within_group=False))
             self.assertEqual(len(samples), 1)
 
-            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0])
+            np.testing.assert_almost_equal(samples[0]["act"].tolist(), [1, 0, 0, 0, 0, 0, 0, 0, 0])
 
     def test_discrete_messages_override_controls(self):
         msgvec = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REALTIME)
+        msgvec2 = PyMsgVec(self.brain_config["msgvec"], PyMessageTimingMode.REALTIME)
 
         msg = new_message("appControl")
         msg.appControl.connectionState = "connected"
         msg.appControl.motionState = "manualControl"
         msg.appControl.linearXOverride = 1.0
         msgvec.input(msg)
+        msgvec2.input(msg)
 
         expected = [
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-             [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
-            [.1, 0, 0, 0],
+            [-0.10000000149011612, 0.0, 0.0, 0.0],
+            [-0.10000000149011612, 0.10000000149011612, 0.0, 0.0],
+            [-0.20000000298023224, 0.10000000149011612, 0.0, 0.0],
+            [-0.20000000298023224, 0.20000000298023224, 0.0, 0.0],
+            [-0.30000001192092896, 0.20000000298023224, 0.0, 0.0],
+            [-0.30000001192092896, 0.30000001192092896, 0.0, 0.0],
+            [-0.4000000059604645, 0.30000001192092896, 0.0, 0.0],
+            [-0.4000000059604645, 0.4000000059604645, 0.0, 0.0],
+            [-0.5, 0.4000000059604645, 0.0, 0.0],
+            [-0.5, 0.5, 0.0, 0.0],
+            [-0.6000000238418579, 0.5, 0.0, 0.0],
+            [-0.6000000238418579, 0.6000000238418579, 0.0, 0.0],
+            [-0.7000000476837158, 0.6000000238418579, 0.0, 0.0],
+            [-0.7000000476837158, 0.7000000476837158, 0.0, 0.0],
+            [-0.8000000715255737, 0.7000000476837158, 0.0, 0.0],
+            [-0.8000000715255737, 0.8000000715255737, 0.0, 0.0],
+            [-0.9000000953674316, 0.8000000715255737, 0.0, 0.0],
+            [-0.9000000953674316, 0.9000000953674316, 0.0, 0.0],
+            [-1.0000001192092896, 0.9000000953674316, 0.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 0.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 1.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 2.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 3.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 4.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 5.0, 0.0],
+            [-1.0000001192092896, 1.0000001192092896, 5.0, 0.0],
         ]
 
+        # Make sure you get the same expected result, both when refeeding in input messages and when not
         for exp in expected:
             cmds = msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32))
         
-            # for act in cmds:
-            #     msgvec.input(act)
+            for act in cmds:
+                msgvec.input(act)
 
             cur = [cmds[0].odriveCommand.desiredVelocityLeft, cmds[0].odriveCommand.desiredVelocityRight, cmds[1].headCommand.pitchAngle, cmds[1].headCommand.yawAngle]
-            print(cur)
-            #np.testing.assert_almost_equal(cur, exp)
+            np.testing.assert_almost_equal(cur, exp)
 
-        # TODO, you need some way to detect that in discrete mode, all the required actions are set in the act section
-
-        raise NotImplementedError("Still need to finish this")
-
+            cmds = msgvec2.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32))
+            cur = [cmds[0].odriveCommand.desiredVelocityLeft, cmds[0].odriveCommand.desiredVelocityRight, cmds[1].headCommand.pitchAngle, cmds[1].headCommand.yawAngle]
+            np.testing.assert_almost_equal(cur, exp)
 
             

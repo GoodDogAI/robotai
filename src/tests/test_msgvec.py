@@ -878,7 +878,7 @@ class TestMsgVec(MsgVecBaseTest):
 
             self.assertEqual(len(messages), 1)
             self.assertMsgProcessed(msgvec_replay.input(messages[0]))
-            self.assertMsgProcessed(msgvec_realtime.input(messages[0]))
+            msgvec_realtime.input(messages[0])
 
             self.assertAlmostEqual(msgvec_replay.get_act_vector()[0], min(max(f, -1), 1) , places=3)
 
