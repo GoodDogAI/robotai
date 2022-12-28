@@ -180,6 +180,53 @@ class TestMsgVecRelative(MsgVecBaseTest):
         result = msgvec.get_action_command(np.array([-100.0], dtype=np.float32))
         self.assertEqual(result[0].headCommand.yawAngle, -45.0)
 
+    def test_relative_refeed_actions_realtime(self):
+        # Covers a bug, where we now commonly refeed the output actions back as observations (to allow some history of the desired output commands to learn from)
+        # But this would then also alter the internal relative action vector data, which is not what we want.
+        config = {"obs": [
+             {
+                "type": "msg",
+                "path": "headCommand.yawAngle",
+                "index": -1,
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                }
+            }
+        ], "act": [
+            {
+                "type": "relative_msg",
+                "path": "headCommand.yawAngle",
+                "initial": 2.0,
+                "range": [-45.0, 45.0],
+                "timeout": 0.01,
+                "transform": {
+                    "type": "identity",
+                }
+            }
+        ]}
+        msgvec = PyMsgVec(config, PyMessageTimingMode.REALTIME)
+
+        result = msgvec.get_action_command(np.array([0.0], dtype=np.float32))
+        for cmd in result:
+            msgvec.input(cmd)
+        self.assertEqual(result[0].headCommand.yawAngle, 2.0)
+
+        result = msgvec.get_action_command(np.array([1.0], dtype=np.float32))
+        for cmd in result:
+            msgvec.input(cmd)
+        self.assertEqual(result[0].headCommand.yawAngle, 3.0)
+
+        result = msgvec.get_action_command(np.array([-10.0], dtype=np.float32))
+        for cmd in result:
+            msgvec.input(cmd)
+        self.assertEqual(result[0].headCommand.yawAngle, -7.0)
+
+        result = msgvec.get_action_command(np.array([-100.0], dtype=np.float32))
+        for cmd in result:
+            msgvec.input(cmd)
+        self.assertEqual(result[0].headCommand.yawAngle, -45.0)
+
     def test_relative_replay(self):
         config = {"obs": [], "act": [
             {

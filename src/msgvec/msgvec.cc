@@ -479,8 +479,36 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
         obs_index++;
     }
     
-    // Do the same for the actions
+    // Do the same for the actions, if in replay mode
+    if (m_timingMode == MessageTimingMode::REPLAY) {
+        processed |= this->_input_acts(reader);
+    }
+
+    bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
+
+    // Handle the appcontrol messages as a special case, which can override actions
+    if (reader.has("appControl")) {
+        m_lastAppControlMsg.setRoot(reader);
+        auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
+
+        if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE) {
+            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9;
+            m_lastRewardOverride = m_config["rew"]["override"]["positive_reward"].get<float>();
+        }
+        else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE) {
+            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9;
+            m_lastRewardOverride = m_config["rew"]["override"]["negative_reward"].get<float>();
+        }
+
+        processed = true;
+    }
+
+    return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
+}
+
+bool MsgVec::_input_acts(const capnp::DynamicStruct::Reader &reader) {
     size_t act_index = 0, act_vector_index = 1; //Set to 1 to skip the zero action
+    bool processed = false;
 
     for (auto &act : m_config["act"]) {
         if (act["type"] == "msg" && message_matches(reader, act)) {
@@ -571,26 +599,7 @@ MsgVec::InputResult MsgVec::input(const capnp::DynamicStruct::Reader &reader) {
         act_vector_index += act["choices"].size();
     }
 
-    bool allActionsEndedReady = std::all_of(m_actVectorReady.begin(), m_actVectorReady.end(), [](bool b) { return b; });
-
-    // Handle the appcontrol messages as a special case, which can override actions
-    if (reader.has("appControl")) {
-        m_lastAppControlMsg.setRoot(reader);
-        auto appCtrl = m_lastAppControlMsg.getRoot<cereal::Event>().asReader();
-
-        if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_POSITIVE) {
-            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["positive_reward_timeout"].get<float>() * 1e9;
-            m_lastRewardOverride = m_config["rew"]["override"]["positive_reward"].get<float>();
-        }
-        else if (appCtrl.getAppControl().getRewardState() == cereal::AppControl::RewardState::OVERRIDE_NEGATIVE) {
-            m_lastRewardOverrideMonoTime = m_lastMsgLogMonoTime + m_config["rew"]["override"]["negative_reward_timeout"].get<float>() * 1e9;
-            m_lastRewardOverride = m_config["rew"]["override"]["negative_reward"].get<float>();
-        }
-
-        processed = true;
-    }
-
-    return { .msg_processed = processed, .act_ready = !allActionsInitiallyReady && allActionsEndedReady };
+    return processed;
 }
 
 void MsgVec::input_vision(const float *visionIntermediate, uint32_t frameId) {
@@ -787,7 +796,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
   
     const bool discrete_mode = m_config["act"].size() > 0 && m_config["act"][0]["type"] == "discrete_msg";
     json maxAct = nullptr;
-    float maxDiff = 0.0f;
+    float maxDiff = 1e-4f; // Super small diffs are ignored
 
     if (discrete_mode) {
         // In discrete mode, you only want to change one control at a time, the one with the biggest error from the current tracked amount
@@ -795,7 +804,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
         for (const auto &act : m_config["act"]) {
             const float relativeVal = m_relativeActValues[act_index];
-            float relativeDiff;
+            float relativeDiff = 0.0f;
 
             if (act["path"] == "odriveCommand.desiredVelocityLeft") {
                 relativeDiff = odrive.getDesiredVelocityLeft() - relativeVal;
@@ -820,25 +829,54 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
             act_index++;
         }
 
+
         act_index = 0;
         for (const auto &act : m_config["act"]) {
             const float relativeVal = m_relativeActValues[act_index];
 
             if (act == maxAct) {
-                // TODO: Only allow the closest diff to the actual choices
-                
+                float desiredVal = 0.0f;
+
                 if (act["path"] == "odriveCommand.desiredVelocityLeft") {
-                    m_relativeActValues[act_index] = odrive.getDesiredVelocityLeft();
+                    desiredVal = odrive.getDesiredVelocityLeft();
                 }
                 else if (act["path"] == "odriveCommand.desiredVelocityRight") {
-                    m_relativeActValues[act_index] = odrive.getDesiredVelocityRight(); 
+                    desiredVal = odrive.getDesiredVelocityRight(); 
                 }
                 else if (act["path"] == "headCommand.pitchAngle") {
-                    m_relativeActValues[act_index] = head.getPitchAngle();
+                    desiredVal = head.getPitchAngle();
                 }
                 else if (act["path"] == "headCommand.yawAngle") {
-                    m_relativeActValues[act_index] = head.getYawAngle();
+                    desiredVal = head.getYawAngle();
                 }
+
+                float desiredDiff = desiredVal - relativeVal;
+                float closestDiff = std::numeric_limits<float>::infinity();
+                float closestChoice = 0.0f;
+
+                for (const auto &choice : act["choices"]) {
+                    const float choiceDiff = std::abs(choice.get<float>() - desiredDiff);
+
+                    if (choiceDiff < closestDiff) {
+                        closestDiff = choiceDiff;
+                        closestChoice = choice.get<float>();
+                    }
+                }
+                
+                if (act["path"] == "odriveCommand.desiredVelocityLeft") {
+                    odrive.setDesiredVelocityLeft(relativeVal + closestChoice);
+                }
+                else if (act["path"] == "odriveCommand.desiredVelocityRight") {
+                    odrive.setDesiredVelocityRight(relativeVal + closestChoice);
+                }
+                else if (act["path"] == "headCommand.pitchAngle") {
+                    head.setPitchAngle(relativeVal + closestChoice);
+                }
+                else if (act["path"] == "headCommand.yawAngle") {
+                    head.setYawAngle(relativeVal + closestChoice);
+                }
+
+                m_relativeActValues[act_index] = relativeVal + closestChoice;
             }
             else {
                 if (act["path"] == "odriveCommand.desiredVelocityLeft") {
@@ -854,6 +892,7 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
                     head.setYawAngle(relativeVal);
                 }
             }
+
             act_index++;
         }
     }

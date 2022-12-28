@@ -99,4 +99,5 @@ class MsgVec {
         // Returns action vector output given the last app control message
         std::vector<kj::Array<capnp::word>> _get_appcontrol_overrides();
         uint64_t _get_msgvec_log_mono_time();
+        bool _input_acts(const capnp::DynamicStruct::Reader &reader);        
 };

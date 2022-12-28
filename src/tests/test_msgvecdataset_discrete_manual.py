@@ -241,11 +241,54 @@ class ManualTestMsgVecDataset(unittest.TestCase):
         msg.appControl.linearXOverride = 1.0
         msgvec.input(msg)
 
+        expected = [
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+             [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+            [.1, 0, 0, 0],
+        ]
 
-        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
-        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
-        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
-        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+        for exp in expected:
+            cmds = msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32))
+        
+            # for act in cmds:
+            #     msgvec.input(act)
+
+            cur = [cmds[0].odriveCommand.desiredVelocityLeft, cmds[0].odriveCommand.desiredVelocityRight, cmds[1].headCommand.pitchAngle, cmds[1].headCommand.yawAngle]
+            print(cur)
+            #np.testing.assert_almost_equal(cur, exp)
 
         # TODO, you need some way to detect that in discrete mode, all the required actions are set in the act section
 
