@@ -499,6 +499,7 @@ int main(int argc, char *argv[])
     fmt::print("Finished processing {} frames, average FPS {:02f}\n", processed_count, processed_count / std::chrono::duration<double>(end - start).count());
 
     // Print the YUV ranges
+    fmt::print("WARNING: YUV ranges are not calibrated for the new camera sensor, you need to check the Y ranges in the raw frames, the video encoder, and the ONNX graph\n");
     fmt::print("YUV ranges: Y {} {}, U {} {}, V {} {}\n", min_y, max_y, min_u, max_u, min_v, max_v);
 
     return EXIT_SUCCESS;
