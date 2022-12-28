@@ -85,6 +85,28 @@ class ManualTestMsgVecDataset(unittest.TestCase):
                             "type": "identity",
                         },
                     },
+                    {
+                        "type": "discrete_msg",
+                        "path": "headCommand.pitchAngle",
+                        "initial": 0.0,
+                        "range": [-45, 45],
+                        "choices": [-1, 1],
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "identity",
+                        },
+                    },
+                    {
+                        "type": "discrete_msg",
+                        "path": "headCommand.yawAngle",
+                        "initial": 0.0,
+                        "range": [-45, 45],
+                        "choices": [-1, 1],
+                        "timeout": 0.125,
+                        "transform": {
+                            "type": "identity",
+                        },
+                    },
                 ],
 
                 "rew": {
@@ -219,7 +241,13 @@ class ManualTestMsgVecDataset(unittest.TestCase):
         msg.appControl.linearXOverride = 1.0
         msgvec.input(msg)
 
+
         print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+        print(msgvec.get_action_command(np.array([0.0] * msgvec.act_size(), dtype=np.float32)))
+
+        # TODO, you need some way to detect that in discrete mode, all the required actions are set in the act section
 
         raise NotImplementedError("Still need to finish this")
 

@@ -795,30 +795,26 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
         for (const auto &act : m_config["act"]) {
             const float relativeVal = m_relativeActValues[act_index];
+            float relativeDiff;
 
             if (act["path"] == "odriveCommand.desiredVelocityLeft") {
-                if (odrive.getDesiredVelocityLeft() - relativeVal > maxDiff) {
-                    maxAct = act;
-                    maxDiff = odrive.getDesiredVelocityLeft() - relativeVal;
-                }
+                relativeDiff = odrive.getDesiredVelocityLeft() - relativeVal;
             }
             else if (act["path"] == "odriveCommand.desiredVelocityRight") {
-                if (odrive.getDesiredVelocityRight() - relativeVal > maxDiff) {
-                    maxAct = act;
-                    maxDiff = odrive.getDesiredVelocityRight() - relativeVal;
-                }
+                relativeDiff = odrive.getDesiredVelocityRight() - relativeVal;
             }
             else if (act["path"] == "headCommand.pitchAngle") {
-                if (head.getPitchAngle() - relativeVal > maxDiff) {
-                    maxAct = act;
-                    maxDiff = head.getPitchAngle() - relativeVal;
-                }
+                relativeDiff = head.getPitchAngle() - relativeVal;
             }
             else if (act["path"] == "headCommand.yawAngle") {
-                if (head.getYawAngle() - relativeVal > maxDiff) {
-                    maxAct = act;
-                    maxDiff = head.getYawAngle() - relativeVal;
-                }
+                relativeDiff = head.getYawAngle() - relativeVal;
+            }
+
+            relativeDiff = std::abs(relativeDiff) / (act["range"][1].get<float>() - act["range"][0].get<float>());
+
+            if (relativeDiff > maxDiff) {
+                maxAct = act;
+                maxDiff = relativeDiff;
             }
 
             act_index++;
@@ -830,18 +826,33 @@ std::vector<kj::Array<capnp::word>> MsgVec::_get_appcontrol_overrides() {
 
             if (act == maxAct) {
                 // TODO: Only allow the closest diff to the actual choices
+                
+                if (act["path"] == "odriveCommand.desiredVelocityLeft") {
+                    m_relativeActValues[act_index] = odrive.getDesiredVelocityLeft();
+                }
+                else if (act["path"] == "odriveCommand.desiredVelocityRight") {
+                    m_relativeActValues[act_index] = odrive.getDesiredVelocityRight(); 
+                }
+                else if (act["path"] == "headCommand.pitchAngle") {
+                    m_relativeActValues[act_index] = head.getPitchAngle();
+                }
+                else if (act["path"] == "headCommand.yawAngle") {
+                    m_relativeActValues[act_index] = head.getYawAngle();
+                }
             }
-            else if (act["path"] == "odriveCommand.desiredVelocityLeft") {
-                odrive.setDesiredVelocityLeft(relativeVal);
-            }
-            else if (act["path"] == "odriveCommand.desiredVelocityRight") {
-                odrive.setDesiredVelocityRight(relativeVal);
-            }
-            else if (act["path"] == "headCommand.pitchAngle") {
-                head.setPitchAngle(relativeVal);
-            }
-            else if (act["path"] == "headCommand.yawAngle") {
-                head.setYawAngle(relativeVal);
+            else {
+                if (act["path"] == "odriveCommand.desiredVelocityLeft") {
+                    odrive.setDesiredVelocityLeft(relativeVal);
+                }
+                else if (act["path"] == "odriveCommand.desiredVelocityRight") {
+                    odrive.setDesiredVelocityRight(relativeVal);
+                }
+                else if (act["path"] == "headCommand.pitchAngle") {
+                    head.setPitchAngle(relativeVal);
+                }
+                else if (act["path"] == "headCommand.yawAngle") {
+                    head.setYawAngle(relativeVal);
+                }
             }
             act_index++;
         }
