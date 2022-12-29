@@ -51,7 +51,7 @@ HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_BRAIN_CONFIG": "basic-brain-test1",
+    "DEFAULT_BRAIN_CONFIG": "basic-brain-discrete-1",
     "DEFAULT_REWARD_CONFIG": "yolov7-tiny-prioritize_centered_nms",
 
     "DEFAULT_DECODE_GPU_ID": 0,
@@ -495,7 +495,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-discrete-1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-run0.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-run6.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_dqn_actor",
 
         "models": {

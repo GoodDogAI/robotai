@@ -2,7 +2,7 @@ import torch
 from src.models.stable_baselines3.sac import CustomSAC
 from stable_baselines3 import DQN
 
-class OnnxableActor(torch.nn.Module):
+class OnnxableSACActor(torch.nn.Module):
     def __init__(self, actor: torch.nn.Module):
         super().__init__()
         self.actor = actor
@@ -14,8 +14,18 @@ class OnnxableActor(torch.nn.Module):
 
 def load_stable_baselines3_sac_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
     sac = CustomSAC.load(checkpoint_zip)
-    return OnnxableActor(sac.actor)
+    return OnnxableSACActor(sac.actor)
 
-def load_stable_baselines3_qdn_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
+class OnnxableDQNPolicy(torch.nn.Module):
+    def __init__(self, actor: torch.nn.Module):
+        super().__init__()
+        self.actor = actor
+
+    def forward(self, observation: torch.Tensor) -> torch.Tensor:
+        # We don't run the policy/actor directly, since it also argmaxes us, and we just want the raw vector to
+        # do as we wish.
+        return self.actor.q_net(observation)  
+
+def load_stable_baselines3_dqn_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
     ppo = DQN.load(checkpoint_zip)
-    return OnnxableActor(ppo.actor)
+    return OnnxableDQNPolicy(ppo.policy)
