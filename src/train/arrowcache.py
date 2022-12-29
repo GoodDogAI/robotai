@@ -11,6 +11,7 @@ from typing import Dict, List
 from cereal import log
 import src.PyNvCodec as nvc
 from polygraphy.cuda import DeviceView
+from tinydb import TinyDB, Query
 
 from src.config import MODEL_CONFIGS, HOST_CONFIG, DEVICE_CONFIG
 
@@ -33,6 +34,9 @@ class ArrowModelCache():
 
     def get_cache_path(self, run_name: str):
         return os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, run_name + ".arrow")
+
+    def _get_tinydb(self):
+        return TinyDB(os.path.join(HOST_CONFIG.CACHE_DIR, "arrow", self.model_fullname, "db.json"))
 
     def _process_frame(self, engine, y, uv):
         # Unsqueeze to batch size 1
@@ -95,17 +99,20 @@ class ArrowModelCache():
                         y, uv = surface_to_y_uv(surface)
                         yield key_queue.pop(0), self._process_frame(engine, y, uv)
 
+
     def _cache_needs_rebuild(self):
         lh = LogHashes(self.dir)
+        db = self._get_tinydb()
 
-        # TODO This cache detection mechanism is not ideal, best if we write to a separate location
-        # Which input logs were processed already. Otherwise, you can have built the cache with a run that was
-        # only partially uploaded, and then it's basically wrong forever.
         for group in lh.group_logs():
             cache_path = self.get_cache_path(group[0].get_runname())
 
             if not os.path.exists(cache_path):
                 return True
+
+            for log in group:
+                if not db.contains(Query().filename == log.filename):
+                    return True
 
         return False                        
 
@@ -115,12 +122,13 @@ class ArrowModelCache():
             return
 
         lh = LogHashes(self.dir)
+        db = self._get_tinydb()
 
         with load_vision_model(self.model_fullname) as engine:
             for group in lh.group_logs():
                 cache_path = self.get_cache_path(group[0].get_runname())
 
-                if os.path.exists(cache_path) and not force_rebuild:
+                if db.count(Query().filename.one_of([x.filename for x in group])) == len(group) and not force_rebuild:
                     continue
 
                 print(f"Building cache {cache_path}")
@@ -145,6 +153,11 @@ class ArrowModelCache():
                 with pyarrow.OSFile(cache_path, 'wb') as sink:
                     with pyarrow.RecordBatchFileWriter(sink, table.schema) as writer:
                         writer.write_table(table)
+
+                # Update the cache of which documents we have processed
+                for log in group:
+                    db.insert({"filename": log.filename})
+                        
     
     @functools.lru_cache(maxsize=16)
     def get_dataframe(self, run_name: str):

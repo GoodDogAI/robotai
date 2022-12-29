@@ -85,3 +85,6 @@ matplotlib
 
 # For debuggin sound streams from mic data
 soundfile
+
+# For keeping track of various metadata 
+tinydb
