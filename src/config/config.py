@@ -785,7 +785,7 @@ MODEL_CONFIGS = dotdict({
                     "path": "odriveCommand.desiredVelocityLeft",
                     "initial": 0.0,
                     "range": [-1.0, 1.0],
-                    "choices": [-0.1, -0.05, 0.05, 0.1],
+                    "choices": [-0.10, -0.05, -0.01, 0.01, 0.05, 0.10],
                     "timeout": 0.125,
                     "transform": {
                         "type": "identity",
@@ -797,7 +797,7 @@ MODEL_CONFIGS = dotdict({
                     "path": "odriveCommand.desiredVelocityRight",
                     "initial": 0.0,
                     "range": [-1.0, 1.0],
-                    "choices": [-0.1, -0.05, 0.05, 0.1],
+                    "choices": [-0.10, -0.05, -0.01, 0.01, 0.05, 0.10],
                     "timeout": 0.125,
                     "transform": {
                         "type": "identity",

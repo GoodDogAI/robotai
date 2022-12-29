@@ -24,7 +24,8 @@ class OnnxableDQNPolicy(torch.nn.Module):
     def forward(self, observation: torch.Tensor) -> torch.Tensor:
         # We don't run the policy/actor directly, since it also argmaxes us, and we just want the raw vector to
         # do as we wish.
-        return self.actor.q_net(observation)  
+        logits = self.actor.q_net(observation)  
+        return torch.nn.functional.softmax(logits, dim=1)
 
 def load_stable_baselines3_dqn_actor(checkpoint_zip: str, device=None) -> torch.nn.Module:
     ppo = DQN.load(checkpoint_zip)

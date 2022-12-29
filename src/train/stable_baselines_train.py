@@ -42,6 +42,13 @@ from stable_baselines3.common.buffers import ReplayBuffer
 # - [X] Do test runs with reward modifiers, and adjusting the reward to be less vision oriented
 # - [ ] Balance out the manual reward and punishments so that they have roughly equal weight
 
+def process_act_vector(act: np.ndarray, msgvec):
+    if msgvec.is_discrete_act():
+        # Sample using the distribution of the act vector
+        return np.random.choice(np.arange(len(act)), p=act)
+    else:
+        return act
+
 if __name__ == "__main__":
     brain_config = MODEL_CONFIGS["basic-brain-discrete-1"]
     log_dir = "/home/jake/robotai/_sb3_logs/"
@@ -126,10 +133,11 @@ if __name__ == "__main__":
     num_episodes = 0
     num_positive_rewards = 0
     num_negative_rewards = 0
+    num_nicely_matched_samples = 0
       
     for entry in tqdm(cache.generate_dataset(), desc="Replay buffer", total=cache.estimated_size()):
         if samples_added < buffer_size:
-            buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+            buffer.add(obs=entry["obs"], action=process_act_vector(entry["act"], msgvec), reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
         
         samples_added += 1
 
@@ -141,6 +149,9 @@ if __name__ == "__main__":
                 num_positive_rewards += 1
             else:
                 num_negative_rewards += 1
+
+        if np.max(entry["act"]) > 0.99:
+            num_nicely_matched_samples += 1
 
         if samples_added == 1:
             obs_means.copy_(torch.from_numpy(entry["obs"]).cuda())
@@ -165,6 +176,7 @@ if __name__ == "__main__":
     print(f"Contains {num_episodes} episodes")
     print(f"Contains {num_positive_rewards} positive rewards")
     print(f"Contains {num_negative_rewards} negative rewards")
+    print(f"Contains {num_nicely_matched_samples} nicely matched samples")
 
     hparam_dict["num_samples"] = samples_added
     hparam_dict["num_episodes"] = num_episodes
@@ -183,7 +195,7 @@ if __name__ == "__main__":
     valgroup = next(g for g in cache.groups if g[0].get_runname() == validation_runname)
 
     for entry in cache.generate_log_group(valgroup, shuffle_within_group=False):
-        validation_buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+        validation_buffer.add(obs=entry["obs"], action=process_act_vector(entry["act"], msgvec), reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
 
     print(f"Added {validation_buffer.size()} samples to the validation buffer from {validation_runname}")
 
@@ -237,7 +249,7 @@ if __name__ == "__main__":
 
         # Each step, replace 50% of the replay buffer with new samples
         for entry in itertools.islice(cache.sample_dataset(), buffer_size // 2):
-            buffer.add(obs=entry["obs"], action=np.argmax(entry["act"]) if msgvec.is_discrete_act() else entry["act"], reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
+            buffer.add(obs=entry["obs"], action=process_act_vector(entry["act"], msgvec), reward=entry["reward"], next_obs=entry["next_obs"], done=entry["done"], infos=None)
             samples_added += 1
         
         refill_end_time = time.perf_counter()
