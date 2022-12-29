@@ -279,7 +279,7 @@ def create_and_validate_onnx(config: Dict[str, Any], skip_cache: bool=False) -> 
         }
     else:
         inputs = {
-            "observation": torch.from_numpy(get_reference_input((batch_size, full_model.actor.features_dim), np.float32, model_type)).to(device=device),
+            "observation": torch.from_numpy(get_reference_input((batch_size, *full_model.actor.observation_space.shape), np.float32, model_type)).to(device=device),
         }
 
     _ = full_model(**inputs)  # dry run

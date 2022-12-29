@@ -69,7 +69,7 @@ class TestModelLoaderTRT(unittest.TestCase):
              "type": "brain",
 
             "checkpoint": "/home/jake/robotai/_checkpoints/unittest/basic-brain-test1-sb3-run66-working.zip",
-            "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_actor",
+            "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_sac_actor",
 
             "models": {
                 "vision": "yolov7-tiny-s53",
@@ -219,6 +219,11 @@ class TestModelLoaderTRT(unittest.TestCase):
 
     def test_stable_baselines_actor(self):
         onnx_path = create_and_validate_onnx(self.sampleBrainConfig, skip_cache=True)
+        create_and_validate_trt(onnx_path, skip_cache=True)
+
+    def test_stable_baselines_discrete(self):
+        from src.config import MODEL_CONFIGS
+        onnx_path = create_and_validate_onnx(MODEL_CONFIGS["basic-brain-discrete-1"], skip_cache=True)
         create_and_validate_trt(onnx_path, skip_cache=True)
 
     def test_model_fullname(self):
