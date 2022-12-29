@@ -621,9 +621,7 @@ MODEL_CONFIGS = dotdict({
                     "index": -10,
                     "timeout": 0.15,
                     "transform": {
-                        "type": "rescale",
-                        "msg_range": [-0.5, 0.5],
-                        "vec_range": [-1, 1],
+                        "type": "identity",
                     },
                 },
 
@@ -633,9 +631,7 @@ MODEL_CONFIGS = dotdict({
                     "index": -10,
                     "timeout": 0.15,
                     "transform": {
-                        "type": "rescale",
-                        "msg_range": [-0.5, 0.5],
-                        "vec_range": [-1, 1],
+                        "type": "identity",
                     },
                 },
 

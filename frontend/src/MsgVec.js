@@ -8,6 +8,13 @@ function parseVecConfig(config) {
     let result = [];
     let baseIndex = 0;
 
+    if (config.length > 0 && config[0].type === "discrete_msg") {
+        result.push({
+            baseIndex: baseIndex,
+            which: "zero_action",
+        }) 
+    }
+
     for (const obs of config) {
         if (obs.type === "msg") {
             let count = 1;
@@ -33,6 +40,14 @@ function parseVecConfig(config) {
                     which: "timing",
                 })
             }
+        }
+        else if (obs.type === "discrete_msg") {
+            for( let i = 0; i < obs.choices.length; i++) {
+                result.push({
+                    baseIndex: baseIndex,
+                    which: obs.path + "." + obs.choices[i],
+                })
+            } 
         }
 
         baseIndex += 1;
