@@ -21,7 +21,7 @@ from einops import rearrange
 
 from cereal import log
 from src.config import HOST_CONFIG, MODEL_CONFIGS, DEVICE_CONFIG
-from src.train.modelloader import cached_vision_model, model_fullname
+from src.train.modelloader import cached_vision_model, model_fullname, load_vision_model
 from src.train.rldataset import MsgVecDataset
 from src.utils.draw_bboxes import draw_bboxes_pil
 
@@ -30,6 +30,7 @@ from src.logutil import LogHashes, LogSummary, quick_validate_log, resort_log_mo
 
 from src.video import get_image_packets, decode_last_frame
 from src.train import log_validation
+from src.train.reward_modifiers import reward_modifier_penalize_fast_move_backwards
 import src.PyNvCodec as nvc
 
 router = APIRouter(prefix="/logs",
@@ -305,7 +306,9 @@ _loggroup_lock = threading.Lock()
 def _get_loggroup(logfile: str, model_name: str, lh: LogHashes):
     with _loggroup_lock:
         model_config = MODEL_CONFIGS[model_name]
-        dataset = MsgVecDataset(lh.dir, model_config)
+        model_name = model_fullname(model_config)
+
+        dataset = MsgVecDataset(lh.dir, model_config, reward_modifier_penalize_fast_move_backwards)
 
         # Get the loggroup which contains the current log file
         loggroup = None
@@ -317,7 +320,17 @@ def _get_loggroup(logfile: str, model_name: str, lh: LogHashes):
         if loggroup is None:
             raise HTTPException(status_code=404, detail="Log not found in group")
         
-        return list(dataset.generate_log_group(loggroup, shuffle_within_group=False))
+        raw_logs = dataset.generate_log_group(loggroup, shuffle_within_group=False)
+        infered_logs = []
+
+        with load_vision_model(model_name) as model:
+            for i, log in enumerate(raw_logs):
+                iacts = model.infer({"observation": np.expand_dims(log["obs"], axis=0)})
+                log["inferred_act"] = iacts["action"][0]
+                infered_logs.append(log)
+
+        return infered_logs
+    
 
 @router.get("/{logfile}/msgvec/{model_name}/{frameid}")
 def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depends(get_loghashes)):
@@ -336,6 +349,7 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
                 "key": packet["key"],
                 "obs": packet["obs"].tolist(),
                 "act": packet["act"].tolist(),
+                "inferred_act": packet["inferred_act"].tolist(),
                 "reward": packet["reward"],
                 "done": packet["done"],
             })

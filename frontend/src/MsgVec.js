@@ -138,7 +138,7 @@ export function MsgVec(props) {
             "row": true,
         });
 
-        let pData = null;
+        let pData = null, predData = null;
 
         if (packet) {
             if (vectorMode) {
@@ -147,11 +147,14 @@ export function MsgVec(props) {
             else {
                 pData = convertVectorToMsg(brainConfig.msgvec.act, act[index].baseIndex, packet.act[index]).toFixed(3);
             }
+
+            predData = packet.inferred_act[index].toFixed(3);
         }
 
         return (
             <div className={rowClass} style={style}>
                 <div className="cell index">{pData}</div>
+                <div className="cell index">{predData}</div>
                 <div className="cell which">{act[index].which}</div>
             </div>
         );
@@ -177,6 +180,7 @@ export function MsgVec(props) {
             <div className="logTable" style={{"marginTop": "3em"}}  onClick={() => setVectorMode(oldVectorMode => !oldVectorMode)}>
                 <div className="row header">
                     <div className="cell index">{vectorMode ? "Vector" : "Msg"}</div>
+                    <div className="cell index">Prediction</div>
                     <div className="cell which">Action</div>
                 </div>
              <List
