@@ -34,9 +34,31 @@ def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tupl
         if velDif < 0:
             mod += _clamp(velDif, -1.0, 0.0) * PENALIZE_BACKWARDS_SCALE
 
+    return mod, state
+
+def reward_modifier_penalize_fast_move_backwards(msg: log.Event, state: Dict) -> Tuple[float, Dict]:
+    PENALIZE_BACKWARDS_SCALE = 0.02
+    PENALIZE_FAST_MOTORS_SCALE = 0.01
+
+    if msg.which() == "odriveFeedback":
+        state["lastLeftVelocity"] = msg.odriveFeedback.leftMotor.vel
+        state["lastRightVelocity"] = msg.odriveFeedback.rightMotor.vel
+
+    mod = 0.0
+
+    # Discourage moving backwards
+    if "lastLeftVelocity" in state and "lastRightVelocity" in state:
+        velDif = state["lastRightVelocity"] - state["lastLeftVelocity"]
+        if velDif < 0:
+            mod += _clamp(velDif, -1.0, 0.0) * PENALIZE_BACKWARDS_SCALE
+
     # Discourage high motor values
-    # mod -= _clamp(abs(state["lastLeftVelocity"]), 0.0, 1.0) * 0.1
-    # mod -= _clamp(abs(state["lastRightVelocity"]), 0.0, 1.0) * 0.1
+    if abs(state["lastLeftVelocity"]) > 0.5:
+        mod -= _clamp(abs(state["lastLeftVelocity"]), 0.0, 1.0) * PENALIZE_FAST_MOTORS_SCALE
+
+    if abs(state["lastRightVelocity"]) > 0.5:
+        mod -= _clamp(abs(state["lastRightVelocity"]), 0.0, 1.0) * PENALIZE_FAST_MOTORS_SCALE
     
     return mod, state
+
 

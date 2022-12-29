@@ -54,7 +54,7 @@ if __name__ == "__main__":
     log_dir = "/home/jake/robotai/_sb3_logs/"
     buffer_size = 50_000
     batch_size = 512
-    reward_modifier_fn = "reward_modifier_penalize_move_backwards"
+    reward_modifier_fn = "reward_modifier_penalize_fast_move_backwards"
     validation_runname = "alphalog-4dc23143"  
     validation_buffer_size = 10_000
     num_updates = round(buffer_size * 10 / batch_size)
