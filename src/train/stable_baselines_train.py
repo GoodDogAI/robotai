@@ -54,6 +54,7 @@ if __name__ == "__main__":
     log_dir = "/home/jake/robotai/_sb3_logs/"
     buffer_size = 50_000
     batch_size = 512
+    net_arch = [256, 256]
     reward_modifier_fn = "reward_modifier_penalize_fast_move_backwards"
     validation_runname = "alphalog-4dc23143"  
     validation_buffer_size = 10_000
@@ -70,6 +71,7 @@ if __name__ == "__main__":
     model = DQN("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 #learning_rate=1e-4,
                 policy_kwargs={
+                    "net_arch": net_arch,
                     "features_extractor_class": MsgVecNormalizeFeatureExtractor,
                     "features_extractor_kwargs": {
                         "obs_means": obs_means,
@@ -99,6 +101,7 @@ if __name__ == "__main__":
     hparam_dict={
         "algorithm": model.__class__.__name__,
         "buffer_size": buffer_size,
+        "net_arch": str(net_arch),
         "batch_size": batch_size,
         "num_updates": num_updates,
         "learning_rate": model.learning_rate,
