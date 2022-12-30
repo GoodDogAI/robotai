@@ -326,7 +326,7 @@ def _get_loggroup(logfile: str, model_name: str, lh: LogHashes):
         with load_vision_model(model_name) as model:
             for i, log in enumerate(raw_logs):
                 iacts = model.infer({"observation": np.expand_dims(log["obs"], axis=0)})
-                log["inferred_act"] = iacts["action"][0]
+                log["inferred_act"] = np.copy(iacts["action"][0])
                 infered_logs.append(log)
 
         return infered_logs

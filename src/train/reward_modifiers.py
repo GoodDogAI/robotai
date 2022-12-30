@@ -40,8 +40,8 @@ def reward_modifier_penalize_move_backwards(msg: log.Event, state: Dict) -> Tupl
 
 def reward_modifier_penalize_fast_move_backwards(msg: log.Event, state: Dict) -> Tuple[float, Dict]:
     PENALIZE_BACKWARDS_SCALE = 0.02
-    PENALIZE_FAST_MOTORS_SCALE = 0.01
-    PENALIZE_LARGE_GYRO_SCALE = 0.01
+    PENALIZE_FAST_MOTORS_SCALE = 0.05
+    PENALIZE_LARGE_GYRO_SCALE = 0.05
 
     if msg.which() == "odriveFeedback":
         state["lastLeftVelocity"] = msg.odriveFeedback.leftMotor.vel
