@@ -139,6 +139,7 @@ export function MsgVec(props) {
         });
 
         let pData = null, predData = null;
+        let predDataClassName = "cell index";
 
         if (packet) {
             if (vectorMode) {
@@ -149,12 +150,16 @@ export function MsgVec(props) {
             }
 
             predData = packet.inferred_act[index].toFixed(3);
+            
+            if (packet.inferred_act[index] == Math.max(...packet.inferred_act)) {
+                predDataClassName += " bold";
+            }
         }
 
         return (
             <div className={rowClass} style={style}>
                 <div className="cell index">{pData}</div>
-                <div className="cell index">{predData}</div>
+                <div className={predDataClassName}>{predData}</div>
                 <div className="cell which">{act[index].which}</div>
             </div>
         );
