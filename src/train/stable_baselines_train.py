@@ -67,6 +67,7 @@ if __name__ == "__main__":
     obs_stds = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
     reward_mean = 0.0
     reward_std = 0.0
+    normalize_rewards = False
 
     model = DQN("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 #learning_rate=1e-4,
@@ -108,6 +109,7 @@ if __name__ == "__main__":
         "validation_runname": validation_runname,
         "validation_buffer_size": validation_buffer_size,
         "reward_modifier_fn": reward_modifier_fn,
+        "normalize_rewards": str(normalize_rewards),
     }
 
     if hasattr(model, "target_entropy") and model.target_entropy is not None:
@@ -173,7 +175,9 @@ if __name__ == "__main__":
 
     reward_std /= samples_added - 1
     reward_std = math.sqrt(reward_std)
-    buffer.normalize_reward(reward_mean, reward_std)
+
+    if normalize_rewards:
+        buffer.normalize_reward(reward_mean, reward_std)
 
     print(f"Read {samples_added} dataset samples")
     print(f"Contains {num_episodes} episodes")

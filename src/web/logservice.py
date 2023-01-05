@@ -351,6 +351,7 @@ def get_msgvec(logfile: str, model_name: str, frameid: int, lh: LogHashes = Depe
                 "act": packet["act"].tolist(),
                 "inferred_act": packet["inferred_act"].tolist(),
                 "reward": packet["reward"],
+                "episodic_return": packet["episodic_return"],
                 "done": packet["done"],
             })
 

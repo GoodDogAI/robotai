@@ -177,6 +177,15 @@ class MsgVecDataset():
 
             final_data.append(data)
 
+        # Go through one more time, and populate the full episodic return, with 0.99 gamma
+        gamma = 0.99
+
+        for index in reversed(range(len(final_data))):
+            if final_data[index]["done"]:
+                final_data[index]["episodic_return"] = final_data[index]["reward"]
+            else:
+                final_data[index]["episodic_return"] = final_data[index]["reward"] + final_data[index + 1]["episodic_return"] * gamma
+
         if shuffle_within_group:
             random.shuffle(final_data)
 

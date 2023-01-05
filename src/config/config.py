@@ -495,7 +495,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-discrete-1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-run22.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-run25.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_dqn_actor",
 
         "models": {

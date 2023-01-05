@@ -151,7 +151,7 @@ export function MsgVec(props) {
 
             predData = packet.inferred_act[index].toFixed(3);
             
-            if (packet.inferred_act[index] == Math.max(...packet.inferred_act)) {
+            if (packet.inferred_act[index] === Math.max(...packet.inferred_act)) {
                 predDataClassName += " bold";
             }
         }
@@ -181,6 +181,16 @@ export function MsgVec(props) {
                     {ObsRow}
                 </List>
             </div>
+
+            <p>
+            Reward: {packet?.reward.toFixed(3)}
+            </p>
+
+            <p>
+            Discounted Episodic Return: {packet?.episodic_return.toFixed(3)}
+            </p>
+
+
 
             <div className="logTable" style={{"marginTop": "3em"}}  onClick={() => setVectorMode(oldVectorMode => !oldVectorMode)}>
                 <div className="row header">
