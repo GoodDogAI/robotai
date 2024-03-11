@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 import src.PytorchNvCodec as pnvc
 
 from typing import Iterator, List, Literal

@@ -2,7 +2,7 @@ from ast import Bytes
 import numpy as np
 
 from typing import List, Literal
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 from src.config import DEVICE_CONFIG, HOST_CONFIG
 
 from cereal import log

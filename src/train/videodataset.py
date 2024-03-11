@@ -4,7 +4,7 @@ import torch
 import os
 import random
 import numpy as np
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 import src.PytorchNvCodec as pnvc
 from polygraphy.cuda import DeviceView
 

@@ -51,7 +51,7 @@ HOST_CONFIG = dotdict({
     "RECORD_DIR": os.environ.get("ROBOTAI_RECORD_DIR", "/media/storage/robotairecords"),
     "CACHE_DIR": os.environ.get("ROBOTAI_CACHE_DIR", "/media/storage/robotaicache"),
 
-    "DEFAULT_BRAIN_CONFIG": "basic-brain-discrete-1",
+    "DEFAULT_BRAIN_CONFIG": "basic-brain-test1",
     "DEFAULT_REWARD_CONFIG": "yolov7-tiny-prioritize_centered_nms",
 
     "DEFAULT_DECODE_GPU_ID": 0,
@@ -495,7 +495,7 @@ MODEL_CONFIGS = dotdict({
     "basic-brain-discrete-1": {
         "type": "brain",
 
-        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-run25.zip",
+        "checkpoint": "/home/jake/robotai/_checkpoints/basic-brain-discrete-1-sb3-run28.zip",
         "load_fn": "src.models.stable_baselines3.load.load_stable_baselines3_dqn_actor",
 
         "models": {
@@ -829,11 +829,11 @@ MODEL_CONFIGS = dotdict({
                 "base": "reward",
 
                 "override": {
-                    "positive_reward": 10.0,
-                    "positive_reward_timeout": 2.0,
+                    "positive_reward": 1.0,
+                    "positive_reward_timeout": 1.0,
 
-                    "negative_reward": -15.0,
-                    "negative_reward_timeout": 2.0,
+                    "negative_reward": -1.0,
+                    "negative_reward_timeout": 1.0,
                 }
             },
 

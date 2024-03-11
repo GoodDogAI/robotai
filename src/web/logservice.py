@@ -31,7 +31,7 @@ from src.logutil import LogHashes, LogSummary, quick_validate_log, resort_log_mo
 from src.video import get_image_packets, decode_last_frame
 from src.train import log_validation
 from src.train.reward_modifiers import reward_modifier_penalize_fast_move_backwards
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 
 router = APIRouter(prefix="/logs",
     tags=["logs"],

@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List
 from cereal import log
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 from polygraphy.cuda import DeviceView
 from tinydb import TinyDB, Query
 

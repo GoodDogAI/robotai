@@ -8,7 +8,7 @@ from src.tests.utils import get_test_image
 from src.train.onnx_yuv import nv12m_to_rgb
 from src.video import get_image_packets, create_video, decode_last_frame
 from src.config import HOST_CONFIG
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 
 from cereal import log
 

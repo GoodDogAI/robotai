@@ -15,9 +15,9 @@ from tqdm import tqdm
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.logger import configure, HParam, Figure
-from stable_baselines3 import PPO, DQN
 
 from src.models.stable_baselines3.sac import CustomSAC
+from src.models.stable_baselines3.dqn import CustomDQN
 from src.models.stable_baselines3.env import MsgVecEnv
 from src.models.stable_baselines3.feature_extractor import MsgVecNormalizeFeatureExtractor
 from src.models.stable_baselines3.buffers import HostReplayBuffer
@@ -67,10 +67,11 @@ if __name__ == "__main__":
     obs_stds = torch.zeros(env.observation_space.shape, dtype=torch.float32, requires_grad=False).to("cuda")
     reward_mean = 0.0
     reward_std = 0.0
-    normalize_rewards = False
+    normalize_rewards = True
 
-    model = DQN("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
+    model = CustomDQN("MlpPolicy", env, buffer_size=buffer_size, verbose=1, 
                 #learning_rate=1e-4,
+                tau=0.5,
                 policy_kwargs={
                     "net_arch": net_arch,
                     "features_extractor_class": MsgVecNormalizeFeatureExtractor,
@@ -110,6 +111,7 @@ if __name__ == "__main__":
         "validation_buffer_size": validation_buffer_size,
         "reward_modifier_fn": reward_modifier_fn,
         "normalize_rewards": str(normalize_rewards),
+        "tau": model.tau,
     }
 
     if hasattr(model, "target_entropy") and model.target_entropy is not None:

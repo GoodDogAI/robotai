@@ -8,7 +8,7 @@ from src.config.config import DEVICE_CONFIG
 from src.video import get_image_packets, decode_last_frame
 from src.train.modelloader import load_vision_model, load_all_models_in_log
 from contextlib import ExitStack
-import src.PyNvCodec as nvc
+import PyNvCodec as nvc
 
 
 def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
